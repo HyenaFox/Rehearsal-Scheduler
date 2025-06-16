@@ -1,4 +1,5 @@
-# Welcome to your Expo app 👋
+# Brandeis University Boris Kitchen Rehearsal Scheduler
+by Seth Haycock-Poller for CS153a Brandeis University
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 

@@ -12,9 +12,54 @@ import {
   StatusBar,
 } from 'react-native';
 
+// CLASS BASED APPROACH? VALID FOR REACT?
+class Actor {
+  constructor(id, name, timeslots, scenes) {
+    this.id = id;
+    this.name = name;
+    this.timeslots = timeslots;
+    this.scenes = scenes;
+  }
+
+  addTimeSlot(timeslot) {
+    this.timeslots.push(timeslot);
+  }
+
+  addScene(scene) {
+    this.scenes.push(scene);
+  }
+
+  removeTimeSlot(timeslot) {
+    this.timeslots = this.timeslots.filter(slot => slot !== timeslot);
+  }
+
+  removeScene(scene) {
+    this.scenes = this.scenes.filter(s => s !== scene);
+  }
+
+  isAvailable(time) {
+    return this.timeslots.includes(time);
+  }
+
+  getScenes() {
+    return this.scenes;
+  }
+}
+
+const createActor = (id, name, timeslots = [], scenes = []) => {
+  return new Actor(id, name, timeslots, scenes);
+}
+
+// mock CreateActors method for fake data
+const createActors = (actorData) => {
+  return actorData.map(data =>
+    createActor(data.id, data.name, data.timeslots, data.scenes)
+  );
+}
+
 // --- Mock Data ---
 // In a real application, this data would come from an API or a state management store.
-const actors = [
+const actorData = [
   {
     id: '1',
     name: 'Eleanor Vance',
@@ -47,6 +92,8 @@ const actors = [
   },
 ];
 
+// create actors from mock data
+const actors = createActors(actorData);
 // --- Components ---
 
 // A reusable button component using TouchableOpacity

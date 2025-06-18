@@ -62,7 +62,7 @@ const createActors = (actorData) => {
 
 // --- Mock Data ---
 // In a real application, this data would come from an API or a state management store.
-const actorData = [
+const placeholderActorData = [
   {
     id: '1',
     name: 'Eleanor Vance',

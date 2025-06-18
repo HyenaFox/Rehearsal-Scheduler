@@ -10,6 +10,10 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Modal,
+  Alert,
+  TextInput,
+  useState,
 } from 'react-native';
 
 // CLASS BASED APPROACH? VALID FOR REACT?
@@ -124,13 +128,46 @@ const ActorCard = ({ actor }) => (
 
 // The main App component
 const App = () => {
+   const [actors, setActors] = useState(() => createActors(placeholderActorData));
+  const [showAddActorModal, setShowAddActorModal] = useState(false);
+  const [newActorName, setNewActorName] = useState('');
+ 
+    // Function to generate unique ID
+  const generateId = () => {
+    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+  };
   // Placeholder functions for button presses
   const handleScheduleRehearsal = () => {
     console.log('Schedule Rehearsal button pressed');
   };
 
   const handleAddActor = () => {
-    console.log('Add Actor button pressed');
+    setShowAddActorModal(true);
+  };
+
+  const handleConfirmAddActor = () => {
+    if (newActorName.trim() === '') {
+      Alert.alert('Error', 'Please enter an actor name');
+      return;
+    }
+
+    const newActor = createActor(
+      generateId(),
+      newActorName.trim(),
+      [], // Empty timeslots initially
+      []  // Empty scenes initially
+    );
+
+    setActors(prevActors => [...prevActors, newActor]);
+    setNewActorName('');
+    setShowAddActorModal(false);
+    
+    Alert.alert('Success', `Actor "${newActorName}" has been added!`);
+  };
+
+  const handleCancelAddActor = () => {
+    setNewActorName('');
+    setShowAddActorModal(false);
   };
 
   const handleAddTimeslot = () => {
@@ -168,11 +205,12 @@ const App = () => {
   );
 };
 
-// --- Styles ---
+//--- Styles ---
 const styles = StyleSheet.create({
+  // ...existing styles...
   safeArea: {
     flex: 1,
-    backgroundColor: '#f0f4f7', // A light grey-blue background
+    backgroundColor: '#f0f4f7',
   },
   container: {
     flex: 1,
@@ -182,7 +220,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1c313a', // Dark slate color
+    color: '#1c313a',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -192,12 +230,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   button: {
-    backgroundColor: '#4682B4', // Steel Blue
+    backgroundColor: '#4682B4',
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 25,
-    elevation: 3, // Shadow for Android
-    shadowColor: '#000', // Shadow for iOS
+    elevation: 3,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -215,8 +253,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
     marginBottom: 15,
-    elevation: 2, // Shadow for Android
-    shadowColor: '#000', // Shadow for iOS
+    elevation: 2,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,
@@ -245,6 +283,67 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     lineHeight: 20,
   },
+  // New modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 25,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 15,
+    fontSize: 16,
+    marginBottom: 20,
+    backgroundColor: '#f9f9f9',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  confirmButton: {
+    backgroundColor: '#4682B4',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });
+
 
 export default App;

@@ -1,7 +1,7 @@
 // Seth Haycock-Poller
 // sethhp@brandeis.edu
 // links: https://brandeis.zoom.us/rec/share/GyGHms6WP2_q8S_SJ6QEHNfuS33-gcVuerFyStADEmC9s4gjYNJXftrdOdGGJlI.n1AuguXYc6NyN2Sk?startTime=1750031280000
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -13,7 +13,6 @@ import {
   Modal,
   Alert,
   TextInput,
-  useState,
 } from 'react-native';
 
 // CLASS BASED APPROACH? VALID FOR REACT?

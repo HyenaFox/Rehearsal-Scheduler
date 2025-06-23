@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import Card from '../components/Card';
 import TimeslotEditModal from '../components/TimeslotEditModal';
@@ -12,33 +12,20 @@ const TimeslotsScreen = ({ onBack, actors, setActors }) => {
   const [timeslots, setTimeslots] = useState(GLOBAL_TIMESLOTS);
   const [editingTimeslot, setEditingTimeslot] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-
   const handleDeleteTimeslot = async (timeslotId) => {
-    Alert.alert(
-      'Delete Timeslot',
-      'Are you sure you want to delete this timeslot? This will also remove it from all actors.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            // Remove from global timeslots
-            const updatedTimeslots = timeslots.filter(t => t.id !== timeslotId);
-            setTimeslots(updatedTimeslots);
-            GLOBAL_TIMESLOTS.length = 0;
-            GLOBAL_TIMESLOTS.push(...updatedTimeslots);
-            await AsyncStorage.setItem(STORAGE_KEYS.TIMESLOTS, JSON.stringify(updatedTimeslots));
+    // Direct deletion without confirmation
+    // Remove from global timeslots
+    const updatedTimeslots = timeslots.filter(t => t.id !== timeslotId);
+    setTimeslots(updatedTimeslots);
+    GLOBAL_TIMESLOTS.length = 0;
+    GLOBAL_TIMESLOTS.push(...updatedTimeslots);
+    await AsyncStorage.setItem(STORAGE_KEYS.TIMESLOTS, JSON.stringify(updatedTimeslots));
 
-            // Remove from all actors
-            const updatedActors = actors.map(actor => 
-              removeAvailableTimeslot(actor, timeslotId)
-            );
-            setActors(updatedActors);
-          }
-        }
-      ]
+    // Remove from all actors
+    const updatedActors = actors.map(actor => 
+      removeAvailableTimeslot(actor, timeslotId)
     );
+    setActors(updatedActors);
   };
 
   const handleAddTimeslot = async () => {

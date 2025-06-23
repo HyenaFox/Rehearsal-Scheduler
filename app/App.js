@@ -65,8 +65,7 @@ const App = () => {
   // Save rehearsals when they change
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEYS.REHEARSALS, JSON.stringify(rehearsals));
-  }, [rehearsals]);
-  const handleDeleteRehearsal = (index) => {
+  }, [rehearsals]);  const handleDeleteRehearsal = (index) => {
     const updatedRehearsals = rehearsals.filter((_, i) => i !== index);
     setRehearsals(updatedRehearsals);
   };
@@ -102,9 +101,13 @@ const App = () => {
   const handleCancelActorEdit = () => {
     setActorEditModalVisible(false);
     setSelectedActor(null);
-  };
-
-  const handleDeleteActor = (actor) => {
+  };  const handleDeleteActor = (actor) => {
+    // Direct deletion without confirmation for testing
+    const updatedActors = actors.filter(a => a.id !== actor.id);
+    setActors(updatedActors);
+    
+    // Original confirmation dialog (commented out temporarily)
+    /*
     Alert.alert(
       'Delete Actor',
       `Are you sure you want to delete "${actor.name}"?`,
@@ -120,6 +123,7 @@ const App = () => {
         }
       ]
     );
+    */
   };
   const handleAddRehearsal = () => {
     setAddRehearsalModalVisible(true);
@@ -159,39 +163,37 @@ const App = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
-      <View style={styles.container}>
-        {/* Navigation Header */}
+      <View style={styles.container}>        {/* Navigation Header */}
         <View style={styles.navBar}>
           <TouchableOpacity 
             style={[styles.navButton, currentScreen === 'actors' && styles.activeNavButton]}
             onPress={() => setCurrentScreen('actors')}
           >
-            <Text style={[styles.navButtonText, currentScreen === 'actors' && styles.activeNavButtonText]}>Actors</Text>
+            <Text style={[styles.navButtonText, currentScreen === 'actors' && styles.activeNavButtonText]}>🎭 Actors</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.navButton, currentScreen === 'scenes' && styles.activeNavButton]}
             onPress={() => setCurrentScreen('scenes')}
           >
-            <Text style={[styles.navButtonText, currentScreen === 'scenes' && styles.activeNavButtonText]}>Scenes</Text>
+            <Text style={[styles.navButtonText, currentScreen === 'scenes' && styles.activeNavButtonText]}>🎬 Scenes</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.navButton, currentScreen === 'timeslots' && styles.activeNavButton]}
             onPress={() => setCurrentScreen('timeslots')}
           >
-            <Text style={[styles.navButtonText, currentScreen === 'timeslots' && styles.activeNavButtonText]}>Timeslots</Text>
+            <Text style={[styles.navButtonText, currentScreen === 'timeslots' && styles.activeNavButtonText]}>⏰ Times</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.navButton, currentScreen === 'rehearsals' && styles.activeNavButton]}
             onPress={() => setCurrentScreen('rehearsals')}
           >
-            <Text style={[styles.navButtonText, currentScreen === 'rehearsals' && styles.activeNavButtonText]}>Rehearsals</Text>
+            <Text style={[styles.navButtonText, currentScreen === 'rehearsals' && styles.activeNavButtonText]}>📅 Shows</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Screen Content */}
-        <View style={styles.content}>          {currentScreen === 'actors' && (
+        </View>{/* Screen Content */}
+        <View style={styles.content}>
+          {currentScreen === 'actors' && (
             <>
-              <Text style={styles.screenTitle}>Actors</Text>
+              <Text style={styles.screenTitle}>🎭 Actors</Text>
               <ActionButton title="Add Actor" onPress={handleAddActor} />
               <ScrollView style={styles.scrollView}>
                 {actors.map(actor => (
@@ -219,16 +221,18 @@ const App = () => {
                 )}
               </ScrollView>
             </>
-          )}          {currentScreen === 'rehearsals' && (
+          )}
+
+          {currentScreen === 'rehearsals' && (
             <>
-              <Text style={styles.screenTitle}>Rehearsals</Text>
+              <Text style={styles.screenTitle}>📅 Rehearsals</Text>
               <ActionButton title="Add Rehearsal" onPress={handleAddRehearsal} />
               <RehearsalsDisplay
                 rehearsals={rehearsals}
                 onDeleteRehearsal={handleDeleteRehearsal}
               />
             </>
-          )}        </View>
+          )}</View>
       </View>
 
       {/* Modals */}
@@ -252,49 +256,62 @@ const App = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8fafc',
   },
   container: {
     flex: 1,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: 20,
   },
   scrollView: {
     flex: 1,
   },
   screenTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 20,
+    letterSpacing: 0.3,
   },
   navBar: {
     flexDirection: 'row',
-    backgroundColor: '#007bff',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    backgroundColor: '#6366f1',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   navButton: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    marginHorizontal: 2,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginHorizontal: 4,
+    backgroundColor: 'transparent',
   },
   activeNavButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   navButtonText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 15,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
   activeNavButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontWeight: '700',
   },
 });
 

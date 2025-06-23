@@ -16,12 +16,12 @@ const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal }) => {
       <Text style={styles.rehearsalsTitle}>📅 Scheduled Rehearsals ({rehearsals.length})</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rehearsalsScroll}>
         {rehearsals.map((rehearsal, index) => (
-          <View key={index} style={styles.rehearsalCard}>
-            <View style={styles.rehearsalHeader}>
+          <View key={index} style={styles.rehearsalCard}>            <View style={styles.rehearsalHeader}>
               <Text style={styles.rehearsalTitle}>{rehearsal.title}</Text>
               <TouchableOpacity 
                 style={styles.deleteRehearsalButton}
                 onPress={() => onDeleteRehearsal(index)}
+                activeOpacity={0.7}
               >
                 <Text style={styles.deleteRehearsalText}>×</Text>
               </TouchableOpacity>
@@ -39,73 +39,89 @@ const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal }) => {
 
 const styles = {
   rehearsalsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   rehearsalsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 16,
+    letterSpacing: 0.2,
   },
   noRehearsalsText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 16,
+    color: '#64748b',
     fontStyle: 'italic',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   rehearsalsScroll: {
     flexGrow: 0,
   },
   rehearsalCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 6,
-    padding: 12,
-    marginRight: 12,
-    minWidth: 200,
-    maxWidth: 250,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 16,
+    minWidth: 220,
+    maxWidth: 280,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   rehearsalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   rehearsalTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
     flex: 1,
-  },
-  deleteRehearsalButton: {
-    backgroundColor: '#dc3545',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    letterSpacing: 0.2,
+  },  deleteRehearsalButton: {
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1,
   },
   deleteRehearsalText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '700',
   },
   rehearsalTime: {
-    fontSize: 12,
-    color: '#007bff',
+    fontSize: 14,
+    color: '#6366f1',
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: 0.2,
   },
   rehearsalActors: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '500',
+    lineHeight: 18,
   },
 };
 

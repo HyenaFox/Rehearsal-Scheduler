@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, Alert } from 'react-native';
+import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { commonStyles } from '../styles/common';
 import { GLOBAL_TIMESLOTS } from '../types/index';
 import { getActorsAvailableForTimeslot } from '../utils/actorUtils';

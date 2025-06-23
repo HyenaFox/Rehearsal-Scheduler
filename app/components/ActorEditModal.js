@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { commonStyles } from '../styles/common';
-import { GLOBAL_TIMESLOTS, GLOBAL_SCENES } from '../types/index';
+import { GLOBAL_SCENES, GLOBAL_TIMESLOTS } from '../types/index';
 
 const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
   const [editedName, setEditedName] = useState(actor?.name || '');

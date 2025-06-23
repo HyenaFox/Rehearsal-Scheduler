@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import Card from '../components/Card';
 import SceneEditModal from '../components/SceneEditModal';
@@ -12,34 +12,22 @@ const ScenesScreen = ({ onBack, actors, setActors }) => {
   const [scenes, setScenes] = useState(GLOBAL_SCENES);
   const [editingScene, setEditingScene] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-
   const handleDeleteScene = async (sceneId) => {
     const sceneToDelete = scenes.find(s => s.id === sceneId);
-    Alert.alert(
-      'Delete Scene',
-      `Are you sure you want to delete "${sceneToDelete.title}"? This will also remove it from all actors.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            // Remove from global scenes
-            const updatedScenes = scenes.filter(s => s.id !== sceneId);
-            setScenes(updatedScenes);
-            GLOBAL_SCENES.length = 0;
-            GLOBAL_SCENES.push(...updatedScenes);
-            await AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(updatedScenes));
+    
+    // Direct deletion without confirmation
+    // Remove from global scenes
+    const updatedScenes = scenes.filter(s => s.id !== sceneId);
+    setScenes(updatedScenes);
+    GLOBAL_SCENES.length = 0;
+    GLOBAL_SCENES.push(...updatedScenes);
+    await AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(updatedScenes));
 
-            // Remove from all actors
-            const updatedActors = actors.map(actor => 
-              removeScene(actor, sceneToDelete.title)
-            );
-            setActors(updatedActors);
-          }
-        }
-      ]
+    // Remove from all actors
+    const updatedActors = actors.map(actor => 
+      removeScene(actor, sceneToDelete.title)
     );
+    setActors(updatedActors);
   };
 
   const handleAddScene = async () => {

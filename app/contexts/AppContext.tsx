@@ -11,6 +11,8 @@ interface AppContextType {
   handleDeleteActor: (actor: any) => void;
   handleDeleteRehearsal: (index: number) => void;
   handleAddActor: () => void;
+  handleAddRehearsal: (rehearsal: any) => void;
+  handleAddMultipleRehearsals: (rehearsals: any[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -81,13 +83,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const handleDeleteRehearsal = (index: number) => {
     const updatedRehearsals = rehearsals.filter((_, i) => i !== index);
     setRehearsals(updatedRehearsals);
-  };
-  const handleAddActor = () => {
+  };  const handleAddActor = () => {
     const newId = Date.now().toString();
     const defaultName = `Actor ${actors.length + 1}`;
     const newActor = createActor(newId, defaultName, [], []);
     const updatedActors = [...actors, newActor];
     setActors(updatedActors);
+  };
+
+  const handleAddRehearsal = (rehearsal: any) => {
+    const updatedRehearsals = [...rehearsals, rehearsal];
+    setRehearsals(updatedRehearsals);
+  };
+
+  const handleAddMultipleRehearsals = (newRehearsals: any[]) => {
+    const updatedRehearsals = [...rehearsals, ...newRehearsals];
+    setRehearsals(updatedRehearsals);
   };
 
   const value = {
@@ -98,6 +109,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     handleDeleteActor,
     handleDeleteRehearsal,
     handleAddActor,
+    handleAddRehearsal,
+    handleAddMultipleRehearsals,
   };
 
   return (

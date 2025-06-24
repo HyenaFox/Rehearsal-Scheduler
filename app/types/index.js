@@ -6,6 +6,10 @@ export const STORAGE_KEYS = {
   REHEARSALS: '@rehearsal_scheduler_rehearsals',
   TIMESLOTS: '@rehearsal_scheduler_timeslots',
   SCENES: '@rehearsal_scheduler_scenes',
+  USERS: '@rehearsal_scheduler_users',
+  CURRENT_USER: '@rehearsal_scheduler_current_user',
+  USER_PROFILES: '@rehearsal_scheduler_user_profile',
+  MASTER_ACTORS: '@rehearsal_scheduler_master_actors',
 };
 
 // Default data

@@ -1,7 +1,17 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function TabLayout() {
+  const { currentUser, isLoading } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if user is not authenticated
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace('/(auth)/login');
+    }
+  }, [currentUser, isLoading, router]);
   return (
     <Tabs
       screenOptions={{
@@ -46,12 +56,18 @@ export default function TabLayout() {
           title: '⏰ Times',
           tabBarLabel: 'Times',
         }}
-      />
-      <Tabs.Screen
+      />      <Tabs.Screen
         name="rehearsals"
         options={{
           title: '📅 Shows',
           tabBarLabel: 'Shows',
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: '👤 Profile',
+          tabBarLabel: 'Profile',
         }}
       />
     </Tabs>

@@ -1,80 +1,185 @@
-import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View, Alert } from 'react-native';
 import ActionButton from '../components/ActionButton';
-import ActorEditModal from '../components/ActorEditModal';
 import Card from '../components/Card';
+import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
 import { commonStyles } from '../styles/common';
-import { getAvailableTimeslots, getScenes } from '../utils/actorUtils';
+import { GLOBAL_TIMESLOTS } from '../types/index';
+import { StorageService } from '../services/storage';
+import { createActor } from '../utils/actorUtils';
 
 export default function ActorsScreen() {
+  const { currentUser, users } = useAuth();
   const { actors, setActors, handleDeleteActor, handleAddActor } = useApp();
-  
-  // Modal states
-  const [actorEditModalVisible, setActorEditModalVisible] = useState(false);
-  const [selectedActor, setSelectedActor] = useState(null);
+  const [userProfiles, setUserProfiles] = useState<any[]>([]);
+  useEffect(() => {
+    const loadProfiles = async () => {
+      const profiles = [];
+      for (const user of users) {
+        const profile = await StorageService.loadUserProfile(user.id);
+        if (profile) {
+          profiles.push({
+            ...user,
+            profile
+          });
+        }
+      }
+      setUserProfiles(profiles);
+    };
+    
+    loadProfiles();
+  }, [users]);
 
-  const handleEditActor = (actor: any) => {
-    setSelectedActor(actor);
-    setActorEditModalVisible(true);
+  const getTimeslotLabels = (timeslotIds: string[]) => {
+    return GLOBAL_TIMESLOTS
+      .filter(ts => timeslotIds.includes(ts.id))
+      .map(ts => ts.label)
+      .join(', ') || 'No availability set';
   };
 
-  const handleSaveActor = (editedActor: any) => {
-    const updatedActors = actors.map(actor => 
-      actor.id === editedActor.id ? editedActor : actor
-    );
-    setActors(updatedActors);
-    setActorEditModalVisible(false);
-    setSelectedActor(null);
+  const handleAddMyself = async () => {
+    if (!currentUser) return;
+    
+    try {
+      // Check if user already exists in actors list
+      const existingActor = actors.find(actor => actor.id === currentUser.id);
+      if (existingActor) {
+        Alert.alert('Already Added', 'You are already in the cast list!');
+        return;
+      }
+
+      // Get user profile
+      const userProfile = await StorageService.loadUserProfile(currentUser.id);
+      if (!userProfile) {
+        Alert.alert(
+          'Profile Required', 
+          'Please complete your profile first by going to the Profile tab.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Create actor from user profile
+      const newActor = createActor(
+        currentUser.id,
+        userProfile.displayName,
+        userProfile.availableTimeslots || [],
+        userProfile.scenes || []
+      );
+
+      const updatedActors = [...actors, newActor];
+      setActors(updatedActors);
+
+      Alert.alert(
+        'Added Successfully!', 
+        `You've been added to the cast as "${userProfile.displayName}".`
+      );
+    } catch (error) {
+      console.error('Error adding myself:', error);
+      Alert.alert('Error', 'Failed to add yourself to the cast.');
+    }
   };
 
-  const handleCancelActorEdit = () => {
-    setActorEditModalVisible(false);
-    setSelectedActor(null);
-  };
+  const canAddMyself = currentUser && !actors.some(actor => actor.id === currentUser.id);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
       <View style={styles.container}>
         <View style={styles.content}>
-          <Text style={styles.screenTitle}>🎭 Actors</Text>
-          <ActionButton title="Add Actor" onPress={handleAddActor} style={undefined} />
-          <ScrollView style={styles.scrollView}>
-            {actors.map(actor => (
-              <Card
-                key={actor.id}
-                title={actor.name}
-                sections={[
-                  {
-                    title: 'Available Timeslots',
-                    content: getAvailableTimeslots(actor).map((ts: any) => ts.label).join(', ') || 'No timeslots assigned'
-                  },
-                  {
-                    title: 'Scenes',
-                    content: getScenes(actor).join(', ') || 'No scenes assigned'
-                  }
-                ]}
-                onEdit={() => handleEditActor(actor)}
-                onDelete={() => handleDeleteActor(actor)}
+          <Text style={styles.screenTitle}>🎭 Cast & Crew</Text>
+          
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            {canAddMyself && (
+              <ActionButton 
+                title="Add Myself to Cast" 
+                onPress={handleAddMyself} 
+                style={[styles.actionButton, { backgroundColor: '#10b981' }]} 
               />
-            ))}
-            {actors.length === 0 && (
-              <View style={commonStyles.emptyState}>
-                <Text style={commonStyles.emptyStateText}>No actors available</Text>
+            )}
+            {currentUser?.isAdmin && (
+              <ActionButton 
+                title="Add Actor (Admin)" 
+                onPress={handleAddActor} 
+                style={[styles.actionButton, { backgroundColor: '#6366f1' }]} 
+              />
+            )}
+          </View>
+
+          <ScrollView style={styles.scrollView}>
+            {/* Current Cast */}
+            {actors.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>📋 Current Cast</Text>
+                {actors.map(actor => {
+                  const isCurrentUser = currentUser?.id === actor.id;
+                  return (
+                    <Card
+                      key={actor.id}
+                      title={`${actor.name}${isCurrentUser ? ' (You)' : ''}`}
+                      sections={[
+                        {
+                          title: 'Available Timeslots',
+                          content: getTimeslotLabels(actor.availableTimeslots)
+                        },
+                        {
+                          title: 'Scenes',
+                          content: actor.scenes.join(', ') || 'No scenes assigned'
+                        }
+                      ]}
+                      onEdit={currentUser?.isAdmin ? () => {} : undefined}
+                      onDelete={currentUser?.isAdmin || isCurrentUser ? () => handleDeleteActor(actor) : undefined}
+                    />
+                  );
+                })}
               </View>
             )}
+
+            {/* All Users */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>👥 All Users</Text>
+              {userProfiles.length === 0 ? (
+                <View style={commonStyles.emptyState}>
+                  <Text style={commonStyles.emptyStateText}>No user profiles found</Text>
+                </View>
+              ) : (
+                userProfiles.map(userWithProfile => {
+                  const isCurrentUser = currentUser?.id === userWithProfile.id;
+                  const isInCast = actors.some(actor => actor.id === userWithProfile.id);
+                  
+                  return (                    <Card
+                      key={userWithProfile.id}
+                      title={`${userWithProfile.profile.displayName}${isCurrentUser ? ' (You)' : ''}${userWithProfile.isAdmin ? ' 👑' : ''}`}
+                      sections={[
+                        {
+                          title: 'Username',
+                          content: `@${userWithProfile.username}`
+                        },
+                        {
+                          title: 'Status',
+                          content: isInCast ? '✅ In Cast' : '⏳ Not in Cast'
+                        },
+                        {
+                          title: 'Available Timeslots',
+                          content: getTimeslotLabels(userWithProfile.profile.availableTimeslots || [])
+                        },
+                        {
+                          title: 'Scenes',
+                          content: userWithProfile.profile.scenes?.join(', ') || 'No scenes assigned'
+                        }
+                      ]}
+                      onEdit={undefined}
+                      onDelete={undefined}
+                    />
+                  );
+                })
+              )}
+            </View>
           </ScrollView>
         </View>
       </View>
-
-      {/* Modals */}
-      <ActorEditModal
-        actor={selectedActor}
-        visible={actorEditModalVisible}
-        onSave={handleSaveActor}
-        onCancel={handleCancelActorEdit}
-      />
     </SafeAreaView>
   );
 }
@@ -91,14 +196,31 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  scrollView: {
-    flex: 1,
-  },
   screenTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#1e293b',
     marginBottom: 20,
     letterSpacing: 0.3,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 12,
   },
 });

@@ -11,6 +11,7 @@ interface AppContextType {
   handleDeleteActor: (actor: any) => void;
   handleDeleteRehearsal: (index: number) => void;
   handleAddActor: () => void;
+  handleUpdateActor: (updatedActor: any) => void;
   handleAddRehearsal: (rehearsal: any) => void;
   handleAddMultipleRehearsals: (rehearsals: any[]) => void;
 }
@@ -91,6 +92,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActors(updatedActors);
   };
 
+  const handleUpdateActor = (updatedActor: any) => {
+    const updatedActors = actors.map(actor => 
+      actor.id === updatedActor.id ? updatedActor : actor
+    );
+    setActors(updatedActors);
+  };
+
   const handleAddRehearsal = (rehearsal: any) => {
     const updatedRehearsals = [...rehearsals, rehearsal];
     setRehearsals(updatedRehearsals);
@@ -109,6 +117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     handleDeleteActor,
     handleDeleteRehearsal,
     handleAddActor,
+    handleUpdateActor,
     handleAddRehearsal,
     handleAddMultipleRehearsals,
   };

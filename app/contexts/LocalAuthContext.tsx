@@ -58,52 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load current user and users on startup
   useEffect(() => {
-    const createDefaultAdminIfNeeded = async () => {
-      try {
-        const usersData = await AsyncStorage.getItem(STORAGE_KEYS.USERS);
-        const users = usersData ? JSON.parse(usersData) : [];
-        
-        if (users.length === 0) {
-          console.log('Creating default admin user...');
-          
-          const adminUser: User = {
-            id: 'admin-' + Date.now(),
-            username: 'admin',
-            displayName: 'Administrator',
-            email: 'admin@rehearsal.com',
-            isAdmin: true,
-            createdAt: new Date().toISOString()
-          };
-
-          const adminProfile: UserProfile = {
-            userId: adminUser.id,
-            displayName: 'Administrator',
-            availableTimeslots: [],
-            scenes: [],
-            contactInfo: '',
-            notes: 'Default admin account',
-            updatedAt: new Date().toISOString()
-          };
-
-          // Save admin user
-          await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([adminUser]));
-          
-          // Save admin profile
-          const profiles = { [adminUser.id]: adminProfile };
-          await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILES, JSON.stringify(profiles));
-          
-          // Save admin credentials
-          const credentials = { [adminUser.id]: { email: adminUser.email, password: 'admin123' } };
-          await AsyncStorage.setItem(STORAGE_KEYS.USER_CREDENTIALS, JSON.stringify(credentials));
-          
-          console.log('Default admin created successfully');
-          await refreshUsers();
-        }
-      } catch (error) {
-        console.error('Error creating default admin:', error);
-      }
-    };
-
     const loadInitialData = async () => {
       try {
         setIsLoading(true);
@@ -140,6 +94,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadInitialData();
   }, []);
+
+  const createDefaultAdminIfNeeded = async () => {
+    try {
+      const usersData = await AsyncStorage.getItem(STORAGE_KEYS.USERS);
+      const users = usersData ? JSON.parse(usersData) : [];
+      
+      if (users.length === 0) {
+        console.log('Creating default admin user...');
+        
+        const adminUser: User = {
+          id: 'admin-' + Date.now(),
+          username: 'admin',
+          displayName: 'Administrator',
+          email: 'admin@rehearsal.com',
+          isAdmin: true,
+          createdAt: new Date().toISOString()
+        };
+
+        const adminProfile: UserProfile = {
+          userId: adminUser.id,
+          displayName: 'Administrator',
+          availableTimeslots: [],
+          scenes: [],
+          contactInfo: '',
+          notes: 'Default admin account',
+          updatedAt: new Date().toISOString()
+        };
+
+        // Save admin user
+        await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([adminUser]));
+        
+        // Save admin profile
+        const profiles = { [adminUser.id]: adminProfile };
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILES, JSON.stringify(profiles));
+        
+        // Save admin credentials
+        const credentials = { [adminUser.id]: { email: adminUser.email, password: 'admin123' } };
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_CREDENTIALS, JSON.stringify(credentials));
+        
+        console.log('Default admin created successfully');
+        await refreshUsers();
+      }
+    } catch (error) {
+      console.error('Error creating default admin:', error);
+    }
+  };
 
   const login = async (emailOrUsername: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {
@@ -273,12 +273,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async (): Promise<void> => {
     try {
-      console.log('Starting logout process...');
       setCurrentUser(null);
       setUserProfile(null);
-      // Clear current user from storage
       await AsyncStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-      console.log('User logged out successfully');
+      console.log('User logged out');
     } catch (error) {
       console.error('Logout error:', error);
     }

@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
+import ActorEditModal from '../components/ActorEditModal';
 import Card from '../components/Card';
-import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
+import { StorageService } from '../services/storage';
 import { commonStyles } from '../styles/common';
 import { GLOBAL_TIMESLOTS } from '../types/index';
-import { StorageService } from '../services/storage';
 import { createActor } from '../utils/actorUtils';
 
 export default function ActorsScreen() {
   const { currentUser, users } = useAuth();
-  const { actors, setActors, handleDeleteActor, handleAddActor } = useApp();
+  const { actors, setActors, handleDeleteActor, handleAddActor, handleUpdateActor } = useApp();
   const [userProfiles, setUserProfiles] = useState<any[]>([]);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [actorToEdit, setActorToEdit] = useState<any>(null);
+
   useEffect(() => {
     const loadProfiles = async () => {
       const profiles = [];
@@ -83,6 +87,22 @@ export default function ActorsScreen() {
 
   const canAddMyself = currentUser && !actors.some(actor => actor.id === currentUser.id);
 
+  const handleEditActor = (actor: any) => {
+    setActorToEdit(actor);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveActor = (updatedActor: any) => {
+    handleUpdateActor(updatedActor);
+    setEditModalVisible(false);
+    setActorToEdit(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditModalVisible(false);
+    setActorToEdit(null);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
@@ -129,7 +149,7 @@ export default function ActorsScreen() {
                           content: actor.scenes.join(', ') || 'No scenes assigned'
                         }
                       ]}
-                      onEdit={currentUser?.isAdmin ? () => {} : undefined}
+                      onEdit={currentUser?.isAdmin ? () => handleEditActor(actor) : undefined}
                       onDelete={currentUser?.isAdmin || isCurrentUser ? () => handleDeleteActor(actor) : undefined}
                     />
                   );
@@ -178,6 +198,16 @@ export default function ActorsScreen() {
               )}
             </View>
           </ScrollView>
+
+          {/* Actor Edit Modal */}
+          {editModalVisible && actorToEdit && (
+            <ActorEditModal
+              visible={editModalVisible}
+              actor={actorToEdit}
+              onSave={handleSaveActor}
+              onCancel={handleCancelEdit}
+            />
+          )}
         </View>
       </View>
     </SafeAreaView>

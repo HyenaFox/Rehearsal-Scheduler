@@ -10,14 +10,16 @@ export default function Index() {
   useEffect(() => {
     if (!isLoading) {
       if (currentUser) {
+        // User is logged in, go to main app
         router.replace('/(tabs)');
       } else {
+        // User is not logged in, go to login screen
         router.replace('/(auth)/login');
       }
     }
   }, [isLoading, currentUser, router]);
 
-  // Always show loading while determining where to redirect
+  // Show loading while determining auth state
   return (
     <View style={styles.loading}>
       <ActivityIndicator size="large" color="#6366f1" />

@@ -1,216 +1,207 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginScreen = () => {
-  const { login, addNewUser, users } = useAuth();
+  const { login, signUp, isLoading, currentUser } = useAuth();
   const router = useRouter();
-  const [username, setUsername] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-    const handleLogin = async () => {
-    if (!username.trim()) {
-      Alert.alert('Error', 'Please enter a username');
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // Redirect if already logged in
+  React.useEffect(() => {
+    if (currentUser) {
+      router.replace('/(tabs)');
+    }
+  }, [currentUser]);
+
+  const handleLogin = async () => {
+    if (!emailOrUsername.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please enter both email/username and password');
       return;
     }
 
-    setIsLoading(true);
-    
+    setIsAuthLoading(true);
     try {
-      const success = await login(username.trim());
+      console.log('Attempting login with:', emailOrUsername);
+      const result = await login(emailOrUsername.trim(), password.trim());
+      console.log('Login result:', result);
       
-      if (!success) {
-        Alert.alert(
-          'User Not Found', 
-          'Username not found. Would you like to create a new account?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Sign Up', onPress: () => setIsSignUp(true) }
-          ]
-        );
-      } else {
-        // Give a small delay to ensure auth context is updated
+      if (result.success) {
+        // Navigate to main app
         setTimeout(() => {
           router.replace('/(tabs)');
         }, 100);
+      } else {
+        Alert.alert('Login Failed', result.message || 'Invalid credentials');
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Error', 'Failed to login. Please try again.');
+      Alert.alert('Error', 'An error occurred during login: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsAuthLoading(false);
     }
-    
-    setIsLoading(false);
   };
+
   const handleSignUp = async () => {
-    if (!username.trim()) {
-      Alert.alert('Error', 'Please enter a username');
+    if (!emailOrUsername.trim() || !password.trim() || !displayName.trim()) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    if (!displayName.trim()) {
-      Alert.alert('Error', 'Please enter your display name');
+    if (!emailOrUsername.includes('@')) {
+      Alert.alert('Error', 'Please enter a valid email address for sign up');
       return;
     }
 
-    setIsLoading(true);
-    const success = await addNewUser(username.trim(), displayName.trim());
-    setIsLoading(false);
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
 
-    if (!success) {
-      Alert.alert('Error', 'Username already exists. Please choose a different username.');    } else {
-      Alert.alert('Welcome!', 'Your account has been created and you are now logged in.', [
-        { 
-          text: 'Continue',
-          onPress: () => {
-            setTimeout(() => {
-              router.replace('/(tabs)');
-            }, 100);
-          }
-        }
-      ]);
+    setIsAuthLoading(true);
+    try {
+      // Generate username from email or use display name
+      const username = displayName.toLowerCase().replace(/\s+/g, '');
+      const result = await signUp(emailOrUsername.trim(), password.trim(), username, displayName.trim());
+      
+      if (result.success) {
+        Alert.alert('Success', 'Account created successfully!', [
+          { text: 'OK', onPress: () => router.replace('/(tabs)') }
+        ]);
+      } else {
+        Alert.alert('Sign Up Failed', result.message || 'Failed to create account');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred during sign up');
+    } finally {
+      setIsAuthLoading(false);
     }
   };
-  const resetForm = () => {
-    setUsername('');
-    setDisplayName('');
-    setIsSignUp(false);
-  };  const handleTestLogin = async () => {
-    setUsername('admin');
-    setIsLoading(true);
-    
+  const tryDefaultLogin = async () => {
+    setIsAuthLoading(true);
     try {
-      const success = await login('admin');
+      console.log('Trying default admin login...');
+      const result = await login('admin', 'admin123');
+      console.log('Default login result:', result);
       
-      if (success) {
+      if (result.success) {
         setTimeout(() => {
           router.replace('/(tabs)');
         }, 100);
       } else {
-        Alert.alert('Error', 'Test admin user not found. Please try signing up first.');
+        Alert.alert('Default Login Failed', result.message || 'The default admin account may not exist yet');
       }
     } catch (error) {
-      console.error('Test login error:', error);
-      Alert.alert('Error', 'Test login failed.');
+      console.error('Default login error:', error);
+      Alert.alert('Error', 'Failed to log in with default credentials: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsAuthLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
+        style={styles.keyboardView} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>🎭 Rehearsal Scheduler</Text>
-            <Text style={styles.subtitle}>
-              {isSignUp ? 'Create Your Account' : 'Welcome Back'}
-            </Text>
-          </View>
-
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username</Text>
-              <TextInput
-                style={styles.input}
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Enter your username"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-            </View>
-
-            {isSignUp && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Display Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  placeholder="How should others see your name?"
-                  autoCapitalize="words"
-                  editable={!isLoading}
-                />
-              </View>
+        <View style={styles.formContainer}>
+          <Text style={styles.title}>
+            {isSignUpMode ? 'Create Account' : '🎭 Rehearsal Scheduler'}
+          </Text>
+          
+          <TextInput
+            style={styles.input}
+            placeholder={isSignUpMode ? "Email" : "Email or Username"}
+            value={emailOrUsername}
+            onChangeText={setEmailOrUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType={isSignUpMode ? "email-address" : "default"}
+            editable={!isAuthLoading}
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isAuthLoading}
+          />
+          
+          {isSignUpMode && (
+            <TextInput
+              style={styles.input}
+              placeholder="Display Name"
+              value={displayName}
+              onChangeText={setDisplayName}
+              autoCapitalize="words"
+              autoCorrect={false}
+              editable={!isAuthLoading}
+            />
+          )}
+          
+          <TouchableOpacity 
+            style={[styles.button, styles.primaryButton]}
+            onPress={isSignUpMode ? handleSignUp : handleLogin}
+            disabled={isAuthLoading}
+          >
+            {isAuthLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>
+                {isSignUpMode ? 'Sign Up' : 'Login'}
+              </Text>
             )}
-
-            <TouchableOpacity
-              style={[styles.primaryButton, isLoading && styles.disabledButton]}
-              onPress={isSignUp ? handleSignUp : handleLogin}
-              disabled={isLoading}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.button, styles.secondaryButton]}
+            onPress={() => setIsSignUpMode(!isSignUpMode)}
+            disabled={isAuthLoading}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {isSignUpMode ? 'Already have an account? Login' : 'Need an account? Sign Up'}
+            </Text>
+          </TouchableOpacity>
+          
+          {!isSignUpMode && (
+            <TouchableOpacity 
+              style={[styles.button, styles.defaultButton]}
+              onPress={tryDefaultLogin}
+              disabled={isAuthLoading}
             >
-              <Text style={styles.primaryButtonText}>
-                {isLoading ? 'Please Wait...' : isSignUp ? 'Create Account' : 'Login'}
+              <Text style={styles.defaultButtonText}>
+                Try Default Admin Login
               </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => setIsSignUp(!isSignUp)}
-              disabled={isLoading}
-            >
-              <Text style={styles.secondaryButtonText}>
-                {isSignUp ? 'Already have an account? Login' : 'New here? Create Account'}
-              </Text>
-            </TouchableOpacity>            {isSignUp && (
-              <TouchableOpacity
-                style={styles.tertiaryButton}
-                onPress={resetForm}
-                disabled={isLoading}
-              >
-                <Text style={styles.tertiaryButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
-            
-            {/* Debug button for testing */}
-            {!isSignUp && (
-              <TouchableOpacity
-                style={[styles.secondaryButton, { backgroundColor: '#f3f4f6' }]}
-                onPress={handleTestLogin}
-                disabled={isLoading}
-              >
-                <Text style={[styles.secondaryButtonText, { color: '#6b7280' }]}>
-                  🔧 Test Login (admin)
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Show existing users for reference (in development) */}
-          {users.length > 0 && !isSignUp && (
-            <View style={styles.usersHint}>
-              <Text style={styles.usersHintTitle}>Existing Users:</Text>
-              {users.slice(0, 5).map(user => (
-                <TouchableOpacity
-                  key={user.id}
-                  style={styles.userHint}
-                  onPress={() => setUsername(user.username)}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.userHintText}>
-                    {user.displayName} (@{user.username})
-                    {user.isAdmin && ' 👑'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           )}
 
           <View style={styles.info}>
@@ -219,10 +210,10 @@ const LoginScreen = () => {
               {'\n'}• Set your availability
               {'\n'}• Choose your scenes
               {'\n'}• Get smart rehearsal suggestions
-              {'\n'}• Keep your info private
+              {'\n'}• Your data is stored locally on this device
             </Text>
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -231,122 +222,83 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f5f5f5',
   },
   keyboardView: {
     flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
   },
-  header: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    backgroundColor: '#f5f5f5',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#64748b',
-    textAlign: 'center',
-  },
-  form: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    color: '#666',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+  formContainer: {
+    backgroundColor: 'white',
+    padding: 30,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1f2937',
-    backgroundColor: '#f9fafb',
-  },
-  primaryButton: {
-    backgroundColor: '#6366f1',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  disabledButton: {
-    backgroundColor: '#9ca3af',
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  secondaryButtonText: {
-    color: '#6366f1',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  tertiaryButton: {
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  tertiaryButtonText: {
-    color: '#9ca3af',
-    fontSize: 14,
-  },
-  usersHint: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  usersHintTitle: {
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 30,
+    color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+    backgroundColor: '#fafafa',
+  },
+  button: {
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  primaryButton: {
+    backgroundColor: '#007AFF',
+    marginTop: 10,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  defaultButton: {
+    backgroundColor: '#FF9500',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  defaultButtonText: {
+    color: 'white',
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  userHint: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    backgroundColor: '#f3f4f6',
-    marginBottom: 4,
-  },
-  userHintText: {
-    fontSize: 13,
-    color: '#6b7280',
   },
   info: {
     backgroundColor: '#eff6ff',
@@ -354,6 +306,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#6366f1',
+    marginTop: 20,
   },
   infoText: {
     fontSize: 14,

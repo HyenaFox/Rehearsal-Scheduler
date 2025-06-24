@@ -1,17 +1,8 @@
-import { Tabs, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { Tabs } from 'expo-router';
+import React from 'react';
 
 export default function TabLayout() {
-  const { currentUser, isLoading } = useAuth();
-  const router = useRouter();
-
-  // Redirect to login if user is not authenticated
-  useEffect(() => {
-    if (!isLoading && !currentUser) {
-      router.replace('/(auth)/login');
-    }
-  }, [currentUser, isLoading, router]);
+  // No authentication required - anyone can use the app
   return (
     <Tabs
       screenOptions={{

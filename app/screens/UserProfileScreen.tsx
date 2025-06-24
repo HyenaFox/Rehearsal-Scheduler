@@ -33,6 +33,14 @@ const UserProfileScreen = () => {
     }
   }, [userProfile]);
 
+  // Listen for authentication state changes
+  useEffect(() => {
+    if (!currentUser) {
+      console.log('User is null, should redirect to login');
+      router.replace('/');
+    }
+  }, [currentUser, router]);
+
   const toggleTimeslot = (timeslotId: string) => {
     setSelectedTimeslots(prev => 
       prev.includes(timeslotId)
@@ -77,8 +85,24 @@ const UserProfileScreen = () => {
           text: 'Logout', 
           style: 'destructive', 
           onPress: async () => {
-            await logout();
-            router.replace('/(auth)/login');
+            try {
+              console.log('Logout button pressed');
+              await logout();
+              console.log('Logout completed, navigating...');
+              // Show a confirmation message before navigating
+              Alert.alert('Logged Out', 'You have been successfully logged out.', [
+                { 
+                  text: 'OK', 
+                  onPress: () => {
+                    // Use router.replace to ensure we don't go back
+                    router.replace('/');
+                  }
+                }
+              ]);
+            } catch (error) {
+              console.error('Error during logout:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
           }
         }
       ]
@@ -86,7 +110,30 @@ const UserProfileScreen = () => {
   };
 
   if (!currentUser || !userProfile) {
-    return null;
+    // Show login option when not authenticated
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.guestContainer}>
+          <Text style={styles.guestTitle}>👤 Profile</Text>
+          <Text style={styles.guestText}>
+            Log in to create your personal profile and:
+            {'\n\n'}• Set your availability
+            {'\n'}• Choose your scenes
+            {'\n'}• Get smart rehearsal suggestions
+            {'\n'}• Keep your info private
+          </Text>
+          <TouchableOpacity 
+            style={styles.loginButton} 
+            onPress={() => router.push('/(auth)/login')}
+          >
+            <Text style={styles.loginButtonText}>Login / Sign Up</Text>
+          </TouchableOpacity>
+          <Text style={styles.guestNote}>
+            You can still use the app without logging in!
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -368,6 +415,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#0c4a6e',
     lineHeight: 18,
+  },
+  guestContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  guestTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#333',
+  },
+  guestText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#666',
+    lineHeight: 24,
+    marginBottom: 30,
+  },
+  loginButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  loginButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  guestNote: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -13,19 +13,17 @@ import {
     View
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { HybridStorageService } from '../services/hybridStorage';
 
 const ImprovedLoginScreen = () => {
-  const { login, addNewUser, users } = useAuth();
+  const { login, signUp, users } = useAuth();
   const router = useRouter();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [useEmailAuth, setUseEmailAuth] = useState(false);
 
-  const isValidEmail = (email) => {
+  const isValidEmail = (email: string) => {
     return /\S+@\S+\.\S+/.test(email);
   };
 

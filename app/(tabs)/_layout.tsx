@@ -54,6 +54,13 @@ export default function TabLayout() {
           tabBarLabel: 'Shows',
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: '👤 Profile',
+          tabBarLabel: 'Profile',
+        }}
+      />
     </Tabs>
   );
 }

@@ -11,9 +11,12 @@ interface AppContextType {
   handleDeleteActor: (actor: any) => void;
   handleDeleteRehearsal: (index: number) => void;
   handleAddActor: () => void;
+<<<<<<< HEAD
   handleUpdateActor: (updatedActor: any) => void;
   handleAddRehearsal: (rehearsal: any) => void;
   handleAddMultipleRehearsals: (rehearsals: any[]) => void;
+=======
+>>>>>>> parent of 6efa353 (added auto scheduler)
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -84,7 +87,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const handleDeleteRehearsal = (index: number) => {
     const updatedRehearsals = rehearsals.filter((_, i) => i !== index);
     setRehearsals(updatedRehearsals);
-  };  const handleAddActor = () => {
+  };
+  const handleAddActor = () => {
     const newId = Date.now().toString();
     const defaultName = `Actor ${actors.length + 1}`;
     const newActor = createActor(newId, defaultName, [], []);
@@ -92,6 +96,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActors(updatedActors);
   };
 
+<<<<<<< HEAD
   const handleUpdateActor = (updatedActor: any) => {
     const updatedActors = actors.map(actor => 
       actor.id === updatedActor.id ? updatedActor : actor
@@ -109,6 +114,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRehearsals(updatedRehearsals);
   };
 
+=======
+>>>>>>> parent of 6efa353 (added auto scheduler)
   const value = {
     actors,
     rehearsals,
@@ -117,9 +124,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     handleDeleteActor,
     handleDeleteRehearsal,
     handleAddActor,
+<<<<<<< HEAD
     handleUpdateActor,
     handleAddRehearsal,
     handleAddMultipleRehearsals,
+=======
+>>>>>>> parent of 6efa353 (added auto scheduler)
   };
 
   return (

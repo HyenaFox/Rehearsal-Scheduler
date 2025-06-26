@@ -1,98 +1,116 @@
-const { pool } = require('./database');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-class User {
-  static async findByEmail(email) {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    return result.rows[0];
+const userSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
+  },
+  password_hash: {
+    type: String,
+    required: true
+  },
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  phone: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  isActor: {
+    type: Boolean,
+    default: false
+  },
+  availableTimeslots: [{
+    type: String
+  }],
+  scenes: [{
+    type: String
+  }]
+}, {
+  timestamps: true // This adds createdAt and updatedAt automatically
+});
+
+// Index for faster email lookups
+userSchema.index({ email: 1 });
+
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+  // Only hash the password if it has been modified (or is new)
+  if (!this.isModified('password_hash')) return next();
+  
+  try {
+    // Hash password with cost of 12
+    const hashedPassword = await bcrypt.hash(this.password_hash, 12);
+    this.password_hash = hashedPassword;
+    next();
+  } catch (error) {
+    next(error);
   }
+});
 
-  static async findById(id) {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-    return result.rows[0];
+// Instance method to check password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password_hash);
+};
+
+// Static method to find user by email
+userSchema.statics.findByEmail = function(email) {
+  return this.findOne({ email });
+};
+
+// Static method to create user
+userSchema.statics.createUser = async function(userData) {
+  const { email, password, name, phone, isActor } = userData;
+  
+  // Check if user already exists
+  const existingUser = await this.findByEmail(email);
+  if (existingUser) {
+    throw new Error('User with this email already exists');
   }
+  
+  const user = new this({
+    email,
+    password_hash: password, // Will be hashed by pre-save hook
+    name,
+    phone: phone || '',
+    isActor: isActor || false,
+    availableTimeslots: [],
+    scenes: []
+  });
+  
+  return user.save();
+};
 
-  static async create(userData) {
-    const { email, password_hash, name, phone, is_actor } = userData;
-    const result = await pool.query(
-      'INSERT INTO users (email, password_hash, name, phone, is_actor) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [email, password_hash, name, phone, is_actor]
-    );
-    return result.rows[0];
-  }
-
-  static async update(id, updates) {
-    const { name, phone, is_actor } = updates;
-    const result = await pool.query(
-      'UPDATE users SET name = $1, phone = $2, is_actor = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-      [name, phone, is_actor, id]
-    );
-    return result.rows[0];
-  }
-
-  static async getUserWithTimeslotsAndScenes(id) {
-    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-    if (userResult.rows.length === 0) return null;
-
-    const user = userResult.rows[0];
-
-    const timeslotsResult = await pool.query(
-      'SELECT timeslot_id FROM user_timeslots WHERE user_id = $1',
-      [id]
-    );
-
-    const scenesResult = await pool.query(
-      'SELECT scene_id FROM user_scenes WHERE user_id = $1',
-      [id]
-    );
-
-    return {
-      ...user,
-      availableTimeslots: timeslotsResult.rows.map(row => row.timeslot_id),
-      scenes: scenesResult.rows.map(row => row.scene_id)
-    };
-  }
-
-  static async updateTimeslots(userId, timeslots) {
-    await pool.query('DELETE FROM user_timeslots WHERE user_id = $1', [userId]);
-    
-    if (timeslots.length > 0) {
-      const values = timeslots.map((_, index) => `($1, $${index + 2})`).join(', ');
-      const query = `INSERT INTO user_timeslots (user_id, timeslot_id) VALUES ${values}`;
-      await pool.query(query, [userId, ...timeslots]);
+// Static method to update user
+userSchema.statics.updateUser = async function(id, updates) {
+  return this.findByIdAndUpdate(
+    id, 
+    { 
+      ...updates,
+      updatedAt: new Date()
+    }, 
+    { 
+      new: true, // Return the updated document
+      runValidators: true // Run schema validations
     }
-  }
+  );
+};
 
-  static async updateScenes(userId, scenes) {
-    await pool.query('DELETE FROM user_scenes WHERE user_id = $1', [userId]);
-    
-    if (scenes.length > 0) {
-      const values = scenes.map((_, index) => `($1, $${index + 2})`).join(', ');
-      const query = `INSERT INTO user_scenes (user_id, scene_id) VALUES ${values}`;
-      await pool.query(query, [userId, ...scenes]);
-    }
-  }
+// Transform JSON output (remove sensitive data)
+userSchema.methods.toJSON = function() {
+  const user = this.toObject();
+  delete user.password_hash;
+  delete user.__v;
+  return user;
+};
 
-  static async getAllActors() {
-    const result = await pool.query(`
-      SELECT DISTINCT u.id, u.name, u.email, u.phone,
-        ARRAY_AGG(DISTINCT ut.timeslot_id) FILTER (WHERE ut.timeslot_id IS NOT NULL) as available_timeslots,
-        ARRAY_AGG(DISTINCT us.scene_id) FILTER (WHERE us.scene_id IS NOT NULL) as scenes
-      FROM users u
-      LEFT JOIN user_timeslots ut ON u.id = ut.user_id
-      LEFT JOIN user_scenes us ON u.id = us.user_id
-      WHERE u.is_actor = true
-      GROUP BY u.id, u.name, u.email, u.phone
-    `);
-    
-    return result.rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      phone: row.phone,
-      availableTimeslots: row.available_timeslots || [],
-      scenes: row.scenes || []
-    }));
-  }
-}
+const User = mongoose.model('User', userSchema);
 
 module.exports = User;

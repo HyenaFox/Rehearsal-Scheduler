@@ -1,171 +1,204 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const { authenticateToken } = require('../middleware/auth');
+const User = require('../models/User.mongodb');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-// Register
+// Register endpoint
 router.post('/register', async (req, res) => {
   try {
     const { email, password, name, phone } = req.body;
 
+    // Validate required fields
     if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' });
+      return res.status(400).json({ 
+        error: 'Email, password, and name are required' 
+      });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findByEmail(email);
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        error: 'Please provide a valid email address' 
+      });
     }
 
-    // Hash password
-    const saltRounds = 12;
-    const password_hash = await bcrypt.hash(password, saltRounds);
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        error: 'Password must be at least 6 characters long' 
+      });
+    }
 
     // Create user
-    const user = await User.create({
-      email,
-      password_hash,
-      name,
-      phone: phone || null,
-      is_actor: false
+    const user = await User.createUser({
+      email: email.toLowerCase().trim(),
+      password,
+      name: name.trim(),
+      phone: phone?.trim() || '',
+      isActor: false
     });
 
-    // Generate JWT
+    // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id },
+      { userId: user._id },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
+    console.log(`✅ User registered successfully: ${user.email}`);
+
     res.status(201).json({
+      message: 'User registered successfully',
       token,
       user: {
-        id: user.id,
+        id: user._id,
         email: user.email,
         name: user.name,
         phone: user.phone,
-        isActor: user.is_actor,
-        availableTimeslots: [],
-        scenes: []
+        isActor: user.isActor,
+        availableTimeslots: user.availableTimeslots,
+        scenes: user.scenes
       }
     });
+
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    
+    if (error.message.includes('already exists')) {
+      return res.status(409).json({ 
+        error: 'An account with this email already exists' 
+      });
+    }
+
+    if (error.code === 11000) { // MongoDB duplicate key error
+      return res.status(409).json({ 
+        error: 'An account with this email already exists' 
+      });
+    }
+
+    res.status(500).json({ 
+      error: 'Failed to register user. Please try again.' 
+    });
   }
 });
 
-// Login
+// Login endpoint
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Validate required fields
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(400).json({ 
+        error: 'Email and password are required' 
+      });
     }
 
-    // Find user
-    const user = await User.findByEmail(email);
+    // Find user by email
+    const user = await User.findByEmail(email.toLowerCase().trim());
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ 
+        error: 'Invalid email or password' 
+      });
     }
 
     // Check password
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        error: 'Invalid email or password' 
+      });
     }
 
-    // Get user with timeslots and scenes
-    const userWithDetails = await User.getUserWithTimeslotsAndScenes(user.id);
-
-    // Generate JWT
+    // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id },
+      { userId: user._id },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
+    console.log(`✅ User logged in successfully: ${user.email}`);
+
     res.json({
+      message: 'Login successful',
       token,
       user: {
-        id: userWithDetails.id,
-        email: userWithDetails.email,
-        name: userWithDetails.name,
-        phone: userWithDetails.phone,
-        isActor: userWithDetails.is_actor,
-        availableTimeslots: userWithDetails.availableTimeslots || [],
-        scenes: userWithDetails.scenes || []
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        isActor: user.isActor,
+        availableTimeslots: user.availableTimeslots,
+        scenes: user.scenes
       }
     });
+
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ 
+      error: 'Failed to login. Please try again.' 
+    });
   }
 });
 
-// Get current user profile
-router.get('/me', authenticateToken, async (req, res) => {
+// Get current user endpoint
+router.get('/me', auth, async (req, res) => {
   try {
-    const userWithDetails = await User.getUserWithTimeslotsAndScenes(req.user.id);
-    
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     res.json({
-      id: userWithDetails.id,
-      email: userWithDetails.email,
-      name: userWithDetails.name,
-      phone: userWithDetails.phone,
-      isActor: userWithDetails.is_actor,
-      availableTimeslots: userWithDetails.availableTimeslots || [],
-      scenes: userWithDetails.scenes || []
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      isActor: user.isActor,
+      availableTimeslots: user.availableTimeslots,
+      scenes: user.scenes
     });
   } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ error: 'Failed to get profile' });
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to get user information' });
   }
 });
 
-// Update user profile
-router.put('/profile', authenticateToken, async (req, res) => {
+// Update profile endpoint
+router.put('/profile', auth, async (req, res) => {
   try {
     const { name, phone, isActor, availableTimeslots, scenes } = req.body;
+    
+    const updates = {};
+    if (name !== undefined) updates.name = name.trim();
+    if (phone !== undefined) updates.phone = phone.trim();
+    if (isActor !== undefined) updates.isActor = isActor;
+    if (availableTimeslots !== undefined) updates.availableTimeslots = availableTimeslots;
+    if (scenes !== undefined) updates.scenes = scenes;
 
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
+    const user = await User.updateUser(req.user.userId, updates);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Update user basic info
-    await User.update(req.user.id, {
-      name,
-      phone: phone || null,
-      is_actor: isActor
-    });
-
-    // Update timeslots and scenes if user is an actor
-    if (isActor) {
-      await User.updateTimeslots(req.user.id, availableTimeslots || []);
-      await User.updateScenes(req.user.id, scenes || []);
-    } else {
-      // Clear timeslots and scenes if no longer an actor
-      await User.updateTimeslots(req.user.id, []);
-      await User.updateScenes(req.user.id, []);
-    }
-
-    // Get updated user with details
-    const userWithDetails = await User.getUserWithTimeslotsAndScenes(req.user.id);
+    console.log(`✅ Profile updated for user: ${user.email}`);
 
     res.json({
-      id: userWithDetails.id,
-      email: userWithDetails.email,
-      name: userWithDetails.name,
-      phone: userWithDetails.phone,
-      isActor: userWithDetails.is_actor,
-      availableTimeslots: userWithDetails.availableTimeslots || [],
-      scenes: userWithDetails.scenes || []
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        isActor: user.isActor,
+        availableTimeslots: user.availableTimeslots,
+        scenes: user.scenes
+      }
     });
+
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile' });

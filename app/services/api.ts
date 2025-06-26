@@ -17,6 +17,7 @@ class ApiService {
   private static async setAuthToken(token: string): Promise<void> {
     try {
       await AsyncStorage.setItem('auth_token', token);
+      console.log('🔑 Auth token stored successfully');
     } catch (error) {
       console.error('Error setting auth token:', error);
     }
@@ -25,6 +26,7 @@ class ApiService {
   private static async removeAuthToken(): Promise<void> {
     try {
       await AsyncStorage.removeItem('auth_token');
+      console.log('🔑 Auth token removed successfully');
     } catch (error) {
       console.error('Error removing auth token:', error);
     }
@@ -80,13 +82,19 @@ class ApiService {
   }
 
   static async login(credentials: { email: string; password: string }) {
+    console.log('🔐 Attempting login for:', credentials.email);
     const response = await this.makeRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
 
+    console.log('🔐 Login response received:', { hasToken: !!response.token, hasUser: !!response.user });
+
     if (response.token) {
       await this.setAuthToken(response.token);
+      console.log('🔐 Login successful, token stored');
+    } else {
+      console.log('🔐 Login failed - no token received');
     }
 
     return response;
@@ -97,7 +105,15 @@ class ApiService {
   }
 
   static async getCurrentUser() {
-    return await this.makeRequest('/auth/me');
+    console.log('🔍 Getting current user...');
+    try {
+      const result = await this.makeRequest('/auth/me');
+      console.log('🔍 Current user result:', result ? 'User found' : 'No user');
+      return result;
+    } catch (error) {
+      console.log('🔍 Get current user failed:', error instanceof Error ? error.message : String(error));
+      throw error;
+    }
   }
 
   static async updateProfile(profileData: {
@@ -126,6 +142,18 @@ class ApiService {
     } catch {
       return false;
     }
+  }
+
+  // Debug methods - remove these after testing
+  static async debugTokenStorage() {
+    const token = await this.getAuthToken();
+    console.log('🔍 Current stored token:', token ? `${token.substring(0, 20)}...` : 'No token');
+    return !!token;
+  }
+
+  static async debugClearToken() {
+    await this.removeAuthToken();
+    console.log('🔍 Token cleared for debugging');
   }
 }
 

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import ApiService from '../services/api';
 
@@ -35,20 +36,31 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  useEffect(() => {
-    loadUser();
-  }, []);
+  const loadUser = useCallback(async () => {
+    if (hasInitialized) {
+      console.log('loadUser already called, skipping');
+      return;
+    }
 
-  useEffect(() => {
-    console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
-  }, [user]);
-
-  const loadUser = async () => {
     try {
+      setHasInitialized(true);
+      console.log('Loading user session...');
+      
+      // First check if we have a token before making the API call
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        // No token stored, user is not logged in
+        console.log('No auth token found, user not logged in');
+        return;
+      }
+
+      console.log('Token found, validating session...');
       // Check if there's a stored token and try to get current user
       const currentUser = await ApiService.getCurrentUser();
       if (currentUser) {
+        console.log('Session valid, user logged in:', currentUser.email);
         setUser({
           id: currentUser.id,
           email: currentUser.email,
@@ -60,13 +72,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (error) {
-      console.log('No valid session found:', error);
-      // Clear any invalid token
+      console.log('Session validation failed:', error);
+      // Clear any invalid token silently
       await ApiService.logout();
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [hasInitialized]);
+
+  useEffect(() => {
+    if (!hasInitialized) {
+      loadUser();
+    }
+  }, [hasInitialized, loadUser]);
+
+  useEffect(() => {
+    console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
+  }, [user]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -121,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = useCallback(() => {
+    console.log('Logout called');
     ApiService.logout();
     setUser(null);
   }, []);

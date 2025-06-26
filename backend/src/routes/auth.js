@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User.mongodb');
-const auth = require('../middleware/auth');
+const User = require('../models/User');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -145,7 +145,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Get current user endpoint
-router.get('/me', auth, async (req, res) => {
+router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user) {
@@ -168,7 +168,7 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // Update profile endpoint
-router.put('/profile', auth, async (req, res) => {
+router.put('/profile', authenticateToken, async (req, res) => {
   try {
     const { name, phone, isActor, availableTimeslots, scenes } = req.body;
     

@@ -215,4 +215,16 @@ class ApiService {
   }
 }
 
+// Simple wrapper function for testing API connection
+export async function testApiConnection() {
+  console.log('🔍 Testing API connection...');
+  try {
+    const isBackendUp = await ApiService.testBackendConnection();
+    return isBackendUp;
+  } catch (error) {
+    console.error('❌ API connection test failed:', error);
+    return false;
+  }
+}
+
 export default ApiService;

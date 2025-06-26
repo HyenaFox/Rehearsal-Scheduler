@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
-import { testApiConnection } from '../utils/testApiConnection';
+import { testApiConnection } from '../services/api';
 
 interface AuthWrapperProps {
   children: React.ReactNode;

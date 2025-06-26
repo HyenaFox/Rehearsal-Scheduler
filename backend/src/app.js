@@ -123,13 +123,33 @@ const startServer = async () => {
     await initDB();
     
     // Start server
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log('🚀 Server started successfully!');
       console.log(`📍 Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`📡 Health check: http://localhost:${PORT}/health`);
       console.log(`🔗 API base: http://localhost:${PORT}/api`);
     });
+
+    // Graceful shutdown
+    const gracefulShutdown = (signal) => {
+      console.log(`\n🛑 Received ${signal}. Shutting down gracefully...`);
+      server.close(() => {
+        console.log('✅ Server closed successfully');
+        process.exit(0);
+      });
+      
+      // Force shutdown after 10 seconds
+      setTimeout(() => {
+        console.log('💥 Force shutdown');
+        process.exit(1);
+      }, 10000);
+    };
+
+    // Handle shutdown signals
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    
   } catch (error) {
     console.error('💥 Failed to start server:', error);
     process.exit(1);

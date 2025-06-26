@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import ApiService from '../services/api';
 
 export interface User {
   id: string;
@@ -9,7 +9,6 @@ export interface User {
   availableTimeslots: string[];
   scenes: string[];
   isActor: boolean;
-  createdAt: string;
 }
 
 interface AuthContextType {
@@ -20,7 +19,7 @@ interface AuthContextType {
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
-  forceLogout: () => void; // Re-adding the working force logout
+  forceLogout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,15 +32,9 @@ export const useAuth = () => {
   return context;
 };
 
-const STORAGE_KEYS = {
-  USER: '@rehearsal_scheduler_user',
-  USERS_DB: '@rehearsal_scheduler_users_db',
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0); // Force re-render key
 
   useEffect(() => {
     loadUser();
@@ -51,142 +44,129 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
   }, [user]);
 
-  useEffect(() => {
-    console.log('AuthProvider - isLoading state changed:', isLoading);
-  }, [isLoading]);
-
   const loadUser = async () => {
     try {
-      const userData = await AsyncStorage.getItem(STORAGE_KEYS.USER);
-      if (userData) {
-        setUser(JSON.parse(userData));
+      // Check if there's a stored token and try to get current user
+      const currentUser = await ApiService.getCurrentUser();
+      if (currentUser) {
+        setUser({
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name,
+          phone: currentUser.phone || '',
+          isActor: currentUser.isActor,
+          availableTimeslots: currentUser.availableTimeslots || [],
+          scenes: currentUser.scenes || []
+        });
       }
     } catch (error) {
-      console.error('Error loading user:', error);
+      console.log('No valid session found:', error);
+      // Clear any invalid token
+      await ApiService.logout();
     } finally {
       setIsLoading(false);
     }
   };
 
-  const saveUser = async (userData: User) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
-      setUser(userData);
-    } catch (error) {
-      console.error('Error saving user:', error);
-    }
-  };
-
-  const getUsersDatabase = async (): Promise<Record<string, { password: string; user: User }>> => {
-    try {
-      const usersData = await AsyncStorage.getItem(STORAGE_KEYS.USERS_DB);
-      return usersData ? JSON.parse(usersData) : {};
-    } catch (error) {
-      console.error('Error loading users database:', error);
-      return {};
-    }
-  };
-
-  const saveUsersDatabase = async (usersDb: Record<string, { password: string; user: User }>) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(usersDb));
-    } catch (error) {
-      console.error('Error saving users database:', error);
-    }
-  };
-
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const usersDb = await getUsersDatabase();
-      const userRecord = usersDb[email];
+      setIsLoading(true);
+      const response = await ApiService.login({ email, password });
       
-      if (userRecord && userRecord.password === password) {
-        await saveUser(userRecord.user);
+      if (response.user) {
+        setUser({
+          id: response.user.id,
+          email: response.user.email,
+          name: response.user.name,
+          phone: response.user.phone || '',
+          isActor: response.user.isActor,
+          availableTimeslots: response.user.availableTimeslots || [],
+          scenes: response.user.scenes || []
+        });
         return true;
       }
       return false;
     } catch (error) {
       console.error('Login error:', error);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
-      const usersDb = await getUsersDatabase();
+      setIsLoading(true);
+      const response = await ApiService.register({ email, password, name });
       
-      // Check if user already exists
-      if (usersDb[email]) {
-        return false;
+      if (response.user) {
+        setUser({
+          id: response.user.id,
+          email: response.user.email,
+          name: response.user.name,
+          phone: response.user.phone || '',
+          isActor: response.user.isActor,
+          availableTimeslots: response.user.availableTimeslots || [],
+          scenes: response.user.scenes || []
+        });
+        return true;
       }
-
-      const newUser: User = {
-        id: Date.now().toString(),
-        email,
-        name,
-        availableTimeslots: [],
-        scenes: [],
-        isActor: false,
-        createdAt: new Date().toISOString(),
-      };
-
-      usersDb[email] = { password, user: newUser };
-      await saveUsersDatabase(usersDb);
-      await saveUser(newUser);
-      
-      return true;
+      return false;
     } catch (error) {
       console.error('Registration error:', error);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = useCallback(() => {
-    console.log('Logout called - immediately setting user to null');
+    ApiService.logout();
     setUser(null);
-    setRefreshKey(prev => prev + 1);
-    setIsLoading(false);
-    AsyncStorage.removeItem(STORAGE_KEYS.USER).catch(console.error);
   }, []);
 
-  const updateProfile = async (updates: Partial<User>) => {
-    if (!user) return;
+  const forceLogout = useCallback(() => {
+    console.log('Force logout called');
+    ApiService.logout();
+    setUser(null);
+  }, []);
+
+  const updateProfile = async (updates: Partial<User>): Promise<void> => {
+    if (!user) throw new Error('No user logged in');
 
     try {
-      const updatedUser = { ...user, ...updates };
-      
-      // Update in users database
-      const usersDb = await getUsersDatabase();
-      if (usersDb[user.email]) {
-        usersDb[user.email].user = updatedUser;
-        await saveUsersDatabase(usersDb);
-      }
-      
-      await saveUser(updatedUser);
+      const updatedUser = await ApiService.updateProfile({
+        name: updates.name || user.name,
+        phone: updates.phone || user.phone,
+        isActor: updates.isActor !== undefined ? updates.isActor : user.isActor,
+        availableTimeslots: updates.availableTimeslots || user.availableTimeslots,
+        scenes: updates.scenes || user.scenes
+      });
+
+      setUser({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        phone: updatedUser.phone || '',
+        isActor: updatedUser.isActor,
+        availableTimeslots: updatedUser.availableTimeslots || [],
+        scenes: updatedUser.scenes || []
+      });
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('Update profile error:', error);
+      throw error;
     }
   };
 
-  const setUserAsActor = async (availableTimeslots: string[], scenes: string[]) => {
-    if (!user) return;
-
+  const setUserAsActor = async (availableTimeslots: string[], scenes: string[]): Promise<void> => {
     await updateProfile({
       isActor: true,
       availableTimeslots,
-      scenes,
+      scenes
     });
   };
 
-  const forceLogout = useCallback(() => {
-    console.log('Force logout called - immediately setting user to null');
-    setUser(null);
-    setRefreshKey(prev => prev + 1);
-    setIsLoading(false);
-    AsyncStorage.removeItem(STORAGE_KEYS.USER).catch(console.error);
-  }, []);
-
-  const value = {
+  const value: AuthContextType = {
     user,
     isLoading,
     login,
@@ -197,9 +177,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     forceLogout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

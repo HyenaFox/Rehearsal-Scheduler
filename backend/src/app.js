@@ -32,6 +32,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Welcome message for root path
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Rehearsal Scheduler API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth/*',
+      actors: '/api/actors'
+    },
+    documentation: 'See README.md for API documentation'
+  });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = __DEV__ 
   ? 'http://localhost:3000/api' // For development
-  : 'https://your-app-name.onrender.com/api'; // Replace with your Render.com URL
+  : 'https://rehearsal-scheduler.onrender.com/api'; // Your Render.com URL
 
 class ApiService {
   private static async getAuthToken(): Promise<string | null> {

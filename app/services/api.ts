@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = __DEV__ 
   ? 'http://10.0.2.2:3000/api' // For Android emulator - maps to localhost:3000
-  : 'https://rehearsal-scheduler.onrender.com/api'; // Your Render.com URL
+  : '/api'; // Production: use relative path since web app and API are on same domain
 
 // Alternative URLs for different testing scenarios:
 // 'http://localhost:3000/api' - Use this for web browser testing  

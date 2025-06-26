@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 // Load environment variables - dotenv will look for .env in the current working directory
 require('dotenv').config();
@@ -12,6 +13,12 @@ const calendarRoutes = require('./routes/calendar');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Serve static files from the dist directory (web app)
+// Using path.resolve to get absolute path
+const distPath = path.resolve(process.cwd(), 'dist');
+console.log('📁 Serving static files from:', distPath);
+app.use(express.static(distPath));
 
 // Security middleware
 app.use(helmet());
@@ -91,26 +98,11 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Rehearsal Scheduler API with MongoDB',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      auth: '/api/auth/*',
-      calendar: '/api/calendar/*'
-    }
-  });
-});
-
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler for API routes only
+app.use('/api/*', (req, res) => {
   res.status(404).json({ 
     error: 'Endpoint not found',
     availableEndpoints: [
-      'GET /',
-      'GET /health',
       'POST /api/auth/register',
       'POST /api/auth/login',
       'GET /api/auth/me',
@@ -123,6 +115,18 @@ app.use('*', (req, res) => {
       'DELETE /api/calendar/disconnect'
     ]
   });
+});
+
+// Catch all handler for web app - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  // Don't serve the web app for API or health routes
+  if (req.url.startsWith('/api') || req.url.startsWith('/health')) {
+    return res.status(404).json({ error: 'Endpoint not found' });
+  }
+  
+  // Serve the web app's index.html for all other routes
+  const indexPath = path.resolve(process.cwd(), 'dist', 'index.html');
+  res.sendFile(indexPath);
 });
 
 // Global error handler

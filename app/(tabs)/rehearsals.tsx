@@ -7,7 +7,7 @@ import RehearsalsDisplay from '../components/RehearsalsDisplay';
 import { useApp } from '../contexts/AppContext';
 
 export default function RehearsalsScreen() {
-  const { actors, rehearsals, handleDeleteRehearsal, handleAddRehearsal, handleAddMultipleRehearsals } = useApp();
+  const { actors, timeslots, rehearsals, handleDeleteRehearsal, handleAddRehearsal, handleAddMultipleRehearsals } = useApp();
   const [addRehearsalModalVisible, setAddRehearsalModalVisible] = useState(false);
   const [autoSchedulerModalVisible, setAutoSchedulerModalVisible] = useState(false);
 
@@ -74,6 +74,7 @@ export default function RehearsalsScreen() {
         onSave={handleSaveRehearsal}
         onCancel={handleCancelAddRehearsal}
         actors={actors}
+        timeslots={timeslots}
       />
       
       <AutoSchedulerModal

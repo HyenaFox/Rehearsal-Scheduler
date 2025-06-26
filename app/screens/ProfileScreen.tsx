@@ -3,12 +3,11 @@ import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacit
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
-import { DEFAULT_SCENES, DEFAULT_TIMESLOTS } from '../types/index';
 import { createActor } from '../utils/actorUtils';
 
 export default function ProfileScreen() {
   const { user, updateProfile, forceLogout } = useAuth();
-  const { actors, setActors } = useApp();
+  const { actors, setActors, timeslots, scenes } = useApp();
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [isActor, setIsActor] = useState(user?.isActor || false);
@@ -45,7 +44,7 @@ export default function ProfileScreen() {
           name.trim(), 
           selectedTimeslots, 
           selectedScenes.map(sceneId => {
-            const scene = DEFAULT_SCENES.find(s => s.id === sceneId);
+            const scene = scenes.find((s: any) => s.id === sceneId);
             return scene ? scene.title : sceneId;
           })
         );
@@ -156,7 +155,7 @@ export default function ProfileScreen() {
             <>
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Available Timeslots</Text>
-                {DEFAULT_TIMESLOTS.map((timeslot) => (
+                {timeslots.map((timeslot: any) => (
                   <TouchableOpacity
                     key={timeslot.id}
                     style={[
@@ -177,7 +176,7 @@ export default function ProfileScreen() {
 
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Scenes</Text>
-                {DEFAULT_SCENES.map((scene) => (
+                {scenes.map((scene: any) => (
                   <TouchableOpacity
                     key={scene.id}
                     style={[

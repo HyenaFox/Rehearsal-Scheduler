@@ -1,48 +1,96 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import Card from '../components/Card';
 import SceneEditModal from '../components/SceneEditModal';
+import { useApp } from '../contexts/AppContext';
+import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
-import { GLOBAL_SCENES, STORAGE_KEYS } from '../types/index';
 import { getActorsInScene, removeScene } from '../utils/actorUtils';
 
-const ScenesScreen = ({ onBack, actors, setActors }) => {
-  const [scenes, setScenes] = useState(GLOBAL_SCENES);
+const ScenesScreen = ({ onBack }) => {
+  const { scenes, setScenes, actors, setActors } = useApp();
   const [editingScene, setEditingScene] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+
   const handleDeleteScene = async (sceneId) => {
     const sceneToDelete = scenes.find(s => s.id === sceneId);
     
-    // Direct deletion without confirmation
-    // Remove from global scenes
-    const updatedScenes = scenes.filter(s => s.id !== sceneId);
-    setScenes(updatedScenes);
-    GLOBAL_SCENES.length = 0;
-    GLOBAL_SCENES.push(...updatedScenes);
-    await AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(updatedScenes));
+    try {
+      // Delete from API
+      await ApiService.deleteScene(sceneId);
+      
+      // Remove from local state
+      const updatedScenes = scenes.filter(s => s.id !== sceneId);
+      setScenes(updatedScenes);
 
-    // Remove from all actors
-    const updatedActors = actors.map(actor => 
-      removeScene(actor, sceneToDelete.title)
-    );
-    setActors(updatedActors);
+      // Remove from all actors (this should ideally be handled by the backend)
+      const updatedActors = actors.map(actor => 
+        removeScene(actor, sceneToDelete.title)
+      );
+      setActors(updatedActors);
+      
+      Alert.alert('Success', 'Scene deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete scene:', error);
+      Alert.alert('Error', 'Failed to delete scene');
+    }
   };
 
-  const handleAddScene = async () => {
-    const newId = `scene-${Date.now()}`;
+  const handleAddScene = () => {
+    // Set up for creating a new scene
     const newScene = {
-      id: newId,
       title: 'New Scene',
-      description: 'Scene description'
+      description: 'Scene description',
+      duration: 30
     };
     
-    const updatedScenes = [...scenes, newScene];
-    setScenes(updatedScenes);
-    GLOBAL_SCENES.length = 0;
-    GLOBAL_SCENES.push(...updatedScenes);
-    await AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(updatedScenes));
+    setEditingScene(newScene);
+    setShowEditModal(true);
+  };
+
+  const handleEditScene = (scene) => {
+    setEditingScene(scene);
+    setShowEditModal(true);
+  };
+
+  const handleSaveScene = async (editedScene) => {
+    try {
+      let updatedScene;
+      
+      if (editedScene.id) {
+        // Update existing scene
+        updatedScene = await ApiService.updateScene(editedScene.id, editedScene);
+        
+        // Update local state
+        const updatedScenes = scenes.map(s => 
+          s.id === editedScene.id ? updatedScene : s
+        );
+        setScenes(updatedScenes);
+        
+        Alert.alert('Success', 'Scene updated successfully');
+      } else {
+        // Create new scene
+        updatedScene = await ApiService.createScene(editedScene);
+        
+        // Add to local state
+        const updatedScenes = [...scenes, updatedScene];
+        setScenes(updatedScenes);
+        
+        Alert.alert('Success', 'Scene added successfully');
+      }
+      
+      setShowEditModal(false);
+      setEditingScene(null);
+    } catch (error) {
+      console.error('Failed to save scene:', error);
+      Alert.alert('Error', 'Failed to save scene');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditingScene(null);
   };
 
   return (
@@ -50,84 +98,71 @@ const ScenesScreen = ({ onBack, actors, setActors }) => {
       <StatusBar barStyle="light-content" />
       <View style={commonStyles.container}>
         <View style={commonStyles.header}>
-          <TouchableOpacity style={commonStyles.backButton} onPress={onBack}>
-            <Text style={commonStyles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
+          {onBack && (
+            <TouchableOpacity style={commonStyles.backButton} onPress={onBack}>
+              <Text style={commonStyles.backButtonText}>← Back</Text>
+            </TouchableOpacity>
+          )}
           <Text style={commonStyles.headerTitle}>Manage Scenes</Text>
         </View>
 
         <View style={commonStyles.scrollView}>
           <ActionButton title="Add New Scene" onPress={handleAddScene} />
 
-          <ScrollView style={{ flex: 1 }}>
-            {scenes.map(scene => (
-              <Card
-                key={scene.id}
-                title={scene.title}
-                sections={[
-                  {
-                    title: 'Description',
-                    content: scene.description
-                  },
-                  {
-                    title: 'Actors in this Scene',
-                    content: getActorsInScene(actors, scene.title).map(actor => actor.name).join(', ') || 'No actors assigned'
-                  }
-                ]}
-                onEdit={() => {
-                  setEditingScene(scene);
-                  setShowEditModal(true);
-                }}
-                onDelete={() => handleDeleteScene(scene.id)}
-              />
-            ))}
-            {scenes.length === 0 && (
-              <View style={commonStyles.emptyState}>
-                <Text style={commonStyles.emptyStateText}>No scenes available</Text>
+          <ScrollView style={commonStyles.scrollView}>
+            {(!scenes || scenes.length === 0) ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No scenes available</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Create your first scene to organize your rehearsals.
+                </Text>
               </View>
+            ) : (
+              scenes.map((scene) => {
+                const actorsInScene = getActorsInScene(actors, scene.title);
+                
+                return (
+                  <Card
+                    key={scene.id}
+                    title={scene.title}
+                    subtitle={scene.description}
+                    description={`Actors: ${actorsInScene.length}`}
+                    onEdit={() => handleEditScene(scene)}
+                    onDelete={() => handleDeleteScene(scene.id)}
+                  />
+                );
+              })
             )}
           </ScrollView>
         </View>
 
-        {/* Scene Edit Modal */}
         <SceneEditModal
           scene={editingScene}
           visible={showEditModal}
-          onSave={async (updatedScene) => {
-            const updatedScenes = scenes.map(s => 
-              s.id === updatedScene.id ? updatedScene : s
-            );
-            
-            setScenes(updatedScenes);
-            GLOBAL_SCENES.length = 0;
-            GLOBAL_SCENES.push(...updatedScenes);
-            await AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(updatedScenes));
-
-            // Update actors if scene title changed
-            if (editingScene.title !== updatedScene.title) {
-              const updatedActors = actors.map(actor => {
-                const sceneIndex = actor.scenes.indexOf(editingScene.title);
-                if (sceneIndex !== -1) {
-                  const newScenes = [...actor.scenes];
-                  newScenes[sceneIndex] = updatedScene.title;
-                  return { ...actor, scenes: newScenes };
-                }
-                return actor;
-              });
-              setActors(updatedActors);
-            }
-
-            setShowEditModal(false);
-            setEditingScene(null);
-          }}
-          onCancel={() => {
-            setShowEditModal(false);
-            setEditingScene(null);
-          }}
+          onSave={handleSaveScene}
+          onCancel={handleCancelEdit}
         />
       </View>
     </SafeAreaView>
   );
+};
+
+const styles = {
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+  },
 };
 
 export default ScenesScreen;

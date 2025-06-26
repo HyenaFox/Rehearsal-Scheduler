@@ -8,7 +8,7 @@ import { commonStyles } from '../styles/common';
 import { getAvailableTimeslots, getScenes } from '../utils/actorUtils';
 
 export default function ActorsScreen() {
-  const { actors, setActors, handleDeleteActor, handleAddActor } = useApp();
+  const { actors, timeslots, scenes, setActors, handleDeleteActor, handleAddActor } = useApp();
   
   // Modal states
   const [actorEditModalVisible, setActorEditModalVisible] = useState(false);
@@ -48,7 +48,7 @@ export default function ActorsScreen() {
                 sections={[
                   {
                     title: 'Available Timeslots',
-                    content: getAvailableTimeslots(actor).map((ts: any) => ts.label).join(', ') || 'No timeslots assigned'
+                    content: getAvailableTimeslots(actor, timeslots || []).map((ts: any) => ts.label).join(', ') || 'No timeslots assigned'
                   },
                   {
                     title: 'Scenes',
@@ -74,6 +74,8 @@ export default function ActorsScreen() {
         visible={actorEditModalVisible}
         onSave={handleSaveActor}
         onCancel={handleCancelActorEdit}
+        timeslots={timeslots}
+        scenes={scenes}
       />
     </SafeAreaView>
   );

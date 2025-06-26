@@ -60,23 +60,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('Token found, validating session...');
       // Check if there's a stored token and try to get current user
-      const currentUser = await ApiService.getCurrentUser();
-      if (currentUser) {
-        console.log('Session valid, user logged in:', currentUser.email);
-        setUser({
-          id: currentUser.id,
-          email: currentUser.email,
-          name: currentUser.name,
-          phone: currentUser.phone || '',
-          isActor: currentUser.isActor,
-          availableTimeslots: currentUser.availableTimeslots || [],
-          scenes: currentUser.scenes || []
-        });
+      try {
+        const currentUser = await ApiService.getCurrentUser();
+        if (currentUser) {
+          console.log('Session valid, user logged in:', currentUser.email);
+          setUser({
+            id: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name,
+            phone: currentUser.phone || '',
+            isActor: currentUser.isActor,
+            availableTimeslots: currentUser.availableTimeslots || [],
+            scenes: currentUser.scenes || []
+          });
+        } else {
+          console.log('Session validation returned no user');
+          setUser(null);
+        }
+      } catch (apiError) {
+        console.log('Session validation API call failed:', apiError);
+        // Don't automatically logout on API errors - backend might be down
+        // Instead, just set user to null and let them try to login again
+        setUser(null);
       }
     } catch (error) {
-      console.log('Session validation failed:', error);
-      // Clear any invalid token silently
-      await ApiService.logout();
+      console.log('Session validation failed with error:', error);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -87,7 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!hasInitialized) {
       loadUser();
     }
-  }, [hasInitialized, loadUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasInitialized]); // Removed loadUser from dependencies to prevent circular dependency
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
@@ -116,17 +125,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           scenes: response.user.scenes || []
         };
         
-        console.log('🔐 AuthContext: Setting user data', userData);
+        console.log('🔐 AuthContext: Setting user data and login successful', userData);
         setUser(userData);
         return true;
       } else {
-        console.log('🔐 AuthContext: No user in response');
+        console.log('🔐 AuthContext: No user in response, login failed');
         return false;
       }
     } catch (error) {
       console.error('🔐 AuthContext: Login error:', error);
       return false;
     } finally {
+      console.log('🔐 AuthContext: Login process completed, setting loading to false');
       setIsLoading(false);
     }
   };

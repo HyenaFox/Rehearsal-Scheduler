@@ -168,9 +168,79 @@ class ApiService {
     });
   }
 
-  // Actor methods
-  static async getAllActors() {
-    return await this.makeRequest('/actors');
+  // Actors API
+  static async getAllActors(): Promise<any[]> {
+    return this.makeRequest('/actors');
+  }
+
+  static async createActor(actor: any): Promise<any> {
+    return this.makeRequest('/actors', {
+      method: 'POST',
+      body: JSON.stringify(actor),
+    });
+  }
+
+  static async updateActor(id: string, actor: any): Promise<any> {
+    return this.makeRequest(`/actors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(actor),
+    });
+  }
+
+  static async deleteActor(id: string): Promise<any> {
+    return this.makeRequest(`/actors/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Timeslots API
+  static async getAllTimeslots(): Promise<any[]> {
+    return this.makeRequest('/timeslots');
+  }
+
+  static async createTimeslot(timeslot: any): Promise<any> {
+    return this.makeRequest('/timeslots', {
+      method: 'POST',
+      body: JSON.stringify(timeslot),
+    });
+  }
+
+  static async updateTimeslot(id: string, timeslot: any): Promise<any> {
+    return this.makeRequest(`/timeslots/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(timeslot),
+    });
+  }
+
+  static async deleteTimeslot(id: string): Promise<any> {
+    return this.makeRequest(`/timeslots/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Scenes API
+  static async getAllScenes(): Promise<any[]> {
+    return this.makeRequest('/scenes');
+  }
+
+  static async createScene(scene: any): Promise<any> {
+    return this.makeRequest('/scenes', {
+      method: 'POST',
+      body: JSON.stringify(scene),
+    });
+  }
+
+  static async updateScene(id: string, scene: any): Promise<any> {
+    return this.makeRequest(`/scenes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(scene),
+    });
+  }
+
+  static async deleteScene(id: string): Promise<any> {
+    return this.makeRequest(`/scenes/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // Health check
@@ -260,6 +330,21 @@ class ApiService {
     hasAvailableSlots: boolean;
   }> {
     return this.makeRequest('/calendar/status');
+  }
+
+  static async checkTimeslotsAvailability(timeslots: any[], dateRange = 30): Promise<{
+    timeslots: any[];
+    totalEvents: number;
+    busyPeriodsCount: number;
+    dateRange: { from: string; to: string };
+    updatedAvailability: boolean;
+    availableTimeslotIds: string[];
+    message: string;
+  }> {
+    return this.makeRequest('/calendar/check-timeslots', {
+      method: 'POST',
+      body: JSON.stringify({ timeslots, dateRange }),
+    });
   }
 
   static async getAvailableSlots(): Promise<{

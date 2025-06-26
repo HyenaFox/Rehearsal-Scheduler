@@ -121,6 +121,162 @@ class GoogleCalendarService {
     return availableSlots;
   }
 
+  // Check specific timeslots against Google Calendar events
+  async checkTimeslotAvailability(timeslots, dateRange = 30) {
+    try {
+      // Get calendar events for the specified date range
+      const today = new Date();
+      const futureDate = new Date(today.getTime() + dateRange * 24 * 60 * 60 * 1000);
+      
+      const events = await this.getCalendarEvents(
+        today.toISOString(),
+        futureDate.toISOString()
+      );
+
+      console.log(`📅 Retrieved ${events.length} calendar events for availability check`);
+
+      // Extract busy periods from events
+      const busyPeriods = events
+        .filter(event => event.start && event.end && event.start.dateTime && event.end.dateTime)
+        .map(event => ({
+          start: new Date(event.start.dateTime),
+          end: new Date(event.end.dateTime),
+          summary: event.summary || 'Untitled Event'
+        }));
+
+      console.log(`📅 Found ${busyPeriods.length} busy periods`);
+
+      // Check each timeslot against busy periods
+      const timeslotAvailability = timeslots.map(timeslot => {
+        const availability = this.checkSingleTimeslotAvailability(timeslot, busyPeriods, dateRange);
+        console.log(`📅 Timeslot ${timeslot.label}: ${availability.totalAvailableDays}/${availability.totalDays} days available`);
+        return availability;
+      });
+
+      return {
+        timeslots: timeslotAvailability,
+        totalEvents: events.length,
+        busyPeriodsCount: busyPeriods.length,
+        dateRange: {
+          from: today.toISOString(),
+          to: futureDate.toISOString()
+        }
+      };
+    } catch (error) {
+      console.error('Error checking timeslot availability:', error);
+      throw new Error('Failed to check timeslot availability against calendar');
+    }
+  }
+
+  // Check a single timeslot against busy periods across multiple days
+  checkSingleTimeslotAvailability(timeslot, busyPeriods, dateRange) {
+    const { day, startTime, endTime } = timeslot;
+    const dayMap = {
+      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+      'Thursday': 4, 'Friday': 5, 'Saturday': 6
+    };
+    
+    const targetDayOfWeek = dayMap[day];
+    if (targetDayOfWeek === undefined) {
+      console.warn(`⚠️ Invalid day format: ${day}`);
+      return {
+        ...timeslot,
+        isAvailable: false,
+        availability: 0,
+        conflicts: [],
+        reason: 'Invalid day format'
+      };
+    }
+
+    // Parse time strings (e.g., "2:00 PM" -> hour: 14, minute: 0)
+    const parseTime = (timeStr) => {
+      const [time, period] = timeStr.split(' ');
+      const [hourStr, minuteStr] = time.split(':');
+      let hour = parseInt(hourStr);
+      const minute = parseInt(minuteStr || '0');
+      
+      if (period === 'PM' && hour !== 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
+      
+      return { hour, minute };
+    };
+
+    const startParsed = parseTime(startTime);
+    const endParsed = parseTime(endTime);
+
+    if (!startParsed || !endParsed) {
+      console.warn(`⚠️ Invalid time format: ${startTime} - ${endTime}`);
+      return {
+        ...timeslot,
+        isAvailable: false,
+        availability: 0,
+        conflicts: [],
+        reason: 'Invalid time format'
+      };
+    }
+
+    // Find all occurrences of this day within the date range
+    const today = new Date();
+    const endDate = new Date(today.getTime() + dateRange * 24 * 60 * 60 * 1000);
+    const occurrences = [];
+    
+    for (let date = new Date(today); date <= endDate; date.setDate(date.getDate() + 1)) {
+      if (date.getDay() === targetDayOfWeek) {
+        const slotStart = new Date(date);
+        slotStart.setHours(startParsed.hour, startParsed.minute, 0, 0);
+        
+        const slotEnd = new Date(date);
+        slotEnd.setHours(endParsed.hour, endParsed.minute, 0, 0);
+        
+        // Handle cases where end time is next day (e.g., late night rehearsals)
+        if (slotEnd <= slotStart) {
+          slotEnd.setDate(slotEnd.getDate() + 1);
+        }
+        
+        occurrences.push({ start: slotStart, end: slotEnd });
+      }
+    }
+
+    // Check each occurrence against busy periods
+    const conflicts = [];
+    let availableCount = 0;
+
+    occurrences.forEach((occurrence, index) => {
+      const conflictingEvents = busyPeriods.filter(busy => 
+        // Check for any overlap between the timeslot and busy period
+        (occurrence.start < busy.end && occurrence.end > busy.start)
+      );
+
+      if (conflictingEvents.length === 0) {
+        availableCount++;
+      } else {
+        conflicts.push({
+          date: occurrence.start.toDateString(),
+          conflictingEvents: conflictingEvents.map(event => ({
+            summary: event.summary,
+            start: event.start.toISOString(),
+            end: event.end.toISOString()
+          }))
+        });
+      }
+    });
+
+    const availability = occurrences.length > 0 ? (availableCount / occurrences.length) : 0;
+    const isAvailable = availability > 0.5; // Available if more than 50% of occurrences are free
+
+    return {
+      ...timeslot,
+      isAvailable,
+      availability: Math.round(availability * 100) / 100, // Round to 2 decimal places
+      totalDays: occurrences.length,
+      totalAvailableDays: availableCount,
+      conflicts,
+      nextAvailableDate: occurrences.find((occ, i) => 
+        !busyPeriods.some(busy => occ.start < busy.end && occ.end > busy.start)
+      )?.start.toDateString() || null
+    };
+  }
+
   // Get user info from Google
   async getUserInfo() {
     try {

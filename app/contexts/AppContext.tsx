@@ -1,18 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import ApiService from '../services/api';
 import { STORAGE_KEYS } from '../types/index';
 import { createActor } from '../utils/actorUtils';
 
 interface AppContextType {
   actors: any[];
   rehearsals: any[];
+  timeslots: any[];
+  scenes: any[];
   setActors: (actors: any[]) => void;
   setRehearsals: (rehearsals: any[]) => void;
+  setTimeslots: (timeslots: any[]) => void;
+  setScenes: (scenes: any[]) => void;
   handleDeleteActor: (actor: any) => void;
   handleDeleteRehearsal: (index: number) => void;
   handleAddActor: () => void;
   handleAddRehearsal: (rehearsal: any) => void;
   handleAddMultipleRehearsals: (rehearsals: any[]) => void;
+  loadTimeslots: () => Promise<void>;
+  loadScenes: () => Promise<void>;
+  loadActors: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -28,28 +36,63 @@ export const useApp = () => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [actors, setActors] = useState<any[]>([]);
   const [rehearsals, setRehearsals] = useState<any[]>([]);
+  const [timeslots, setTimeslots] = useState<any[]>([]);
+  const [scenes, setScenes] = useState<any[]>([]);
+
+  // Load data from API
+  const loadActors = async () => {
+    try {
+      const apiActors = await ApiService.getAllActors();
+      setActors(apiActors);
+    } catch (error) {
+      console.error('Failed to load actors from API:', error);
+      // Fallback to local storage
+      const actorsData = await AsyncStorage.getItem(STORAGE_KEYS.ACTORS);
+      if (actorsData) {
+        setActors(JSON.parse(actorsData));
+      }
+    }
+  };
+
+  const loadTimeslots = async () => {
+    try {
+      const apiTimeslots = await ApiService.getAllTimeslots();
+      setTimeslots(apiTimeslots);
+    } catch (error) {
+      console.error('Failed to load timeslots from API:', error);
+      // Fallback to local storage
+      const timeslotsData = await AsyncStorage.getItem(STORAGE_KEYS.TIMESLOTS);
+      if (timeslotsData) {
+        setTimeslots(JSON.parse(timeslotsData));
+      }
+    }
+  };
+
+  const loadScenes = async () => {
+    try {
+      const apiScenes = await ApiService.getAllScenes();
+      setScenes(apiScenes);
+    } catch (error) {
+      console.error('Failed to load scenes from API:', error);
+      // Fallback to local storage
+      const scenesData = await AsyncStorage.getItem(STORAGE_KEYS.SCENES);
+      if (scenesData) {
+        setScenes(JSON.parse(scenesData));
+      }
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load actors from storage
-        const actorsData = await AsyncStorage.getItem(STORAGE_KEYS.ACTORS);
-        if (actorsData) {
-          setActors(JSON.parse(actorsData));
-        } else {
-          // Use default data if nothing in storage
-          const defaultActors = [
-            createActor('1', 'Eleanor Vance', ['mon-2pm-4pm', 'wed-10am-1pm'], ['Act I, Scene 2', 'Act II, Scene 1']),
-            createActor('2', 'Leo Maxwell', ['tue-3pm-5pm', 'fri-11am-2pm'], ['Act I, Scene 1', 'Act II, Scene 3']),
-            createActor('3', 'Clara Beaumont', ['mon-2pm-4pm', 'thu-6pm-8pm'], ['Act I, Scene 2', 'Act III, Scene 4']),
-            createActor('4', 'Julian Adler', ['wed-10am-1pm', 'fri-11am-2pm'], ['Act II, Scene 1', 'Act II, Scene 3']),
-            createActor('5', 'Aurora Chen', ['tue-3pm-5pm', 'thu-6pm-8pm'], ['Act I, Scene 1', 'Act III, Scene 4']),
-          ];
-          setActors(defaultActors);
-          await AsyncStorage.setItem(STORAGE_KEYS.ACTORS, JSON.stringify(defaultActors));
-        }
+        // Load all data from API/storage
+        await Promise.all([
+          loadActors(),
+          loadTimeslots(), 
+          loadScenes()
+        ]);
 
-        // Load rehearsals from storage
+        // Load rehearsals from storage (not from API yet)
         const rehearsalsData = await AsyncStorage.getItem(STORAGE_KEYS.REHEARSALS);
         if (rehearsalsData) {
           setRehearsals(JSON.parse(rehearsalsData));
@@ -73,6 +116,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEYS.REHEARSALS, JSON.stringify(rehearsals));
   }, [rehearsals]);
+
+  // Save timeslots when they change
+  useEffect(() => {
+    if (timeslots.length > 0) {
+      AsyncStorage.setItem(STORAGE_KEYS.TIMESLOTS, JSON.stringify(timeslots));
+    }
+  }, [timeslots]);
+
+  // Save scenes when they change
+  useEffect(() => {
+    if (scenes.length > 0) {
+      AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(scenes));
+    }
+  }, [scenes]);
 
   const handleDeleteActor = (actor: any) => {
     // Direct deletion without confirmation
@@ -104,13 +161,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const value = {
     actors,
     rehearsals,
+    timeslots,
+    scenes,
     setActors,
     setRehearsals,
+    setTimeslots,
+    setScenes,
     handleDeleteActor,
     handleDeleteRehearsal,
     handleAddActor,
     handleAddRehearsal,
     handleAddMultipleRehearsals,
+    loadActors,
+    loadTimeslots,
+    loadScenes,
   };
 
   return (

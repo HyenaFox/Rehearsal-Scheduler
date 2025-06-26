@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
@@ -10,29 +10,24 @@ interface AuthWrapperProps {
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { user, isLoading } = useAuth();
-  const [forceLoginScreen, setForceLoginScreen] = useState(false);
 
   useEffect(() => {
-    console.log('AuthWrapper - user state changed:', user ? 'logged in' : 'logged out');
+    console.log('AuthWrapper - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
     console.log('AuthWrapper - isLoading:', isLoading);
     console.log('AuthWrapper - user object:', user);
     
     // Test API connection when wrapper initializes
     if (!user && !isLoading) {
+      console.log('AuthWrapper - Testing API connection...');
       testApiConnection().then(connected => {
         if (connected) {
           console.log('✅ AuthWrapper - API connection is working');
         } else {
-          console.log('❌ AuthWrapper - API connection failed');
+          console.log('❌ AuthWrapper - API connection failed - this may cause login issues');
         }
+      }).catch(err => {
+        console.log('❌ AuthWrapper - API connection test failed with error:', err);
       });
-    }
-    
-    // If user becomes null, force login screen for a moment to ensure proper transition
-    if (!user && !isLoading) {
-      setForceLoginScreen(true);
-      // Reset after a tiny delay to ensure clean state
-      setTimeout(() => setForceLoginScreen(false), 100);
     }
   }, [user, isLoading]);
 
@@ -45,7 +40,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     );
   }
 
-  if (!user || forceLoginScreen) {
+  if (!user) {
     console.log('AuthWrapper - no user, showing login screen');
     return <LoginScreen />;
   }

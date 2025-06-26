@@ -1,28 +1,39 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { GLOBAL_TIMESLOTS } from '../types/index';
+import { useApp } from '../contexts/AppContext';
 import {
-    autoScheduleDay,
-    createRehearsalFromOpportunity,
-    findBestRehearsalOpportunities,
-    getSchedulingSummary
+  autoScheduleDay,
+  createRehearsalFromOpportunity,
+  findBestRehearsalOpportunities,
+  getSchedulingSummary
 } from '../utils/autoScheduler';
 
 const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehearsals }) => {
+  const { timeslots, scenes } = useApp();
   const [selectedDay, setSelectedDay] = useState('Monday');
   const [opportunities, setOpportunities] = useState([]);
   const [summary, setSummary] = useState(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
 
   // Get unique days from timeslots
-  const availableDays = [...new Set(GLOBAL_TIMESLOTS.map(ts => ts.day))];
+  const availableDays = timeslots && timeslots.length > 0 
+    ? [...new Set(timeslots.map(ts => ts.day))] 
+    : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const updateOpportunities = useCallback(() => {
-    const opps = findBestRehearsalOpportunities(actors, selectedDay, existingRehearsals);
-    const summaryData = getSchedulingSummary(actors, selectedDay, existingRehearsals);
+    // Only run if we have timeslots and scenes loaded
+    if (!timeslots || !scenes || timeslots.length === 0) {
+      setOpportunities([]);
+      setSummary(null);
+      setSelectedOpportunity(null);
+      return;
+    }
+    
+    const opps = findBestRehearsalOpportunities(actors, selectedDay, existingRehearsals, timeslots, scenes);
+    const summaryData = getSchedulingSummary(actors, selectedDay, existingRehearsals, timeslots, scenes);
     setOpportunities(opps);
     setSummary(summaryData);
     setSelectedOpportunity(opps[0] || null);
-  }, [actors, selectedDay, existingRehearsals]);
+  }, [actors, selectedDay, existingRehearsals, timeslots, scenes]);
 
   useEffect(() => {
     if (visible && selectedDay) {
@@ -49,7 +60,7 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
         {
           text: 'Create All',
           onPress: () => {
-            const newRehearsals = autoScheduleDay(actors, selectedDay, existingRehearsals, 5);
+            const newRehearsals = autoScheduleDay(actors, selectedDay, existingRehearsals, timeslots, scenes, 5);
             if (newRehearsals.length === 0) {
               Alert.alert('No Opportunities', 'No rehearsal opportunities found for this day.');
               return;
@@ -143,7 +154,16 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
 
           {/* Opportunities List */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🎯 Best Opportunities</Text>            {opportunities.length === 0 ? (
+            <Text style={styles.sectionTitle}>🎯 Best Opportunities</Text>
+            {!timeslots || timeslots.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No timeslots available</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Please create some timeslots in the Timeslots screen first.
+                  {'\n\n'}The auto-scheduler needs timeslots to find rehearsal opportunities.
+                </Text>
+              </View>
+            ) : opportunities.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>No rehearsal opportunities found for {selectedDay}</Text>
                 <Text style={styles.emptyStateSubtext}>
@@ -192,7 +212,7 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          {opportunities.length > 0 && (
+          {timeslots && timeslots.length > 0 && opportunities.length > 0 && (
             <>
               <TouchableOpacity
                 style={[styles.actionButton, styles.createButton]}

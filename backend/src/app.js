@@ -10,6 +10,9 @@ require('dotenv').config();
 const { initDB } = require('./models/database');
 const authRoutes = require('./routes/auth');
 const calendarRoutes = require('./routes/calendar');
+const actorsRoutes = require('./routes/actors');
+const timeslotsRoutes = require('./routes/timeslots');
+const scenesRoutes = require('./routes/scenes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,8 +48,8 @@ if (process.env.NODE_ENV === 'production') {
     distPath = path.resolve(process.cwd(), 'dist'); // Fallback
   }
 } else {
-  // Development: local path
-  distPath = path.resolve(process.cwd(), 'dist');
+  // Development: dist is in parent directory
+  distPath = path.resolve(process.cwd(), '../dist');
 }
 
 console.log('📁 Serving static files from:', distPath);
@@ -56,6 +59,7 @@ if (fs.existsSync(distPath)) {
   console.log('✅ Static file serving enabled');
 } else {
   console.log('❌ Static files directory not found - web app will not be served');
+  console.log('🔍 Tried path:', distPath);
 }
 
 // Security middleware
@@ -108,6 +112,12 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/actors', actorsRoutes);
+app.use('/api/timeslots', timeslotsRoutes);
+app.use('/api/scenes', scenesRoutes);
+app.use('/api/actors', actorsRoutes);
+app.use('/api/timeslots', timeslotsRoutes);
+app.use('/api/scenes', scenesRoutes);
 
 // Root endpoint - provide API information
 app.get('/', (req, res) => {
@@ -126,11 +136,31 @@ app.get('/', (req, res) => {
         'GET /api/auth/me': 'Get current user (requires auth)',
         'PUT /api/auth/profile': 'Update user profile (requires auth)'
       },
+      actors: {
+        'GET /api/actors': 'Get all actors (requires auth)',
+        'POST /api/actors': 'Create a new actor (requires auth)',
+        'PUT /api/actors/:id': 'Update an actor (requires auth)',
+        'DELETE /api/actors/:id': 'Delete an actor (requires auth)'
+      },
+      timeslots: {
+        'GET /api/timeslots': 'Get all timeslots (requires auth)',
+        'POST /api/timeslots': 'Create a new timeslot (requires auth)',
+        'PUT /api/timeslots/:id': 'Update a timeslot (requires auth)',
+        'DELETE /api/timeslots/:id': 'Delete a timeslot (requires auth)'
+      },
+      scenes: {
+        'GET /api/scenes': 'Get all scenes (requires auth)',
+        'POST /api/scenes': 'Create a new scene (requires auth)',
+        'PUT /api/scenes/:id': 'Update a scene (requires auth)',
+        'DELETE /api/scenes/:id': 'Delete a scene (requires auth)'
+      },
       calendar: {
         'GET /api/calendar': 'Calendar API info',
         'GET /api/calendar/auth/google': 'Start Google OAuth (requires auth)',
+        'GET /api/calendar/auth/google/callback': 'Handle OAuth redirect from Google',
         'POST /api/calendar/auth/google/callback': 'Handle OAuth callback (requires auth)', 
         'GET /api/calendar/status': 'Check connection status (requires auth)',
+        'POST /api/calendar/check-timeslots': 'Check timeslots against calendar and update availability (requires auth)',
         'GET /api/calendar/available-slots': 'Get available slots (requires auth)',
         'POST /api/calendar/import-slots': 'Import slots (requires auth)',
         'DELETE /api/calendar/disconnect': 'Disconnect calendar (requires auth)'
@@ -158,11 +188,30 @@ app.get('/api', (req, res) => {
       calendar: {
         'GET /api/calendar': 'Calendar API info',
         'GET /api/calendar/auth/google': 'Start Google OAuth (requires auth)',
+        'GET /api/calendar/auth/google/callback': 'Handle OAuth redirect from Google',
         'POST /api/calendar/auth/google/callback': 'Handle OAuth callback (requires auth)',
         'GET /api/calendar/status': 'Check connection status (requires auth)',
         'GET /api/calendar/available-slots': 'Get available slots (requires auth)',
         'POST /api/calendar/import-slots': 'Import slots (requires auth)',
         'DELETE /api/calendar/disconnect': 'Disconnect calendar (requires auth)'
+      },
+      actors: {
+        'GET /api/actors': 'Get all actors (requires auth)',
+        'POST /api/actors': 'Create a new actor (requires auth)',
+        'PUT /api/actors/:id': 'Update an actor (requires auth)',
+        'DELETE /api/actors/:id': 'Delete an actor (requires auth)'
+      },
+      timeslots: {
+        'GET /api/timeslots': 'Get all timeslots (requires auth)',
+        'POST /api/timeslots': 'Create a new timeslot (requires auth)',
+        'PUT /api/timeslots/:id': 'Update a timeslot (requires auth)',
+        'DELETE /api/timeslots/:id': 'Delete a timeslot (requires auth)'
+      },
+      scenes: {
+        'GET /api/scenes': 'Get all scenes (requires auth)',
+        'POST /api/scenes': 'Create a new scene (requires auth)',
+        'PUT /api/scenes/:id': 'Update a scene (requires auth)',
+        'DELETE /api/scenes/:id': 'Delete a scene (requires auth)'
       }
     },
     documentation: 'All endpoints except /api, /health, and / require authentication'
@@ -183,7 +232,19 @@ app.use('/api/*', (req, res) => {
       'GET /api/calendar/status',
       'GET /api/calendar/available-slots',
       'POST /api/calendar/import-slots',
-      'DELETE /api/calendar/disconnect'
+      'DELETE /api/calendar/disconnect',
+      'GET /api/actors',
+      'POST /api/actors',
+      'PUT /api/actors/:id',
+      'DELETE /api/actors/:id',
+      'GET /api/timeslots',
+      'POST /api/timeslots',
+      'PUT /api/timeslots/:id',
+      'DELETE /api/timeslots/:id',
+      'GET /api/scenes',
+      'POST /api/scenes',
+      'PUT /api/scenes/:id',
+      'DELETE /api/scenes/:id'
     ]
   });
 });

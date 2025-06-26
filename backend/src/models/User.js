@@ -112,6 +112,13 @@ userSchema.statics.updateUser = async function(id, updates) {
   );
 };
 
+// Static method to get all actors
+userSchema.statics.getAllActors = async function() {
+  return this.find({ isActor: true })
+    .select('name email phone availableTimeslots scenes createdAt updatedAt')
+    .sort({ name: 1 });
+};
+
 // Transform JSON output (remove sensitive data)
 userSchema.methods.toJSON = function() {
   const user = this.toObject();

@@ -17,7 +17,8 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    req.user = { userId: user._id, ...user.toObject() };
+    req.user = user;
+    req.userId = user._id;
     next();
   } catch (_error) {
     return res.status(403).json({ error: 'Invalid token' });

@@ -32,7 +32,19 @@ const userSchema = new mongoose.Schema({
   }],
   scenes: [{
     type: String
-  }]
+  }],
+  // Google Calendar integration fields
+  googleCalendarTokens: {
+    access_token: String,
+    refresh_token: String,
+    scope: String,
+    token_type: String,
+    expiry_date: Number
+  },
+  googleEmail: {
+    type: String,
+    trim: true
+  }
 }, {
   timestamps: true // This adds createdAt and updatedAt automatically
 });

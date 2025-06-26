@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { DEFAULT_SCENES, DEFAULT_TIMESLOTS } from '../types/index';
@@ -201,7 +202,18 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        <TouchableOpacity 
+        {/* Google Calendar Integration Section */}
+        {isActor && (
+          <GoogleCalendarIntegration 
+            onSlotsImported={(slots) => {
+              // Handle imported slots - you can add logic here to merge with existing timeslots
+              console.log('Slots imported:', slots);
+              // Optionally refresh the profile data
+            }}
+          />
+        )}
+
+        <TouchableOpacity
           style={[styles.saveButton, isLoading && styles.disabledButton]}
           onPress={handleSave}
           disabled={isLoading}

@@ -1,8 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = __DEV__ 
-  ? 'http://192.168.1.159:3000/api' // For physical device (use localhost:3000/api for emulator)
+  ? 'http://10.0.2.2:3000/api' // For Android emulator - maps to localhost:3000
   : 'https://rehearsal-scheduler.onrender.com/api'; // Your Render.com URL
+
+// Alternative URLs for different testing scenarios:
+// 'http://localhost:3000/api' - Use this for web browser testing  
+// 'http://10.0.2.2:3000/api' - Use this for Android emulator (RECOMMENDED for Google OAuth)
+// 'http://192.168.1.159:3000/api' - Use this for physical device (but Google OAuth won't work)
 
 class ApiService {
   private static async getAuthToken(): Promise<string | null> {
@@ -212,6 +217,48 @@ class ApiService {
       console.log('🧪 Login failed:', error);
       throw error;
     }
+  }
+
+  // Google Calendar Integration Methods
+  static async getGoogleAuthUrl(): Promise<string> {
+    const response = await this.makeRequest('/calendar/auth/google');
+    return response.authUrl;
+  }
+
+  static async handleGoogleCallback(code: string): Promise<any> {
+    return this.makeRequest('/calendar/auth/google/callback', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  static async getGoogleCalendarStatus(): Promise<{
+    isConnected: boolean;
+    googleEmail?: string;
+    hasAvailableSlots: boolean;
+  }> {
+    return this.makeRequest('/calendar/status');
+  }
+
+  static async getAvailableSlots(): Promise<{
+    availableSlots: any[];
+    busyEventsCount: number;
+    dateRange: { from: string; to: string };
+  }> {
+    return this.makeRequest('/calendar/available-slots');
+  }
+
+  static async importSelectedSlots(selectedSlots: any[]): Promise<any> {
+    return this.makeRequest('/calendar/import-slots', {
+      method: 'POST',
+      body: JSON.stringify({ selectedSlots }),
+    });
+  }
+
+  static async disconnectGoogleCalendar(): Promise<any> {
+    return this.makeRequest('/calendar/disconnect', {
+      method: 'DELETE',
+    });
   }
 }
 

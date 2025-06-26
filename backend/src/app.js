@@ -2,10 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+
+// Load environment variables - dotenv will look for .env in the current working directory
 require('dotenv').config();
 
 const { initDB } = require('./models/database');
 const authRoutes = require('./routes/auth');
+const calendarRoutes = require('./routes/calendar');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +38,17 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Request logging middleware
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`📝 [${timestamp}] ${req.method} ${req.url}`);
+  console.log(`📝 Headers:`, JSON.stringify(req.headers, null, 2));
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`📝 Body:`, JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
@@ -48,6 +62,34 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/calendar', calendarRoutes);
+
+// API base route
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'Rehearsal Scheduler API',
+    version: '1.0.0',
+    status: 'online',
+    endpoints: {
+      auth: {
+        'POST /api/auth/register': 'Register a new user',
+        'POST /api/auth/login': 'Login user',
+        'GET /api/auth/me': 'Get current user (requires auth)',
+        'PUT /api/auth/profile': 'Update user profile (requires auth)'
+      },
+      calendar: {
+        'GET /api/calendar': 'Calendar API info',
+        'GET /api/calendar/auth/google': 'Start Google OAuth (requires auth)',
+        'POST /api/calendar/auth/google/callback': 'Handle OAuth callback (requires auth)',
+        'GET /api/calendar/status': 'Check connection status (requires auth)',
+        'GET /api/calendar/available-slots': 'Get available slots (requires auth)',
+        'POST /api/calendar/import-slots': 'Import slots (requires auth)',
+        'DELETE /api/calendar/disconnect': 'Disconnect calendar (requires auth)'
+      }
+    },
+    documentation: 'All endpoints except /api, /health, and / require authentication'
+  });
+});
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -56,7 +98,8 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
-      auth: '/api/auth/*'
+      auth: '/api/auth/*',
+      calendar: '/api/calendar/*'
     }
   });
 });
@@ -71,7 +114,13 @@ app.use('*', (req, res) => {
       'POST /api/auth/register',
       'POST /api/auth/login',
       'GET /api/auth/me',
-      'PUT /api/auth/profile'
+      'PUT /api/auth/profile',
+      'GET /api/calendar/auth/google',
+      'POST /api/calendar/auth/google/callback',
+      'GET /api/calendar/status',
+      'GET /api/calendar/available-slots',
+      'POST /api/calendar/import-slots',
+      'DELETE /api/calendar/disconnect'
     ]
   });
 });

@@ -111,6 +111,7 @@ userSchema.methods.toJSON = function() {
   return user;
 };
 
-const User = mongoose.model('User', userSchema);
+// Prevent OverwriteModelError by checking if model already exists
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 module.exports = User;

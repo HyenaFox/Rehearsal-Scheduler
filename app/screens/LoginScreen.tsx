@@ -9,7 +9,7 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login, register } = useAuth();
+  const { login, register, skipLogin } = useAuth();
 
   const handleSubmit = async () => {
     if (!email || !password || (isRegisterMode && !name)) {
@@ -113,6 +113,12 @@ export default function LoginScreen() {
                 : "Don't have an account? Sign Up"}
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.skipButton} onPress={skipLogin}>
+            <Text style={styles.skipButtonText}>
+              Skip Login - Continue as Guest
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -196,5 +202,19 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 14,
     textAlign: 'center',
+  },
+  skipButton: {
+    paddingVertical: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#f8f8f8',
+  },
+  skipButtonText: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

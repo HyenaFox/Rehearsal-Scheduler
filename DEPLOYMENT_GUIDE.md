@@ -32,7 +32,7 @@ The error you encountered happened because you tried to deploy your React Native
      - **Start Command:** `npm start`
      - **Environment Variables:**
        - `NODE_ENV` = `production`
-       - `DATABASE_URL` = postgresql://rehearsal_scheduler_db_user:LKGSOBWXKcbmf3qAI1z2UZ7fDZuYHqCJ@dpg-d1e9ssje5dus73b6d0eg-a/rehearsal_scheduler_db
+       - `MONGODB_URI` = mongodb+srv://username:password@cluster.mongodb.net/rehearsal-scheduler?retryWrites=true&w=majority
        - `JWT_SECRET` = 05173863acda0d0d12d31c43bda699b64d913e16d1e4b29da14c1355ec7b57d0
 
 5. **Deploy** - Render will build and deploy your API

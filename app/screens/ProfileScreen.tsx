@@ -15,6 +15,8 @@ export default function ProfileScreen() {
   const [selectedScenes, setSelectedScenes] = useState<string[]>(user?.scenes || []);
   const [isLoading, setIsLoading] = useState(false);
 
+  const isGuestUser = user?.id === 'guest';
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Error', 'Name is required');

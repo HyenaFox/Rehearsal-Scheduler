@@ -47,17 +47,29 @@ class ApiService {
       ...options,
     };
 
+    console.log(`🌐 Making request to: ${API_BASE_URL}${endpoint}`);
+    console.log(`🌐 Request config:`, { 
+      method: options.method || 'GET', 
+      hasToken: !!token,
+      hasBody: !!options.body 
+    });
+
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
       
+      console.log(`🌐 Response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Network error' }));
+        console.log(`🌐 Error response:`, errorData);
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      console.log(`🌐 Success response received for ${endpoint}`);
+      return responseData;
     } catch (error) {
-      console.error('API request error:', error);
+      console.error('🌐 API request error:', error);
       throw error;
     }
   }
@@ -154,6 +166,52 @@ class ApiService {
   static async debugClearToken() {
     await this.removeAuthToken();
     console.log('🔍 Token cleared for debugging');
+  }
+
+  // Test backend connection
+  static async testBackendConnection() {
+    console.log('🧪 Testing backend connection...');
+    try {
+      const health = await this.healthCheck();
+      console.log('🧪 Health check result:', health);
+      
+      if (!health) {
+        console.log('❌ Backend is not responding');
+        return false;
+      }
+      
+      console.log('✅ Backend is responding correctly');
+      return true;
+    } catch (error) {
+      console.log('❌ Backend connection failed:', error);
+      return false;
+    }
+  }
+
+  // Test registration flow
+  static async testRegistration(email: string, password: string, name: string) {
+    console.log('🧪 Testing registration flow...');
+    try {
+      const result = await this.register({ email, password, name });
+      console.log('🧪 Registration result:', { hasToken: !!result.token, hasUser: !!result.user });
+      return result;
+    } catch (error) {
+      console.log('🧪 Registration failed:', error);
+      throw error;
+    }
+  }
+
+  // Test login flow
+  static async testLogin(email: string, password: string) {
+    console.log('🧪 Testing login flow...');
+    try {
+      const result = await this.login({ email, password });
+      console.log('🧪 Login result:', { hasToken: !!result.token, hasUser: !!result.user });
+      return result;
+    } catch (error) {
+      console.log('🧪 Login failed:', error);
+      throw error;
+    }
   }
 }
 

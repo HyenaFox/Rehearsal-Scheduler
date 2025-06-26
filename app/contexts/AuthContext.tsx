@@ -21,6 +21,7 @@ interface AuthContextType {
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
   forceLogout: () => void;
+  skipLogin: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -93,11 +94,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log('🔐 AuthContext: Starting login for', email);
       setIsLoading(true);
       const response = await ApiService.login({ email, password });
       
+      console.log('🔐 AuthContext: Login response received', { 
+        hasToken: !!response.token, 
+        hasUser: !!response.user,
+        userEmail: response.user?.email 
+      });
+      
       if (response.user) {
-        setUser({
+        const userData = {
           id: response.user.id,
           email: response.user.email,
           name: response.user.name,
@@ -105,12 +113,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isActor: response.user.isActor,
           availableTimeslots: response.user.availableTimeslots || [],
           scenes: response.user.scenes || []
-        });
+        };
+        
+        console.log('🔐 AuthContext: Setting user data', userData);
+        setUser(userData);
         return true;
+      } else {
+        console.log('🔐 AuthContext: No user in response');
+        return false;
       }
-      return false;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('🔐 AuthContext: Login error:', error);
       return false;
     } finally {
       setIsLoading(false);
@@ -119,11 +132,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
+      console.log('🔐 AuthContext: Starting registration for', email);
       setIsLoading(true);
       const response = await ApiService.register({ email, password, name });
       
+      console.log('🔐 AuthContext: Registration response received', { 
+        hasToken: !!response.token, 
+        hasUser: !!response.user,
+        userEmail: response.user?.email 
+      });
+      
       if (response.user) {
-        setUser({
+        const userData = {
           id: response.user.id,
           email: response.user.email,
           name: response.user.name,
@@ -131,12 +151,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isActor: response.user.isActor,
           availableTimeslots: response.user.availableTimeslots || [],
           scenes: response.user.scenes || []
-        });
+        };
+        
+        console.log('🔐 AuthContext: Setting user data', userData);
+        setUser(userData);
         return true;
+      } else {
+        console.log('🔐 AuthContext: No user in response');
+        return false;
       }
-      return false;
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('🔐 AuthContext: Registration error:', error);
       return false;
     } finally {
       setIsLoading(false);
@@ -190,6 +215,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const skipLogin = useCallback(() => {
+    console.log('🔐 Skip login called - creating guest user');
+    // Create a temporary guest user that allows app usage without authentication
+    const guestUser: User = {
+      id: 'guest',
+      email: 'guest@local',
+      name: 'Guest User',
+      phone: '',
+      isActor: false,
+      availableTimeslots: [],
+      scenes: []
+    };
+    setUser(guestUser);
+    setIsLoading(false);
+  }, []);
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -199,6 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateProfile,
     setUserAsActor,
     forceLogout,
+    skipLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

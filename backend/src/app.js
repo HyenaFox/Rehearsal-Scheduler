@@ -15,10 +15,48 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Serve static files from the dist directory (web app)
-// Using path.resolve to get absolute path
-const distPath = path.resolve(process.cwd(), 'dist');
+// Handle different deployment scenarios
+let distPath;
+if (process.env.NODE_ENV === 'production') {
+  // Production: try different possible paths
+  const productionPaths = [
+    path.resolve(process.cwd(), '../dist'),           // If backend is in subfolder
+    path.resolve(process.cwd(), 'dist'),              // If at root level
+    path.resolve(process.cwd(), '../../dist'),        // Two levels up
+    path.resolve(process.cwd(), '../../../dist')      // Three levels up
+  ];
+  
+  // Use the first path that exists
+  for (const testPath of productionPaths) {
+    try {
+      const fs = require('fs');
+      if (fs.existsSync(testPath)) {
+        distPath = testPath;
+        break;
+      }
+    } catch (_err) {
+      // Continue to next path
+    }
+  }
+  
+  if (!distPath) {
+    console.log('⚠️ Warning: dist directory not found in production. Web app will not be served.');
+    console.log('🔍 Searched paths:', productionPaths);
+    distPath = path.resolve(process.cwd(), 'dist'); // Fallback
+  }
+} else {
+  // Development: local path
+  distPath = path.resolve(process.cwd(), 'dist');
+}
+
 console.log('📁 Serving static files from:', distPath);
-app.use(express.static(distPath));
+const fs = require('fs');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  console.log('✅ Static file serving enabled');
+} else {
+  console.log('❌ Static files directory not found - web app will not be served');
+}
 
 // Security middleware
 app.use(helmet());
@@ -70,6 +108,39 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);
+
+// Root endpoint - provide API information
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Rehearsal Scheduler API',
+    version: '1.0.0',
+    status: 'online',
+    description: 'Backend API for the Rehearsal Scheduler mobile and web application',
+    endpoints: {
+      health: {
+        'GET /health': 'API health check'
+      },
+      auth: {
+        'POST /api/auth/register': 'Register a new user',
+        'POST /api/auth/login': 'Login user', 
+        'GET /api/auth/me': 'Get current user (requires auth)',
+        'PUT /api/auth/profile': 'Update user profile (requires auth)'
+      },
+      calendar: {
+        'GET /api/calendar': 'Calendar API info',
+        'GET /api/calendar/auth/google': 'Start Google OAuth (requires auth)',
+        'POST /api/calendar/auth/google/callback': 'Handle OAuth callback (requires auth)', 
+        'GET /api/calendar/status': 'Check connection status (requires auth)',
+        'GET /api/calendar/available-slots': 'Get available slots (requires auth)',
+        'POST /api/calendar/import-slots': 'Import slots (requires auth)',
+        'DELETE /api/calendar/disconnect': 'Disconnect calendar (requires auth)'
+      }
+    },
+    documentation: 'All endpoints except /, /health, and /api require authentication',
+    mobile_app: 'This API serves a React Native mobile application',
+    web_app: 'Web version available at a separate deployment'
+  });
+});
 
 // API base route
 app.get('/api', (req, res) => {
@@ -124,9 +195,32 @@ app.get('*', (req, res) => {
     return res.status(404).json({ error: 'Endpoint not found' });
   }
   
+  // Check if we have static files available
+  if (!distPath || !fs.existsSync(distPath)) {
+    return res.status(404).json({ 
+      error: 'Web app not available',
+      message: 'Static files not found. This is an API-only deployment.',
+      api: {
+        base: '/api',
+        health: '/health'
+      }
+    });
+  }
+  
   // Serve the web app's index.html for all other routes
-  const indexPath = path.resolve(process.cwd(), 'dist', 'index.html');
-  res.sendFile(indexPath);
+  const indexPath = path.resolve(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ 
+      error: 'Web app not available',
+      message: 'index.html not found. This is an API-only deployment.',
+      api: {
+        base: '/api',
+        health: '/health'
+      }
+    });
+  }
 });
 
 // Global error handler

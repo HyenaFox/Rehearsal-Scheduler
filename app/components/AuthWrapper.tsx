@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
+import { testApiConnection } from '../utils/testApiConnection';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -15,6 +16,17 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     console.log('AuthWrapper - user state changed:', user ? 'logged in' : 'logged out');
     console.log('AuthWrapper - isLoading:', isLoading);
     console.log('AuthWrapper - user object:', user);
+    
+    // Test API connection when wrapper initializes
+    if (!user && !isLoading) {
+      testApiConnection().then(connected => {
+        if (connected) {
+          console.log('✅ AuthWrapper - API connection is working');
+        } else {
+          console.log('❌ AuthWrapper - API connection failed');
+        }
+      });
+    }
     
     // If user becomes null, force login screen for a moment to ensure proper transition
     if (!user && !isLoading) {

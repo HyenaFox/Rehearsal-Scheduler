@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000/api' // For development
+  ? 'http://192.168.1.159:3000/api' // For physical device (use localhost:3000/api for emulator)
   : 'https://rehearsal-scheduler.onrender.com/api'; // Your Render.com URL
 
 class ApiService {

@@ -54,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!token) {
         // No token stored, user is not logged in
         console.log('No auth token found, user not logged in');
+        setIsLoading(false); // Important: Set loading to false here!
         return;
       }
 

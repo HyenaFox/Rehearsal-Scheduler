@@ -93,35 +93,13 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity style={styles.forceLogoutButton} onPress={() => {
-            console.log('Force logout button pressed');
-            forceLogout();
-            Alert.alert('Force Logout', "You're logged out (force)!");
-          }}>
-            <Text style={styles.logoutButtonText}>Force Out</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutButton} onPress={() => {
-            Alert.alert(
-              'Logout',
-              'Are you sure you want to logout?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { 
-                  text: 'Logout', 
-                  style: 'destructive', 
-                  onPress: () => {
-                    console.log('Logout button pressed');
-                    forceLogout();
-                    Alert.alert('Success', "You're logged out!");
-                  }
-                },
-              ]
-            );
-          }}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.logoutButton} onPress={() => {
+          console.log('Force logout button pressed');
+          forceLogout();
+          Alert.alert('Force Logout', "You're logged out (force)!");
+        }}>
+          <Text style={styles.logoutButtonText}>Log Out</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.form}>

@@ -17,10 +17,10 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
-  logout: () => Promise<void>;
+  logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
-  forceLogout: () => void; // Emergency logout function
+  forceLogout: () => void; // Re-adding the working force logout
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -141,24 +141,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = useCallback(async () => {
-    try {
-      console.log('Logout started...');
-      // Immediately set user to null (like forceLogout)
-      setUser(null);
-      setRefreshKey(prev => prev + 1); // Force re-render
-      setIsLoading(false);
-      console.log('User state set to null immediately');
-      
-      // Clear storage in background (don't wait for it)
-      AsyncStorage.removeItem(STORAGE_KEYS.USER).catch(console.error);
-      console.log('Storage cleanup initiated in background');
-      
-    } catch (error) {
-      console.error('Logout error:', error);
-      setIsLoading(false);
-      throw error; // Re-throw to be caught by the calling function
-    }
+  const logout = useCallback(() => {
+    console.log('Logout called - immediately setting user to null');
+    setUser(null);
+    setRefreshKey(prev => prev + 1);
+    setIsLoading(false);
+    AsyncStorage.removeItem(STORAGE_KEYS.USER).catch(console.error);
   }, []);
 
   const updateProfile = async (updates: Partial<User>) => {
@@ -195,7 +183,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setRefreshKey(prev => prev + 1);
     setIsLoading(false);
-    // Also clear storage in background
     AsyncStorage.removeItem(STORAGE_KEYS.USER).catch(console.error);
   }, []);
 

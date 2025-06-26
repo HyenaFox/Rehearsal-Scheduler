@@ -32,8 +32,8 @@ The error you encountered happened because you tried to deploy your React Native
      - **Start Command:** `npm start`
      - **Environment Variables:**
        - `NODE_ENV` = `production`
-       - `DATABASE_URL` = (paste your PostgreSQL connection string)
-       - `JWT_SECRET` = (generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
+       - `DATABASE_URL` = postgresql://rehearsal_scheduler_db_user:LKGSOBWXKcbmf3qAI1z2UZ7fDZuYHqCJ@dpg-d1e9ssje5dus73b6d0eg-a/rehearsal_scheduler_db
+       - `JWT_SECRET` = 05173863acda0d0d12d31c43bda699b64d913e16d1e4b29da14c1355ec7b57d0
 
 5. **Deploy** - Render will build and deploy your API
 
@@ -117,5 +117,44 @@ Plus:
 3. **Update your React Native app** to use the API
 4. **Update AuthContext** to use API calls instead of local storage
 5. **Test thoroughly** with multiple devices/accounts
+
+## Troubleshooting
+
+### TypeScript Compatibility Error (Code 1)
+
+If deployment fails with "code 1" due to TypeScript compatibility issues:
+
+**Solution Applied:** I've updated the backend to include TypeScript support without requiring compilation:
+
+1. **Added TypeScript as devDependency** - Provides type definitions for better compatibility
+2. **Updated package.json** - More resilient build scripts 
+3. **Simplified build command** - Uses standard `npm install`
+4. **Added syntax verification** - Ensures code is valid before deployment
+
+**Verification Steps:**
+```bash
+cd backend
+npm install        # Should complete without errors
+node check.js      # Should show "✅ App syntax check passed"
+```
+
+If you still see issues:
+1. **Check Node.js version** - Ensure you're using Node 18+ (set in `engines` field)
+2. **Clear npm cache** - Run `npm cache clean --force`
+3. **Try minimal build** - Use just `npm install` as build command in Render
+
+### Database Connection Issues
+
+If you see database connection errors:
+1. **Verify DATABASE_URL** - Should start with `postgresql://`
+2. **Check database status** - Ensure your Render PostgreSQL service is running
+3. **Wait for initialization** - Database tables are created automatically on first run
+
+### Free Tier Cold Starts
+
+**Expected behavior:**
+- First request after 15 minutes takes ~30 seconds (service waking up)
+- Subsequent requests are fast
+- This is normal for Render's free tier
 
 Would you like me to help you with any specific part of this process?

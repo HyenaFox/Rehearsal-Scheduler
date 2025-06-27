@@ -115,9 +115,6 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/actors', actorsRoutes);
 app.use('/api/timeslots', timeslotsRoutes);
 app.use('/api/scenes', scenesRoutes);
-app.use('/api/actors', actorsRoutes);
-app.use('/api/timeslots', timeslotsRoutes);
-app.use('/api/scenes', scenesRoutes);
 
 // Root endpoint - provide API information
 app.get('/', (req, res) => {

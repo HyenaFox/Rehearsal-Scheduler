@@ -65,6 +65,23 @@ if (fs.existsSync(distPath)) {
     next();
   });
   
+  // Add cache control headers for static assets
+  app.use('/_expo', (req, res, next) => {
+    // Cache JS/CSS files for 1 hour but allow revalidation
+    res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    next();
+  });
+  
+  // Disable cache for index.html to ensure fresh loads
+  app.use((req, res, next) => {
+    if (req.url === '/' || req.url.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    next();
+  });
+  
   app.use(express.static(distPath));
   console.log('✅ Static file serving enabled');
   // List some files in the dist directory

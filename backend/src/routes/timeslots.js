@@ -1,4 +1,5 @@
 const express = require('express');
+const Timeslot = require('../models/Timeslot');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -6,9 +7,8 @@ const router = express.Router();
 // Get all timeslots
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    // For now, return empty array - this will be implemented later
-    // when we add timeslot models and database operations
-    res.json([]);
+    const timeslots = await Timeslot.getAllForUser(req.userId);
+    res.json(timeslots);
   } catch (error) {
     console.error('Error fetching timeslots:', error);
     res.status(500).json({ error: 'Failed to fetch timeslots' });
@@ -18,8 +18,21 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create new timeslot
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    // TODO: Implement timeslot creation
-    res.status(501).json({ error: 'Timeslot creation not yet implemented' });
+    const { label, day, startTime, endTime, description } = req.body;
+    
+    if (!label || !day || !startTime || !endTime) {
+      return res.status(400).json({ error: 'Label, day, start time, and end time are required' });
+    }
+
+    const timeslot = await Timeslot.createTimeslot({
+      label,
+      day,
+      startTime,
+      endTime,
+      description: description || ''
+    }, req.userId);
+    
+    res.status(201).json(timeslot);
   } catch (error) {
     console.error('Error creating timeslot:', error);
     res.status(500).json({ error: 'Failed to create timeslot' });
@@ -29,8 +42,31 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update timeslot
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    // TODO: Implement timeslot update
-    res.status(501).json({ error: 'Timeslot update not yet implemented' });
+    const { id } = req.params;
+    const { label, day, startTime, endTime, description } = req.body;
+    
+    if (!label || !day || !startTime || !endTime) {
+      return res.status(400).json({ error: 'Label, day, start time, and end time are required' });
+    }
+
+    const timeslot = await Timeslot.findOneAndUpdate(
+      { _id: id, createdBy: req.userId },
+      {
+        label,
+        day,
+        startTime,
+        endTime,
+        description: description || '',
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!timeslot) {
+      return res.status(404).json({ error: 'Timeslot not found' });
+    }
+    
+    res.json(timeslot);
   } catch (error) {
     console.error('Error updating timeslot:', error);
     res.status(500).json({ error: 'Failed to update timeslot' });
@@ -40,8 +76,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete timeslot
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    // TODO: Implement timeslot deletion
-    res.status(501).json({ error: 'Timeslot deletion not yet implemented' });
+    const { id } = req.params;
+    
+    const timeslot = await Timeslot.findOneAndDelete({ _id: id, createdBy: req.userId });
+    
+    if (!timeslot) {
+      return res.status(404).json({ error: 'Timeslot not found' });
+    }
+    
+    res.json({ message: 'Timeslot deleted successfully' });
   } catch (error) {
     console.error('Error deleting timeslot:', error);
     res.status(500).json({ error: 'Failed to delete timeslot' });

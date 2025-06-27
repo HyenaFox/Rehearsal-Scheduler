@@ -3,7 +3,7 @@ import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacit
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
-import { createActor } from '../utils/actorUtils';
+import ApiService from '../services/api';
 
 export default function ProfileScreen() {
   const { user, updateProfile, forceLogout } = useAuth();
@@ -36,32 +36,51 @@ export default function ProfileScreen() {
 
       await updateProfile(updates);
 
-      // If user is now an actor, add them to the actors list
+      // Handle actor status changes
       if (isActor && user) {
         const existingActorIndex = actors.findIndex(actor => actor.id === user.id);
-        const actorData = createActor(
-          user.id, 
-          name.trim(), 
-          selectedTimeslots, 
-          selectedScenes.map(sceneId => {
+        const actorData = {
+          id: user.id,
+          name: name.trim(),
+          availableTimeslots: selectedTimeslots,
+          scenes: selectedScenes.map(sceneId => {
             const scene = scenes.find((s: any) => s.id === sceneId);
             return scene ? scene.title : sceneId;
           })
-        );
+        };
 
-        if (existingActorIndex >= 0) {
-          // Update existing actor
-          const updatedActors = [...actors];
-          updatedActors[existingActorIndex] = actorData;
-          setActors(updatedActors);
-        } else {
-          // Add new actor
-          setActors([...actors, actorData]);
+        try {
+          if (existingActorIndex >= 0) {
+            // Update existing actor in database
+            await ApiService.updateActor(user.id, actorData);
+            const updatedActors = [...actors];
+            updatedActors[existingActorIndex] = actorData;
+            setActors(updatedActors);
+            console.log('✅ Actor updated in database');
+          } else {
+            // Create new actor in database
+            const createdActor = await ApiService.createActor(actorData);
+            setActors([...actors, createdActor]);
+            console.log('✅ Actor created in database');
+          }
+        } catch (error) {
+          console.error('❌ Error managing actor in database:', error);
+          // Don't throw error here, profile was still updated
         }
       } else if (!isActor && user) {
         // Remove from actors list if no longer an actor
-        const updatedActors = actors.filter(actor => actor.id !== user.id);
-        setActors(updatedActors);
+        try {
+          const existingActorIndex = actors.findIndex(actor => actor.id === user.id);
+          if (existingActorIndex >= 0) {
+            await ApiService.deleteActor(user.id);
+            const updatedActors = actors.filter(actor => actor.id !== user.id);
+            setActors(updatedActors);
+            console.log('✅ Actor removed from database');
+          }
+        } catch (error) {
+          console.error('❌ Error removing actor from database:', error);
+          // Don't throw error here, profile was still updated
+        }
       }
 
       Alert.alert('Success', 'Profile updated successfully');

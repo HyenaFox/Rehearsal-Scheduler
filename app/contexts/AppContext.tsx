@@ -1,18 +1,23 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { STORAGE_KEYS } from '../types/index';
-import { createActor } from '../utils/actorUtils';
+import ApiService from '../services/api';
+import { useAuth } from './AuthContext';
 
 interface AppContextType {
   actors: any[];
   rehearsals: any[];
+  timeslots: any[];
+  scenes: any[];
   setActors: (actors: any[]) => void;
   setRehearsals: (rehearsals: any[]) => void;
+  setTimeslots: (timeslots: any[]) => void;
+  setScenes: (scenes: any[]) => void;
   handleDeleteActor: (actor: any) => void;
   handleDeleteRehearsal: (index: number) => void;
   handleAddActor: () => void;
   handleAddRehearsal: (rehearsal: any) => void;
   handleAddMultipleRehearsals: (rehearsals: any[]) => void;
+  loadData: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -28,67 +33,98 @@ export const useApp = () => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [actors, setActors] = useState<any[]>([]);
   const [rehearsals, setRehearsals] = useState<any[]>([]);
+  const [timeslots, setTimeslots] = useState<any[]>([]);
+  const [scenes, setScenes] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Load actors from storage
-        const actorsData = await AsyncStorage.getItem(STORAGE_KEYS.ACTORS);
-        if (actorsData) {
-          setActors(JSON.parse(actorsData));
-        } else {
-          // Use default data if nothing in storage
-          const defaultActors = [
-            createActor('1', 'Eleanor Vance', ['mon-2pm-4pm', 'wed-10am-1pm'], ['Act I, Scene 2', 'Act II, Scene 1']),
-            createActor('2', 'Leo Maxwell', ['tue-3pm-5pm', 'fri-11am-2pm'], ['Act I, Scene 1', 'Act II, Scene 3']),
-            createActor('3', 'Clara Beaumont', ['mon-2pm-4pm', 'thu-6pm-8pm'], ['Act I, Scene 2', 'Act III, Scene 4']),
-            createActor('4', 'Julian Adler', ['wed-10am-1pm', 'fri-11am-2pm'], ['Act II, Scene 1', 'Act II, Scene 3']),
-            createActor('5', 'Aurora Chen', ['tue-3pm-5pm', 'thu-6pm-8pm'], ['Act I, Scene 1', 'Act III, Scene 4']),
-          ];
-          setActors(defaultActors);
-          await AsyncStorage.setItem(STORAGE_KEYS.ACTORS, JSON.stringify(defaultActors));
-        }
-
-        // Load rehearsals from storage
-        const rehearsalsData = await AsyncStorage.getItem(STORAGE_KEYS.REHEARSALS);
-        if (rehearsalsData) {
-          setRehearsals(JSON.parse(rehearsalsData));
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  // Save actors when they change
-  useEffect(() => {
-    if (actors.length > 0) {
-      AsyncStorage.setItem(STORAGE_KEYS.ACTORS, JSON.stringify(actors));
+  const loadData = async () => {
+    if (!user || user.id === 'guest') {
+      // For guest users, use empty arrays
+      setActors([]);
+      setRehearsals([]);
+      setTimeslots([]);
+      setScenes([]);
+      return;
     }
-  }, [actors]);
 
-  // Save rehearsals when they change
+    setIsLoading(true);
+    try {
+      console.log('🔄 Loading data from API...');
+      
+      // Load all data from API in parallel
+      const [actorsData, timeslotsData, scenesData] = await Promise.all([
+        ApiService.getAllActors().catch(err => {
+          console.warn('Failed to load actors:', err);
+          return [];
+        }),
+        ApiService.getAllTimeslots().catch(err => {
+          console.warn('Failed to load timeslots:', err);
+          return [];
+        }),
+        ApiService.getAllScenes().catch(err => {
+          console.warn('Failed to load scenes:', err);
+          return [];
+        })
+      ]);
+
+      console.log('📦 Data loaded:', {
+        actors: actorsData.length,
+        timeslots: timeslotsData.length,
+        scenes: scenesData.length
+      });
+
+      setActors(actorsData);
+      setTimeslots(timeslotsData);
+      setScenes(scenesData);
+    } catch (error) {
+      console.error('❌ Error loading data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    AsyncStorage.setItem(STORAGE_KEYS.REHEARSALS, JSON.stringify(rehearsals));
-  }, [rehearsals]);
+    loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  const handleDeleteActor = (actor: any) => {
-    // Direct deletion without confirmation
-    const updatedActors = actors.filter(a => a.id !== actor.id);
-    setActors(updatedActors);
+  const handleDeleteActor = async (actor: any) => {
+    try {
+      await ApiService.deleteActor(actor.id);
+      const updatedActors = actors.filter(a => a.id !== actor.id);
+      setActors(updatedActors);
+      console.log('✅ Actor deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting actor:', error);
+      throw error;
+    }
   };
 
   const handleDeleteRehearsal = (index: number) => {
     const updatedRehearsals = rehearsals.filter((_, i) => i !== index);
     setRehearsals(updatedRehearsals);
-  };  const handleAddActor = () => {
-    const newId = Date.now().toString();
-    const defaultName = `Actor ${actors.length + 1}`;
-    const newActor = createActor(newId, defaultName, [], []);
-    const updatedActors = [...actors, newActor];
-    setActors(updatedActors);
+  };
+
+  const handleAddActor = async () => {
+    try {
+      const newId = Date.now().toString();
+      const defaultName = `Actor ${actors.length + 1}`;
+      const newActor = {
+        id: newId,
+        name: defaultName,
+        availableTimeslots: [],
+        scenes: []
+      };
+      
+      const createdActor = await ApiService.createActor(newActor);
+      const updatedActors = [...actors, createdActor];
+      setActors(updatedActors);
+      console.log('✅ Actor added successfully');
+    } catch (error) {
+      console.error('❌ Error adding actor:', error);
+      throw error;
+    }
   };
 
   const handleAddRehearsal = (rehearsal: any) => {
@@ -104,13 +140,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const value = {
     actors,
     rehearsals,
+    timeslots,
+    scenes,
     setActors,
     setRehearsals,
+    setTimeslots,
+    setScenes,
     handleDeleteActor,
     handleDeleteRehearsal,
     handleAddActor,
     handleAddRehearsal,
     handleAddMultipleRehearsals,
+    loadData,
+    isLoading,
   };
 
   return (

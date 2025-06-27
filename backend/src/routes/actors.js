@@ -15,4 +15,81 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Create new actor
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { id, name, availableTimeslots, scenes } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    // Create actor data
+    const actorData = {
+      id: id || Date.now().toString(),
+      name,
+      availableTimeslots: availableTimeslots || [],
+      scenes: scenes || [],
+      isActor: true
+    };
+
+    // For now, we'll store this as a temporary solution
+    // In a real implementation, you'd save to a dedicated actors collection
+    const actor = await User.createActor(actorData);
+    
+    res.status(201).json(actor);
+  } catch (error) {
+    console.error('Create actor error:', error);
+    res.status(500).json({ error: 'Failed to create actor' });
+  }
+});
+
+// Update actor
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, availableTimeslots, scenes } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    const actorData = {
+      name,
+      availableTimeslots: availableTimeslots || [],
+      scenes: scenes || [],
+      isActor: true
+    };
+
+    const updatedActor = await User.updateActor(id, actorData);
+    
+    if (!updatedActor) {
+      return res.status(404).json({ error: 'Actor not found' });
+    }
+    
+    res.json(updatedActor);
+  } catch (error) {
+    console.error('Update actor error:', error);
+    res.status(500).json({ error: 'Failed to update actor' });
+  }
+});
+
+// Delete actor
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const deleted = await User.deleteActor(id);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Actor not found' });
+    }
+    
+    res.json({ message: 'Actor deleted successfully' });
+  } catch (error) {
+    console.error('Delete actor error:', error);
+    res.status(500).json({ error: 'Failed to delete actor' });
+  }
+});
+
 module.exports = router;

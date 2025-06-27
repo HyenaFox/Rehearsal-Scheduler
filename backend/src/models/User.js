@@ -119,6 +119,71 @@ userSchema.statics.getAllActors = async function() {
     .sort({ name: 1 });
 };
 
+// Static method to create actor
+userSchema.statics.createActor = async function(actorData) {
+  const { id, name, availableTimeslots, scenes } = actorData;
+  
+  // Check if actor with this ID already exists
+  let existingActor = await this.findById(id);
+  if (existingActor) {
+    // Update existing user to be an actor
+    existingActor.isActor = true;
+    existingActor.name = name;
+    existingActor.availableTimeslots = availableTimeslots || [];
+    existingActor.scenes = scenes || [];
+    return existingActor.save();
+  }
+  
+  // Create new actor (this is for standalone actors not tied to user accounts)
+  const actor = new this({
+    _id: id,
+    email: `actor-${id}@rehearsal-scheduler.local`, // Temporary email for standalone actors
+    password_hash: 'temp-password', // Temporary password for standalone actors
+    name,
+    isActor: true,
+    availableTimeslots: availableTimeslots || [],
+    scenes: scenes || []
+  });
+  
+  return actor.save();
+};
+
+// Static method to update actor
+userSchema.statics.updateActor = async function(id, actorData) {
+  const { name, availableTimeslots, scenes } = actorData;
+  
+  return this.findByIdAndUpdate(
+    id,
+    {
+      name,
+      availableTimeslots: availableTimeslots || [],
+      scenes: scenes || [],
+      isActor: true,
+      updatedAt: new Date()
+    },
+    {
+      new: true, // Return the updated document
+      runValidators: true // Run schema validations
+    }
+  );
+};
+
+// Static method to delete actor
+userSchema.statics.deleteActor = async function(id) {
+  // First check if this is a real user account
+  const user = await this.findById(id);
+  if (user && user.email && !user.email.includes('@rehearsal-scheduler.local')) {
+    // This is a real user account, just set isActor to false
+    user.isActor = false;
+    user.availableTimeslots = [];
+    user.scenes = [];
+    return user.save();
+  } else {
+    // This is a standalone actor, delete it completely
+    return this.findByIdAndDelete(id);
+  }
+};
+
 // Transform JSON output (remove sensitive data)
 userSchema.methods.toJSON = function() {
   const user = this.toObject();

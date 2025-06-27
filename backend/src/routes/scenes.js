@@ -1,4 +1,5 @@
 const express = require('express');
+const Scene = require('../models/Scene');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -6,9 +7,8 @@ const router = express.Router();
 // Get all scenes
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    // For now, return empty array - this will be implemented later
-    // when we add scene models and database operations
-    res.json([]);
+    const scenes = await Scene.getAllForUser(req.userId);
+    res.json(scenes);
   } catch (error) {
     console.error('Error fetching scenes:', error);
     res.status(500).json({ error: 'Failed to fetch scenes' });
@@ -18,8 +18,22 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create new scene
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    // TODO: Implement scene creation
-    res.status(501).json({ error: 'Scene creation not yet implemented' });
+    const { title, description, actorsRequired, location, duration, priority } = req.body;
+    
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const scene = await Scene.createScene({
+      title,
+      description: description || '',
+      actorsRequired: actorsRequired || [],
+      location: location || '',
+      duration: duration || 60,
+      priority: priority || 5
+    }, req.userId);
+    
+    res.status(201).json(scene);
   } catch (error) {
     console.error('Error creating scene:', error);
     res.status(500).json({ error: 'Failed to create scene' });
@@ -29,8 +43,32 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update scene
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    // TODO: Implement scene update
-    res.status(501).json({ error: 'Scene update not yet implemented' });
+    const { id } = req.params;
+    const { title, description, actorsRequired, location, duration, priority } = req.body;
+    
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const scene = await Scene.findOneAndUpdate(
+      { _id: id, createdBy: req.userId },
+      {
+        title,
+        description: description || '',
+        actorsRequired: actorsRequired || [],
+        location: location || '',
+        duration: duration || 60,
+        priority: priority || 5,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!scene) {
+      return res.status(404).json({ error: 'Scene not found' });
+    }
+    
+    res.json(scene);
   } catch (error) {
     console.error('Error updating scene:', error);
     res.status(500).json({ error: 'Failed to update scene' });
@@ -40,8 +78,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete scene
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    // TODO: Implement scene deletion
-    res.status(501).json({ error: 'Scene deletion not yet implemented' });
+    const { id } = req.params;
+    
+    const scene = await Scene.findOneAndDelete({ _id: id, createdBy: req.userId });
+    
+    if (!scene) {
+      return res.status(404).json({ error: 'Scene not found' });
+    }
+    
+    res.json({ message: 'Scene deleted successfully' });
   } catch (error) {
     console.error('Error deleting scene:', error);
     res.status(500).json({ error: 'Failed to delete scene' });

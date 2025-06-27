@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 
 export default function ProfileScreen() {
-  const { user, updateProfile, forceLogout } = useAuth();
+  const { user, updateProfile, forceLogout, isLoading: authLoading } = useAuth();
   const { actors, setActors, timeslots, scenes } = useApp();
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -107,6 +107,17 @@ export default function ProfileScreen() {
         : [...prev, sceneId]
     );
   };
+
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (!user) return null;
 
@@ -392,5 +403,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
   },
 });

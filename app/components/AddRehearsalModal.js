@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { commonStyles } from '../styles/common';
-import { GLOBAL_TIMESLOTS } from '../types/index';
+import { useApp } from '../contexts/AppContext';
 import { getActorsAvailableForTimeslot } from '../utils/actorUtils';
 
 const AddRehearsalModal = ({ visible, onSave, onCancel, actors }) => {
+  const { timeslots } = useApp();
   const [rehearsalTitle, setRehearsalTitle] = useState('');
   const [selectedTimeslot, setSelectedTimeslot] = useState(null);
   const [selectedActors, setSelectedActors] = useState([]);
@@ -64,7 +65,7 @@ const AddRehearsalModal = ({ visible, onSave, onCancel, actors }) => {
   };
 
   const availableActors = selectedTimeslot 
-    ? getActorsAvailableForTimeslot(actors, selectedTimeslot.id)
+    ? getActorsAvailableForTimeslot(actors, selectedTimeslot.id || selectedTimeslot._id)
     : [];
 
   return (
@@ -88,12 +89,12 @@ const AddRehearsalModal = ({ visible, onSave, onCancel, actors }) => {
             />
 
             <Text style={styles.sectionTitle}>Select Timeslot:</Text>
-            {GLOBAL_TIMESLOTS.map(timeslot => (
+            {timeslots.map(timeslot => (
               <TouchableOpacity
-                key={timeslot.id}
+                key={timeslot.id || timeslot._id}
                 style={[
                   styles.selectItem,
-                  selectedTimeslot?.id === timeslot.id && styles.selectItemSelected
+                  (selectedTimeslot?.id === timeslot.id || selectedTimeslot?._id === timeslot._id) && styles.selectItemSelected
                 ]}
                 onPress={() => handleTimeslotSelect(timeslot)}
               >

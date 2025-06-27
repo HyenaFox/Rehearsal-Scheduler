@@ -7,14 +7,8 @@ const getApiBaseUrl = () => {
     return 'https://rehearsal-scheduler.onrender.com/api';
   }
   
-  // Development - check the platform
-  if (typeof window !== 'undefined') {
-    // Web browser - use localhost
-    return 'http://localhost:3000/api';
-  } else {
-    // React Native - use emulator address
-    return 'http://10.0.2.2:3000/api';
-  }
+  // Development - always use localhost for now to simplify debugging
+  return 'http://localhost:3000/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -22,8 +16,8 @@ const API_BASE_URL = getApiBaseUrl();
 // Debug logging
 console.log('🌐 API Configuration:', {
   isDev: __DEV__,
-  isWeb: typeof window !== 'undefined',
-  apiBaseUrl: API_BASE_URL
+  apiBaseUrl: API_BASE_URL,
+  environment: 'development - using localhost:3000'
 });
 
 // Alternative URLs for different testing scenarios:

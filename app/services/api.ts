@@ -175,6 +175,10 @@ class ApiService {
   }
 
   static async updateActor(id: string, actor: any): Promise<any> {
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid actor ID provided');
+    }
+    console.log('🔄 ApiService: Updating actor with ID:', id);
     return this.makeRequest(`/actors/${id}`, {
       method: 'PUT',
       body: JSON.stringify(actor),

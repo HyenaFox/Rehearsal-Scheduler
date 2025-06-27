@@ -23,6 +23,9 @@ export default function ProfileScreen() {
       return;
     }
 
+    console.log(`🎭 Saving profile with isActor: ${isActor}, user.isActor: ${user?.isActor}`);
+    console.log('🔍 User object:', { id: user?.id, email: user?.email, name: user?.name });
+
     setIsLoading(true);
     
     try {
@@ -52,6 +55,11 @@ export default function ProfileScreen() {
         try {
           if (existingActorIndex >= 0) {
             // Update existing actor in database
+            if (!user.id) {
+              console.error('❌ User ID is missing, cannot update actor');
+              throw new Error('User ID is required to update actor');
+            }
+            console.log('🔄 Updating actor with ID:', user.id);
             await ApiService.updateActor(user.id, actorData);
             const updatedActors = [...actors];
             updatedActors[existingActorIndex] = actorData;

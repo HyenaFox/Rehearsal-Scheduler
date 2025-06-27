@@ -137,8 +137,23 @@ userSchema.statics.createActor = async function(actorData) {
   return actor.save();
 };
 
+// Static method to validate ObjectId
+userSchema.statics.isValidObjectId = function(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+};
+
 // Static method to update actor
 userSchema.statics.updateActor = async function(id, actorData) {
+  // Validate ID
+  if (!id || id === 'undefined' || id === 'null') {
+    throw new Error('Invalid actor ID provided');
+  }
+  
+  // Validate ObjectId format
+  if (!this.isValidObjectId(id)) {
+    throw new Error('Invalid ObjectId format');
+  }
+  
   const { name, availableTimeslots, scenes } = actorData;
   
   return this.findByIdAndUpdate(

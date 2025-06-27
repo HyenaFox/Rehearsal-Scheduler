@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import ActorEditModal from '../components/ActorEditModal';
 import Card from '../components/Card';
 import { useApp } from '../contexts/AppContext';
+import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
 import { getAvailableTimeslots, getScenes } from '../utils/actorUtils';
 
@@ -19,13 +20,36 @@ export default function ActorsScreen() {
     setActorEditModalVisible(true);
   };
 
-  const handleSaveActor = (editedActor: any) => {
-    const updatedActors = actors.map(actor => 
-      actor.id === editedActor.id ? editedActor : actor
-    );
-    setActors(updatedActors);
-    setActorEditModalVisible(false);
-    setSelectedActor(null);
+  const handleSaveActor = async (editedActor: any) => {
+    try {
+      console.log('🔄 Saving actor to backend:', editedActor);
+      
+      if (!editedActor.id) {
+        console.error('❌ Actor ID is missing, cannot update');
+        Alert.alert('Error', 'Actor ID is missing, cannot update');
+        return;
+      }
+      
+      // Update actor in backend
+      await ApiService.updateActor(editedActor.id, {
+        name: editedActor.name,
+        availableTimeslots: editedActor.availableTimeslots,
+        scenes: editedActor.scenes
+      });
+      
+      // Update local state
+      const updatedActors = actors.map(actor => 
+        actor.id === editedActor.id ? editedActor : actor
+      );
+      setActors(updatedActors);
+      setActorEditModalVisible(false);
+      setSelectedActor(null);
+      
+      console.log('✅ Actor updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating actor:', error);
+      Alert.alert('Error', 'Failed to update actor');
+    }
   };
 
   const handleCancelActorEdit = () => {

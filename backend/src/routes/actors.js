@@ -49,6 +49,14 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { name, availableTimeslots, scenes } = req.body;
     
+    console.log('Update actor request - ID:', id, 'Type:', typeof id);
+    
+    // Validate ID
+    if (!id || id === 'undefined' || id === 'null') {
+      console.error('Invalid actor ID:', id);
+      return res.status(400).json({ error: 'Invalid actor ID' });
+    }
+    
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
     }

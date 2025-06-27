@@ -6,9 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "build": "echo 'Backend build complete - static files will be served from dist directory'",
+    "build": "echo 'Backend ready - web app served from committed dist directory'",
     "build:web": "cd .. && npm ci && npx expo export -p web",
-    "build:full": "npm install && cd .. && npm install && npx expo export -p web",
     "prebuild": "echo 'Starting build process...'",
     "postinstall": "echo 'Dependencies installed successfully'",
     "test": "echo 'No tests specified'"

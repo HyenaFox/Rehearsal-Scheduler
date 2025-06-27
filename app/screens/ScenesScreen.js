@@ -1,11 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import Card from '../components/Card';
 import SceneEditModal from '../components/SceneEditModal';
+import { useApp } from '../contexts/AppContext';
+import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
-import { GLOBAL_SCENES, STORAGE_KEYS } from '../types/index';
 import { getActorsInScene, removeScene } from '../utils/actorUtils';
 
 const ScenesScreen = ({ onBack, actors, setActors }) => {

@@ -61,7 +61,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Token found, validating session...');
       // Check if there's a stored token and try to get current user
       try {
-        const currentUser = await ApiService.getCurrentUser();
+        // Add timeout for web builds to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('API timeout')), 5000)
+        );
+        
+        const currentUser = await Promise.race([
+          ApiService.getCurrentUser(),
+          timeoutPromise
+        ]);
+        
         if (currentUser) {
           console.log('Session valid, user logged in:', currentUser.email);
           setUser({

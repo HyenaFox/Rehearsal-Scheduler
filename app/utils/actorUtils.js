@@ -1,5 +1,5 @@
 // Actor utility functions and data management
-// Note: Global arrays removed - functions now accept timeslots/scenes as parameters
+import { GLOBAL_SCENES, GLOBAL_TIMESLOTS } from '../types/index';
 
 // FUNCTIONAL APPROACH - Actor utility functions
 export const createActor = (id, name, availableTimeslots = [], scenes = []) => {
@@ -48,8 +48,8 @@ export const isAvailable = (actor, timeslotId) => {
 };
 
 // Helper function to get available timeslots for an actor
-export const getAvailableTimeslots = (actor, allTimeslots) => {
-  return allTimeslots.filter(timeslot => 
+export const getAvailableTimeslots = (actor) => {
+  return GLOBAL_TIMESLOTS.filter(timeslot => 
     actor.availableTimeslots.includes(timeslot.id)
   );
 };
@@ -76,11 +76,11 @@ export const getActorsInScene = (actors, sceneName) => {
 };
 
 // Get timeslot by ID
-export const getTimeslotById = (timeslotId, allTimeslots) => {
-  return allTimeslots.find(timeslot => timeslot.id === timeslotId);
+export const getTimeslotById = (timeslotId) => {
+  return GLOBAL_TIMESLOTS.find(timeslot => timeslot.id === timeslotId);
 };
 
 // Get scene by ID
-export const getSceneById = (sceneId, allScenes) => {
-  return allScenes.find(scene => scene.id === sceneId);
+export const getSceneById = (sceneId) => {
+  return GLOBAL_SCENES.find(scene => scene.id === sceneId);
 };

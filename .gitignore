@@ -5,7 +5,7 @@ node_modules/
 
 # Expo
 .expo/
-# dist/  # Temporarily allowing dist for deployment
+dist/
 web-build/
 expo-env.d.ts
 

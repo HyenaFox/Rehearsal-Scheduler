@@ -23,8 +23,8 @@ let distPath;
 if (process.env.NODE_ENV === 'production') {
   // Production: try different possible paths
   const productionPaths = [
-    path.resolve(process.cwd(), 'dist'),              // If running from root (Render deployment)
     path.resolve(process.cwd(), '../dist'),           // If backend is in subfolder
+    path.resolve(process.cwd(), 'dist'),              // If at root level
     path.resolve(process.cwd(), '../../dist'),        // Two levels up
     path.resolve(process.cwd(), '../../../dist')      // Three levels up
   ];
@@ -53,62 +53,13 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 console.log('📁 Serving static files from:', distPath);
-console.log('🔍 Current working directory:', process.cwd());
-console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
 const fs = require('fs');
 if (fs.existsSync(distPath)) {
-  // Add logging middleware for static files
-  app.use((req, res, next) => {
-    if (req.url.startsWith('/_expo') || req.url.endsWith('.js') || req.url.endsWith('.css')) {
-      console.log('📄 Static file request:', req.url);
-    }
-    next();
-  });
-  
-  // Add cache control headers for static assets
-  app.use('/_expo', (req, res, next) => {
-    // Cache JS/CSS files for 1 hour but allow revalidation
-    res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
-    next();
-  });
-  
-  // Disable cache for index.html to ensure fresh loads
-  app.use((req, res, next) => {
-    if (req.url === '/' || req.url.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-    }
-    next();
-  });
-  
   app.use(express.static(distPath));
   console.log('✅ Static file serving enabled');
-  // List some files in the dist directory
-  try {
-    const files = fs.readdirSync(distPath).slice(0, 10);
-    console.log('📄 Files in dist directory:', files);
-    // Check for the critical JS bundle
-    const expoDir = path.join(distPath, '_expo', 'static', 'js', 'web');
-    if (fs.existsSync(expoDir)) {
-      const jsFiles = fs.readdirSync(expoDir);
-      console.log('📄 JS bundle files:', jsFiles);
-    } else {
-      console.log('⚠️ _expo/static/js/web directory not found');
-    }
-  } catch (err) {
-    console.log('⚠️ Could not list dist directory contents:', err.message);
-  }
 } else {
   console.log('❌ Static files directory not found - web app will not be served');
   console.log('🔍 Tried path:', distPath);
-  // List current directory contents for debugging
-  try {
-    const currentDirFiles = fs.readdirSync(process.cwd());
-    console.log('📁 Current directory contents:', currentDirFiles);
-  } catch (err) {
-    console.log('⚠️ Could not list current directory:', err.message);
-  }
 }
 
 // Security middleware
@@ -168,17 +119,8 @@ app.use('/api/actors', actorsRoutes);
 app.use('/api/timeslots', timeslotsRoutes);
 app.use('/api/scenes', scenesRoutes);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'online',
-    timestamp: new Date().toISOString(),
-    message: 'Rehearsal Scheduler API is running'
-  });
-});
-
-// API documentation endpoint (moved from root to /api-docs)
-app.get('/api-docs', (req, res) => {
+// Root endpoint - provide API information
+app.get('/', (req, res) => {
   res.json({
     name: 'Rehearsal Scheduler API',
     version: '1.0.0',
@@ -226,7 +168,7 @@ app.get('/api-docs', (req, res) => {
     },
     documentation: 'All endpoints except /, /health, and /api require authentication',
     mobile_app: 'This API serves a React Native mobile application',
-    web_app: 'Web version served at /'
+    web_app: 'Web version available at a separate deployment'
   });
 });
 
@@ -437,49 +379,3 @@ process.on('uncaughtException', (err) => {
 startServer();
 
 module.exports = app;
-
-// Debug endpoint to check what static files are available
-app.get('/debug/files', (req, res) => {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    
-    if (!fs.existsSync(distPath)) {
-      return res.json({ error: 'Dist directory not found', distPath });
-    }
-    
-    const listFiles = (dir, basePath = '') => {
-      const files = [];
-      const items = fs.readdirSync(dir);
-      
-      for (const item of items) {
-        const fullPath = path.join(dir, item);
-        const relativePath = path.join(basePath, item).replace(/\\/g, '/');
-        
-        if (fs.statSync(fullPath).isDirectory()) {
-          files.push(...listFiles(fullPath, relativePath));
-        } else {
-          files.push({
-            path: relativePath,
-            size: fs.statSync(fullPath).size,
-            modified: fs.statSync(fullPath).mtime
-          });
-        }
-      }
-      
-      return files;
-    };
-    
-    const files = listFiles(distPath);
-    const jsFiles = files.filter(f => f.path.includes('_expo/static/js/web/'));
-    
-    res.json({
-      distPath,
-      totalFiles: files.length,
-      jsFiles,
-      indexHtml: files.find(f => f.path === 'index.html')
-    });
-  } catch (error) {
-    res.json({ error: error.message });
-  }
-});

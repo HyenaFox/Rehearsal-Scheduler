@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { commonStyles } from '../styles/common';
+import { GLOBAL_SCENES, GLOBAL_TIMESLOTS } from '../types/index';
 
-const ActorEditModal = ({ actor, visible, onSave, onCancel, timeslots, scenes }) => {
+const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
   const [editedName, setEditedName] = useState(actor?.name || '');
   const [selectedTimeslots, setSelectedTimeslots] = useState(actor?.availableTimeslots || []);
   const [selectedScenes, setSelectedScenes] = useState(actor?.scenes || []);
@@ -65,54 +66,42 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel, timeslots, scenes })
             />
 
             <Text style={styles.sectionTitle}>Available Timeslots:</Text>
-            {(!timeslots || timeslots.length === 0) ? (
-              <Text style={styles.emptyText}>
-                No timeslots available. Please add timeslots first.
-              </Text>
-            ) : (
-              timeslots.map(timeslot => (
-                <TouchableOpacity
-                  key={timeslot.id}
-                  style={[
-                    styles.checkboxItem,
-                    selectedTimeslots.includes(timeslot.id) && styles.checkboxItemSelected
-                  ]}
-                  onPress={() => toggleTimeslot(timeslot.id)}
-                >
-                  <Text style={[
-                    styles.checkboxText,
-                    selectedTimeslots.includes(timeslot.id) && styles.checkboxTextSelected
-                  ]}>
-                    {selectedTimeslots.includes(timeslot.id) ? '✓' : '○'} {timeslot.label}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
+            {GLOBAL_TIMESLOTS.map(timeslot => (
+              <TouchableOpacity
+                key={timeslot.id}
+                style={[
+                  styles.checkboxItem,
+                  selectedTimeslots.includes(timeslot.id) && styles.checkboxItemSelected
+                ]}
+                onPress={() => toggleTimeslot(timeslot.id)}
+              >
+                <Text style={[
+                  styles.checkboxText,
+                  selectedTimeslots.includes(timeslot.id) && styles.checkboxTextSelected
+                ]}>
+                  {selectedTimeslots.includes(timeslot.id) ? '✓' : '○'} {timeslot.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
 
             <Text style={styles.sectionTitle}>Scenes:</Text>
-            {(!scenes || scenes.length === 0) ? (
-              <Text style={styles.emptyText}>
-                No scenes available. Please add scenes first.
-              </Text>
-            ) : (
-              scenes.map(scene => (
-                <TouchableOpacity
-                  key={scene.id}
-                  style={[
-                    styles.checkboxItem,
-                    selectedScenes.includes(scene.title) && styles.checkboxItemSelected
-                  ]}
-                  onPress={() => toggleScene(scene.title)}
-                >
-                  <Text style={[
-                    styles.checkboxText,
-                    selectedScenes.includes(scene.title) && styles.checkboxTextSelected
-                  ]}>
-                    {selectedScenes.includes(scene.title) ? '✓' : '○'} {scene.title}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
+            {GLOBAL_SCENES.map(scene => (
+              <TouchableOpacity
+                key={scene.id}
+                style={[
+                  styles.checkboxItem,
+                  selectedScenes.includes(scene.title) && styles.checkboxItemSelected
+                ]}
+                onPress={() => toggleScene(scene.title)}
+              >
+                <Text style={[
+                  styles.checkboxText,
+                  selectedScenes.includes(scene.title) && styles.checkboxTextSelected
+                ]}>
+                  {selectedScenes.includes(scene.title) ? '✓' : '○'} {scene.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
 
           <View style={commonStyles.modalButtons}>
@@ -162,13 +151,6 @@ const styles = {
   checkboxTextSelected: {
     color: '#007bff',
     fontWeight: '600',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    padding: 16,
   },
 };
 

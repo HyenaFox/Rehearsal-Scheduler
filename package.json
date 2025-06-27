@@ -12,8 +12,6 @@
     "start:both": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "backend": "cd backend && npm run dev",
     "frontend": "expo start",
-    "build:web": "expo export -p web",
-    "build": "expo export -p web",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { commonStyles } from '../styles/common';
 
 const SceneEditModal = ({ scene, visible, onSave, onCancel }) => {
   const [editedTitle, setEditedTitle] = useState(scene?.title || '');
@@ -7,198 +8,66 @@ const SceneEditModal = ({ scene, visible, onSave, onCancel }) => {
 
   React.useEffect(() => {
     if (scene) {
-      setEditedTitle(scene.title || '');
-      setEditedDescription(scene.description || '');
-    } else {
-      // Reset to defaults for new scene
-      setEditedTitle('');
-      setEditedDescription('');
+      setEditedTitle(scene.title);
+      setEditedDescription(scene.description);
     }
-  }, [scene, visible]);
+  }, [scene]);
 
   const handleSave = () => {
-    // Validate required fields
-    if (!editedTitle.trim()) {
-      Alert.alert('Validation Error', 'Please enter a scene title.');
-      return;
+    if (editedTitle.trim()) {
+      onSave({
+        ...scene,
+        title: editedTitle.trim(),
+        description: editedDescription.trim()
+      });
     }
-
-    // All validation passed, save the scene
-    const sceneData = {
-      ...scene,
-      title: editedTitle.trim(),
-      description: editedDescription.trim()
-    };
-    onSave(sceneData);
   };
 
-  if (!visible) return null;
+  if (!visible || !scene) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {scene?.id ? 'Edit Scene' : 'Add New Scene'}
-          </Text>
-          <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
+    <View style={commonStyles.modalOverlay}>
+      <View style={commonStyles.modalContent}>
+        <Text style={commonStyles.modalTitle}>Edit Scene</Text>
+        
+        <Text style={styles.inputLabel}>Scene Title:</Text>
+        <TextInput
+          style={commonStyles.textInput}
+          value={editedTitle}
+          onChangeText={setEditedTitle}
+          placeholder="Scene title"
+        />
+
+        <Text style={styles.inputLabel}>Description:</Text>
+        <TextInput
+          style={[commonStyles.textInput, commonStyles.multilineInput]}
+          value={editedDescription}
+          onChangeText={setEditedDescription}
+          placeholder="Scene description"
+          multiline
+          numberOfLines={3}
+        />
+
+        <View style={commonStyles.modalButtons}>
+          <TouchableOpacity style={commonStyles.cancelButton} onPress={onCancel}>
+            <Text style={commonStyles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Content */}
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.form}>
-            <Text style={styles.inputLabel}>Scene Title:</Text>
-            <TextInput
-              style={styles.textInput}
-              value={editedTitle}
-              onChangeText={setEditedTitle}
-              placeholder="Scene title"
-              autoCapitalize="words"
-            />
-
-            <Text style={styles.inputLabel}>Description:</Text>
-            <TextInput
-              style={[styles.textInput, styles.multilineInput]}
-              value={editedDescription}
-              onChangeText={setEditedDescription}
-              placeholder="Scene description"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-        </ScrollView>
-
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[
-              styles.saveButton,
-              !editedTitle.trim() && styles.saveButtonDisabled
-            ]} 
-            onPress={handleSave}
-            disabled={!editedTitle.trim()}
-          >
-            <Text style={[
-              styles.saveButtonText,
-              !editedTitle.trim() && styles.saveButtonTextDisabled
-            ]}>
-              {scene?.id ? 'Update' : 'Create'}
-            </Text>
+          <TouchableOpacity style={commonStyles.saveButton} onPress={handleSave}>
+            <Text style={commonStyles.saveButtonText}>Save</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#6366f1',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-    flex: 1,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  form: {
-    padding: 20,
-  },
+const styles = {
   inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 4,
   },
-  multilineInput: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  actions: {
-    flexDirection: 'row',
-    padding: 20,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    borderRadius: 8,
-    paddingVertical: 16,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  saveButton: {
-    flex: 1,
-    borderRadius: 8,
-    paddingVertical: 16,
-    backgroundColor: '#6366f1',
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#9ca3af',
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  saveButtonTextDisabled: {
-    color: '#d1d5db',
-  },
-});
+};
 
 export default SceneEditModal;

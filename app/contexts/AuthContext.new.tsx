@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import ApiService from '../services/api';
 
@@ -21,7 +20,6 @@ interface AuthContextType {
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
   forceLogout: () => void;
-  skipLogin: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,85 +35,46 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasInitialized, setHasInitialized] = useState(false);
-
-  const loadUser = useCallback(async () => {
-    if (hasInitialized) {
-      console.log('loadUser already called, skipping');
-      return;
-    }
-
-    try {
-      setHasInitialized(true);
-      console.log('Loading user session...');
-      
-      // First check if we have a token before making the API call
-      const token = await AsyncStorage.getItem('auth_token');
-      if (!token) {
-        // No token stored, user is not logged in
-        console.log('No auth token found, user not logged in');
-        setIsLoading(false); // Important: Set loading to false here!
-        return;
-      }
-
-      console.log('Token found, validating session...');
-      // Check if there's a stored token and try to get current user
-      try {
-        const currentUser = await ApiService.getCurrentUser();
-        if (currentUser) {
-          console.log('Session valid, user logged in:', currentUser.email);
-          setUser({
-            id: currentUser.id,
-            email: currentUser.email,
-            name: currentUser.name,
-            phone: currentUser.phone || '',
-            isActor: currentUser.isActor,
-            availableTimeslots: currentUser.availableTimeslots || [],
-            scenes: currentUser.scenes || []
-          });
-        } else {
-          console.log('Session validation returned no user');
-          setUser(null);
-        }
-      } catch (apiError) {
-        console.log('Session validation API call failed:', apiError);
-        // Don't automatically logout on API errors - backend might be down
-        // Instead, just set user to null and let them try to login again
-        setUser(null);
-      }
-    } catch (error) {
-      console.log('Session validation failed with error:', error);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [hasInitialized]);
 
   useEffect(() => {
-    if (!hasInitialized) {
-      loadUser();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasInitialized]); // Removed loadUser from dependencies to prevent circular dependency
+    loadUser();
+  }, []);
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
   }, [user]);
 
+  const loadUser = async () => {
+    try {
+      // Check if there's a stored token and try to get current user
+      const currentUser = await ApiService.getCurrentUser();
+      if (currentUser) {
+        setUser({
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name,
+          phone: currentUser.phone || '',
+          isActor: currentUser.isActor,
+          availableTimeslots: currentUser.availableTimeslots || [],
+          scenes: currentUser.scenes || []
+        });
+      }
+    } catch (error) {
+      console.log('No valid session found:', error);
+      // Clear any invalid token
+      await ApiService.logout();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log('🔐 AuthContext: Starting login for', email);
       setIsLoading(true);
       const response = await ApiService.login({ email, password });
       
-      console.log('🔐 AuthContext: Login response received', { 
-        hasToken: !!response.token, 
-        hasUser: !!response.user,
-        userEmail: response.user?.email 
-      });
-      
       if (response.user) {
-        const userData = {
+        setUser({
           id: response.user.id,
           email: response.user.email,
           name: response.user.name,
@@ -123,38 +82,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isActor: response.user.isActor,
           availableTimeslots: response.user.availableTimeslots || [],
           scenes: response.user.scenes || []
-        };
-        
-        console.log('🔐 AuthContext: Setting user data and login successful', userData);
-        setUser(userData);
+        });
         return true;
-      } else {
-        console.log('🔐 AuthContext: No user in response, login failed');
-        return false;
       }
+      return false;
     } catch (error) {
-      console.error('🔐 AuthContext: Login error:', error);
+      console.error('Login error:', error);
       return false;
     } finally {
-      console.log('🔐 AuthContext: Login process completed, setting loading to false');
       setIsLoading(false);
     }
   };
 
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
-      console.log('🔐 AuthContext: Starting registration for', email);
       setIsLoading(true);
       const response = await ApiService.register({ email, password, name });
       
-      console.log('🔐 AuthContext: Registration response received', { 
-        hasToken: !!response.token, 
-        hasUser: !!response.user,
-        userEmail: response.user?.email 
-      });
-      
       if (response.user) {
-        const userData = {
+        setUser({
           id: response.user.id,
           email: response.user.email,
           name: response.user.name,
@@ -162,17 +108,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isActor: response.user.isActor,
           availableTimeslots: response.user.availableTimeslots || [],
           scenes: response.user.scenes || []
-        };
-        
-        console.log('🔐 AuthContext: Setting user data', userData);
-        setUser(userData);
+        });
         return true;
-      } else {
-        console.log('🔐 AuthContext: No user in response');
-        return false;
       }
+      return false;
     } catch (error) {
-      console.error('🔐 AuthContext: Registration error:', error);
+      console.error('Registration error:', error);
       return false;
     } finally {
       setIsLoading(false);
@@ -180,7 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = useCallback(() => {
-    console.log('Logout called');
     ApiService.logout();
     setUser(null);
   }, []);
@@ -226,22 +166,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const skipLogin = useCallback(() => {
-    console.log('🔐 Skip login called - creating guest user');
-    // Create a temporary guest user that allows app usage without authentication
-    const guestUser: User = {
-      id: 'guest',
-      email: 'guest@local',
-      name: 'Guest User',
-      phone: '',
-      isActor: false,
-      availableTimeslots: [],
-      scenes: []
-    };
-    setUser(guestUser);
-    setIsLoading(false);
-  }, []);
-
   const value: AuthContextType = {
     user,
     isLoading,
@@ -251,7 +175,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateProfile,
     setUserAsActor,
     forceLogout,
-    skipLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -83,17 +83,6 @@ export const commonStyles = StyleSheet.create({
     marginBottom: 16,
     letterSpacing: 0.2,
   },
-  cardSubtitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  cardDescription: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginBottom: 16,
-  },
   cardSection: {
     marginBottom: 16,
     backgroundColor: '#f8fafc',

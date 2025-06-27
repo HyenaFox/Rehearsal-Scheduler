@@ -1,6 +1,15 @@
 import React from 'react';
+import { useApp } from '../contexts/AppContext';
 import ScenesScreen from '../screens/ScenesScreen';
 
 export default function ScenesTab() {
-  return <ScenesScreen onBack={() => {}} />; // No back needed in tabs
+  const { actors, setActors } = useApp();
+
+  return (
+    <ScenesScreen 
+      onBack={() => {}} // No back needed in tabs
+      actors={actors}
+      setActors={setActors}
+    />
+  );
 }

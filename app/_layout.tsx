@@ -6,13 +6,13 @@ import { AuthProvider } from './contexts/AuthContext';
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <AuthWrapper>
-        <AppProvider>
+      <AppProvider>
+        <AuthWrapper>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           </Stack>
-        </AppProvider>
-      </AuthWrapper>
+        </AuthWrapper>
+      </AppProvider>
     </AuthProvider>
   );
 }

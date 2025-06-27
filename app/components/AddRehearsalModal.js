@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { commonStyles } from '../styles/common';
+import { GLOBAL_TIMESLOTS } from '../types/index';
 import { getActorsAvailableForTimeslot } from '../utils/actorUtils';
 
-const AddRehearsalModal = ({ visible, onSave, onCancel, actors, timeslots }) => {
+const AddRehearsalModal = ({ visible, onSave, onCancel, actors }) => {
   const [rehearsalTitle, setRehearsalTitle] = useState('');
   const [selectedTimeslot, setSelectedTimeslot] = useState(null);
   const [selectedActors, setSelectedActors] = useState([]);
@@ -87,29 +88,23 @@ const AddRehearsalModal = ({ visible, onSave, onCancel, actors, timeslots }) => 
             />
 
             <Text style={styles.sectionTitle}>Select Timeslot:</Text>
-            {(!timeslots || timeslots.length === 0) ? (
-              <Text style={styles.noActorsText}>
-                No timeslots available. Please add timeslots first.
-              </Text>
-            ) : (
-              timeslots.map(timeslot => (
-                <TouchableOpacity
-                  key={timeslot.id}
-                  style={[
-                    styles.selectItem,
-                    selectedTimeslot?.id === timeslot.id && styles.selectItemSelected
-                  ]}
-                  onPress={() => handleTimeslotSelect(timeslot)}
-                >
-                  <Text style={[
-                    styles.selectText,
-                    selectedTimeslot?.id === timeslot.id && styles.selectTextSelected
-                  ]}>
-                    {selectedTimeslot?.id === timeslot.id ? '●' : '○'} {timeslot.label}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
+            {GLOBAL_TIMESLOTS.map(timeslot => (
+              <TouchableOpacity
+                key={timeslot.id}
+                style={[
+                  styles.selectItem,
+                  selectedTimeslot?.id === timeslot.id && styles.selectItemSelected
+                ]}
+                onPress={() => handleTimeslotSelect(timeslot)}
+              >
+                <Text style={[
+                  styles.selectText,
+                  selectedTimeslot?.id === timeslot.id && styles.selectTextSelected
+                ]}>
+                  {selectedTimeslot?.id === timeslot.id ? '●' : '○'} {timeslot.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
 
             {selectedTimeslot && (
               <>

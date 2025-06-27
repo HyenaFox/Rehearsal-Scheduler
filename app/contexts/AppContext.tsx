@@ -108,15 +108,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const handleAddActor = async () => {
     try {
-      const newId = Date.now().toString();
       const defaultName = `Actor ${actors.length + 1}`;
       const newActor = {
-        id: newId,
         name: defaultName,
         availableTimeslots: [],
         scenes: []
+        // Note: No ID field - MongoDB will generate its own ObjectId
       };
       
+      console.log('🎭 Creating actor with data:', newActor);
       const createdActor = await ApiService.createActor(newActor);
       const updatedActors = [...actors, createdActor];
       setActors(updatedActors);

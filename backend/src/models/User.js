@@ -121,23 +121,12 @@ userSchema.statics.getAllActors = async function() {
 
 // Static method to create actor
 userSchema.statics.createActor = async function(actorData) {
-  const { id, name, availableTimeslots, scenes } = actorData;
+  const { name, availableTimeslots, scenes } = actorData;
   
-  // Check if actor with this ID already exists
-  let existingActor = await this.findById(id);
-  if (existingActor) {
-    // Update existing user to be an actor
-    existingActor.isActor = true;
-    existingActor.name = name;
-    existingActor.availableTimeslots = availableTimeslots || [];
-    existingActor.scenes = scenes || [];
-    return existingActor.save();
-  }
-  
-  // Create new actor (this is for standalone actors not tied to user accounts)
+  // Create new actor (standalone actor not tied to user accounts)
+  // MongoDB will generate its own ObjectId for _id
   const actor = new this({
-    _id: id,
-    email: `actor-${id}@rehearsal-scheduler.local`, // Temporary email for standalone actors
+    email: `actor-${Date.now()}@rehearsal-scheduler.local`, // Temporary email for standalone actors
     password_hash: 'temp-password', // Temporary password for standalone actors
     name,
     isActor: true,

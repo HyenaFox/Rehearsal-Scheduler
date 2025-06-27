@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "build": "npm install --production",
+    "build": "echo 'Backend build complete - static files will be served from dist directory'",
+    "build:web": "cd .. && npm ci && npx expo export -p web",
+    "build:full": "npm install && cd .. && npm install && npx expo export -p web",
     "prebuild": "echo 'Starting build process...'",
     "postinstall": "echo 'Dependencies installed successfully'",
     "test": "echo 'No tests specified'"
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@expo/cli": "^0.18.0",
     "nodemon": "^3.0.1",
     "typescript": "^5.0.0"
   },

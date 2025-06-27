@@ -18,15 +18,14 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create new actor
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { id, name, availableTimeslots, scenes } = req.body;
+    const { name, availableTimeslots, scenes } = req.body;
     
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
     }
 
-    // Create actor data
+    // Create actor data (no ID - MongoDB will generate one)
     const actorData = {
-      id: id || Date.now().toString(),
       name,
       availableTimeslots: availableTimeslots || [],
       scenes: scenes || [],

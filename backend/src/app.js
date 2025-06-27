@@ -23,8 +23,8 @@ let distPath;
 if (process.env.NODE_ENV === 'production') {
   // Production: try different possible paths
   const productionPaths = [
+    path.resolve(process.cwd(), 'dist'),              // If running from root (Render deployment)
     path.resolve(process.cwd(), '../dist'),           // If backend is in subfolder
-    path.resolve(process.cwd(), 'dist'),              // If at root level
     path.resolve(process.cwd(), '../../dist'),        // Two levels up
     path.resolve(process.cwd(), '../../../dist')      // Three levels up
   ];
@@ -53,13 +53,29 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 console.log('📁 Serving static files from:', distPath);
+console.log('🔍 Current working directory:', process.cwd());
+console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
 const fs = require('fs');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   console.log('✅ Static file serving enabled');
+  // List some files in the dist directory
+  try {
+    const files = fs.readdirSync(distPath).slice(0, 10);
+    console.log('📄 Files in dist directory:', files);
+  } catch (err) {
+    console.log('⚠️ Could not list dist directory contents:', err.message);
+  }
 } else {
   console.log('❌ Static files directory not found - web app will not be served');
   console.log('🔍 Tried path:', distPath);
+  // List current directory contents for debugging
+  try {
+    const currentDirFiles = fs.readdirSync(process.cwd());
+    console.log('📁 Current directory contents:', currentDirFiles);
+  } catch (err) {
+    console.log('⚠️ Could not list current directory:', err.message);
+  }
 }
 
 // Security middleware

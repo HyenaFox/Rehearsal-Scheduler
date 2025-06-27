@@ -219,8 +219,8 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
         <View style={styles.connectedContainer}>
           <View style={styles.statusContainer}>
             <Text style={styles.statusText}>✅ Connected to {status.googleEmail}</Text>
-            <TouchableOpacity style={styles.disconnectButton} onPress={disconnectGoogleCalendar}>
-              <Text style={styles.disconnectButtonText}>Disconnect</Text>
+            <TouchableOpacity style={styles.connectedButton} onPress={disconnectGoogleCalendar}>
+              <Text style={styles.connectedButtonText}>Connected - Tap to Disconnect</Text>
             </TouchableOpacity>
           </View>
 
@@ -322,6 +322,20 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  connectedButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    flex: 1,
+    marginLeft: 12,
+  },
+  connectedButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   connectedContainer: {
     flex: 1,

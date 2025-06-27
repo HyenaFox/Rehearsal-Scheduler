@@ -8,7 +8,7 @@ import { commonStyles } from '../styles/common';
 import { getAvailableTimeslots, getScenes } from '../utils/actorUtils';
 
 export default function ActorsScreen() {
-  const { actors, timeslots, scenes, setActors, handleDeleteActor, handleAddActor } = useApp();
+  const { actors, timeslots, scenes, handleDeleteActor, handleAddActor, handleSaveActor } = useApp();
   
   // Modal states
   const [actorEditModalVisible, setActorEditModalVisible] = useState(false);
@@ -19,11 +19,8 @@ export default function ActorsScreen() {
     setActorEditModalVisible(true);
   };
 
-  const handleSaveActor = (editedActor: any) => {
-    const updatedActors = actors.map(actor => 
-      actor.id === editedActor.id ? editedActor : actor
-    );
-    setActors(updatedActors);
+  const handleSaveActorAndClose = async (editedActor: any) => {
+    await handleSaveActor(editedActor);
     setActorEditModalVisible(false);
     setSelectedActor(null);
   };
@@ -45,6 +42,8 @@ export default function ActorsScreen() {
               <Card
                 key={actor.id}
                 title={actor.name}
+                subtitle=""
+                description=""
                 sections={[
                   {
                     title: 'Available Timeslots',
@@ -72,7 +71,7 @@ export default function ActorsScreen() {
       <ActorEditModal
         actor={selectedActor}
         visible={actorEditModalVisible}
-        onSave={handleSaveActor}
+        onSave={handleSaveActorAndClose}
         onCancel={handleCancelActorEdit}
         timeslots={timeslots}
         scenes={scenes}

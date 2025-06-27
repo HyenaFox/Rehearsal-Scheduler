@@ -16,6 +16,7 @@ interface AppContextType {
   handleDeleteActor: (actor: any) => void;
   handleDeleteRehearsal: (index: number) => void;
   handleAddActor: () => void;
+  handleSaveActor: (actor: any) => void;
   handleAddRehearsal: (rehearsal: any) => void;
   handleAddMultipleRehearsals: (rehearsals: any[]) => void;
   loadTimeslots: () => Promise<void>;
@@ -131,21 +132,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [scenes]);
 
-  const handleDeleteActor = (actor: any) => {
-    // Direct deletion without confirmation
-    const updatedActors = actors.filter(a => a.id !== actor.id);
-    setActors(updatedActors);
+  const handleDeleteActor = async (actor: any) => {
+    try {
+      // Delete from API first
+      await ApiService.deleteActor(actor.id);
+      
+      // Update local state after successful deletion
+      const updatedActors = actors.filter(a => a.id !== actor.id);
+      setActors(updatedActors);
+    } catch (error) {
+      console.error('Failed to delete actor:', error);
+      // Could show an alert to user here
+    }
   };
 
   const handleDeleteRehearsal = (index: number) => {
     const updatedRehearsals = rehearsals.filter((_, i) => i !== index);
     setRehearsals(updatedRehearsals);
-  };  const handleAddActor = () => {
-    const newId = Date.now().toString();
-    const defaultName = `Actor ${actors.length + 1}`;
-    const newActor = createActor(newId, defaultName, [], []);
-    const updatedActors = [...actors, newActor];
-    setActors(updatedActors);
+  };
+
+  const handleAddActor = async () => {
+    try {
+      const newId = Date.now().toString();
+      const defaultName = `Actor ${actors.length + 1}`;
+      const newActor = createActor(newId, defaultName, [], []);
+      
+      // Save to API first
+      const savedActor = await ApiService.createActor(newActor);
+      
+      // Update local state with the saved actor (in case API returns additional fields)
+      const updatedActors = [...actors, savedActor];
+      setActors(updatedActors);
+    } catch (error) {
+      console.error('Failed to create actor:', error);
+      // Fallback to local state update
+      const newId = Date.now().toString();
+      const defaultName = `Actor ${actors.length + 1}`;
+      const newActor = createActor(newId, defaultName, [], []);
+      const updatedActors = [...actors, newActor];
+      setActors(updatedActors);
+    }
+  };
+
+  const handleSaveActor = async (editedActor: any) => {
+    try {
+      // Update via API first
+      const updatedActor = await ApiService.updateActor(editedActor.id, editedActor);
+      
+      // Update local state with API response
+      const updatedActors = actors.map(actor => 
+        actor.id === editedActor.id ? updatedActor : actor
+      );
+      setActors(updatedActors);
+    } catch (error) {
+      console.error('Failed to update actor:', error);
+      // Fallback to local state update
+      const updatedActors = actors.map(actor => 
+        actor.id === editedActor.id ? editedActor : actor
+      );
+      setActors(updatedActors);
+    }
   };
 
   const handleAddRehearsal = (rehearsal: any) => {
@@ -170,6 +216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     handleDeleteActor,
     handleDeleteRehearsal,
     handleAddActor,
+    handleSaveActor,
     handleAddRehearsal,
     handleAddMultipleRehearsals,
     loadActors,

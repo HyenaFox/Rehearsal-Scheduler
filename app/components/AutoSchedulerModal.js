@@ -28,8 +28,22 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
       return;
     }
     
+    console.log('Auto-scheduler data:', {
+      actors: actors?.length || 0,
+      timeslots: timeslots?.length || 0,
+      scenes: scenes?.length || 0,
+      selectedDay,
+      existingRehearsals: existingRehearsals?.length || 0
+    });
+    
     const opps = findBestRehearsalOpportunities(actors, selectedDay, existingRehearsals, timeslots, scenes);
     const summaryData = getSchedulingSummary(actors, selectedDay, existingRehearsals, timeslots, scenes);
+    
+    console.log('Auto-scheduler results:', {
+      opportunities: opps.length,
+      summary: summaryData
+    });
+    
     setOpportunities(opps);
     setSummary(summaryData);
     setSelectedOpportunity(opps[0] || null);
@@ -171,7 +185,14 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
                   {'\n'}• Available actors for timeslots
                   {'\n'}• Scenes that can be rehearsed together
                   {'\n'}• Optimal scheduling efficiency
-                  {'\n\n'}Try selecting a different day or check actor availability and scene assignments.
+                  {'\n\n'}Current data:
+                  {'\n'}• Actors: {actors?.length || 0}
+                  {'\n'}• Timeslots: {timeslots?.length || 0} (for {selectedDay}: {timeslots?.filter(ts => ts.day === selectedDay)?.length || 0})
+                  {'\n'}• Scenes: {scenes?.length || 0}
+                  {'\n\n'}Try:
+                  {'\n'}• Creating actors and assigning them to timeslots
+                  {'\n'}• Creating scenes and assigning actors to them
+                  {'\n'}• Checking that actors have availability for {selectedDay}
                 </Text>
               </View>
             ) : (

@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { Text } from 'react-native';
 
 export default function TabLayout() {
   return (
@@ -24,6 +25,9 @@ export default function TabLayout() {
           borderRadius: 12,
           marginHorizontal: 4,
         },
+        tabBarIconStyle: {
+          marginTop: 4,
+        },
       }}
     >
       <Tabs.Screen
@@ -31,6 +35,9 @@ export default function TabLayout() {
         options={{
           title: '🎭 Actors',
           tabBarLabel: 'Actors',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>🎭</Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -38,6 +45,9 @@ export default function TabLayout() {
         options={{
           title: '🎬 Scenes',
           tabBarLabel: 'Scenes',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>🎬</Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -45,6 +55,9 @@ export default function TabLayout() {
         options={{
           title: '⏰ Times',
           tabBarLabel: 'Times',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>⏰</Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -52,6 +65,9 @@ export default function TabLayout() {
         options={{
           title: '📅 Shows',
           tabBarLabel: 'Shows',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>📅</Text>
+          ),
         }}
       />
       <Tabs.Screen
@@ -59,6 +75,9 @@ export default function TabLayout() {
         options={{
           title: '👤 Profile',
           tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>👤</Text>
+          ),
         }}
       />
     </Tabs>

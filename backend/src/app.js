@@ -437,3 +437,49 @@ process.on('uncaughtException', (err) => {
 startServer();
 
 module.exports = app;
+
+// Debug endpoint to check what static files are available
+app.get('/debug/files', (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    if (!fs.existsSync(distPath)) {
+      return res.json({ error: 'Dist directory not found', distPath });
+    }
+    
+    const listFiles = (dir, basePath = '') => {
+      const files = [];
+      const items = fs.readdirSync(dir);
+      
+      for (const item of items) {
+        const fullPath = path.join(dir, item);
+        const relativePath = path.join(basePath, item).replace(/\\/g, '/');
+        
+        if (fs.statSync(fullPath).isDirectory()) {
+          files.push(...listFiles(fullPath, relativePath));
+        } else {
+          files.push({
+            path: relativePath,
+            size: fs.statSync(fullPath).size,
+            modified: fs.statSync(fullPath).mtime
+          });
+        }
+      }
+      
+      return files;
+    };
+    
+    const files = listFiles(distPath);
+    const jsFiles = files.filter(f => f.path.includes('_expo/static/js/web/'));
+    
+    res.json({
+      distPath,
+      totalFiles: files.length,
+      jsFiles,
+      indexHtml: files.find(f => f.path === 'index.html')
+    });
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});

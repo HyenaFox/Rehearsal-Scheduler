@@ -119,8 +119,17 @@ app.use('/api/actors', actorsRoutes);
 app.use('/api/timeslots', timeslotsRoutes);
 app.use('/api/scenes', scenesRoutes);
 
-// Root endpoint - provide API information
-app.get('/', (req, res) => {
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    message: 'Rehearsal Scheduler API is running'
+  });
+});
+
+// API documentation endpoint (moved from root to /api-docs)
+app.get('/api-docs', (req, res) => {
   res.json({
     name: 'Rehearsal Scheduler API',
     version: '1.0.0',
@@ -168,7 +177,7 @@ app.get('/', (req, res) => {
     },
     documentation: 'All endpoints except /, /health, and /api require authentication',
     mobile_app: 'This API serves a React Native mobile application',
-    web_app: 'Web version available at a separate deployment'
+    web_app: 'Web version served at /'
   });
 });
 

@@ -57,12 +57,28 @@ console.log('🔍 Current working directory:', process.cwd());
 console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
 const fs = require('fs');
 if (fs.existsSync(distPath)) {
+  // Add logging middleware for static files
+  app.use((req, res, next) => {
+    if (req.url.startsWith('/_expo') || req.url.endsWith('.js') || req.url.endsWith('.css')) {
+      console.log('📄 Static file request:', req.url);
+    }
+    next();
+  });
+  
   app.use(express.static(distPath));
   console.log('✅ Static file serving enabled');
   // List some files in the dist directory
   try {
     const files = fs.readdirSync(distPath).slice(0, 10);
     console.log('📄 Files in dist directory:', files);
+    // Check for the critical JS bundle
+    const expoDir = path.join(distPath, '_expo', 'static', 'js', 'web');
+    if (fs.existsSync(expoDir)) {
+      const jsFiles = fs.readdirSync(expoDir);
+      console.log('📄 JS bundle files:', jsFiles);
+    } else {
+      console.log('⚠️ _expo/static/js/web directory not found');
+    }
   } catch (err) {
     console.log('⚠️ Could not list dist directory contents:', err.message);
   }

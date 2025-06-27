@@ -1,18 +1,18 @@
 // Auto-scheduler utility functions
-import { GLOBAL_SCENES, GLOBAL_TIMESLOTS } from '../types/index';
-import { getActorsAvailableForTimeslot } from './actorUtils';
 
 /**
  * Find the best rehearsal opportunities for a given day
  * @param {Array} actors - Array of all actors
  * @param {string} targetDay - Day of the week (e.g., 'Monday', 'Tuesday')
  * @param {Array} existingRehearsals - Array of existing rehearsals to avoid conflicts
+ * @param {Array} timeslots - Array of available timeslots
+ * @param {Array} scenes - Array of available scenes
  * @returns {Array} Array of rehearsal suggestions
  */
-export const findBestRehearsalOpportunities = (actors, targetDay, existingRehearsals = []) => {
+export const findBestRehearsalOpportunities = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = []) => {
   // Get timeslots for the target day
-  const dayTimeslots = GLOBAL_TIMESLOTS.filter(timeslot => 
-    timeslot.day.toLowerCase() === targetDay.toLowerCase()
+  const dayTimeslots = timeslots.filter(timeslot => 
+    timeslot.day && timeslot.day.toLowerCase() === targetDay.toLowerCase()
   );
 
   // Get used timeslots from existing rehearsals
@@ -25,12 +25,14 @@ export const findBestRehearsalOpportunities = (actors, targetDay, existingRehear
     if (usedTimeslots.includes(timeslot.id)) return;
 
     // Get actors available for this timeslot
-    const availableActors = getActorsAvailableForTimeslot(actors, timeslot.id);
+    const availableActors = actors.filter(actor => 
+      actor.availableTimeslots && actor.availableTimeslots.includes(timeslot.id || timeslot._id)
+    );
     
     if (availableActors.length === 0) return;
 
     // Find scenes that can be rehearsed with available actors
-    const sceneOpportunities = findBestScenesForActors(availableActors);
+    const sceneOpportunities = findBestScenesForActors(availableActors, scenes);
 
     sceneOpportunities.forEach(sceneOpp => {
       opportunities.push({
@@ -50,12 +52,13 @@ export const findBestRehearsalOpportunities = (actors, targetDay, existingRehear
 /**
  * Find the best scenes that can be rehearsed with available actors
  * @param {Array} availableActors - Actors available for a timeslot
+ * @param {Array} scenes - Array of available scenes
  * @returns {Array} Array of scene opportunities
  */
-export const findBestScenesForActors = (availableActors) => {
+export const findBestScenesForActors = (availableActors, scenes = []) => {
   const sceneOpportunities = [];
 
-  GLOBAL_SCENES.forEach(scene => {
+  scenes.forEach(scene => {
     // Get actors who are in this scene
     const sceneActors = availableActors.filter(actor => 
       actor.scenes.includes(scene.title)
@@ -159,15 +162,17 @@ export const createRehearsalFromOpportunity = (opportunity, customTitle = null) 
  * @param {Array} actors - Array of all actors
  * @param {string} targetDay - Day of the week
  * @param {Array} existingRehearsals - Existing rehearsals
+ * @param {Array} timeslots - Array of available timeslots
+ * @param {Array} scenes - Array of available scenes
  * @param {number} maxRehearsals - Maximum number of rehearsals to create
  * @returns {Array} Array of generated rehearsals
  */
-export const autoScheduleDay = (actors, targetDay, existingRehearsals = [], maxRehearsals = 5) => {
+export const autoScheduleDay = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = [], maxRehearsals = 5) => {
   const generatedRehearsals = [];
   let currentRehearsals = [...existingRehearsals];
   
   for (let i = 0; i < maxRehearsals; i++) {
-    const opportunities = findBestRehearsalOpportunities(actors, targetDay, currentRehearsals);
+    const opportunities = findBestRehearsalOpportunities(actors, targetDay, currentRehearsals, timeslots, scenes);
     
     if (opportunities.length === 0) break; // No more opportunities
     
@@ -186,12 +191,14 @@ export const autoScheduleDay = (actors, targetDay, existingRehearsals = [], maxR
  * @param {Array} actors - Array of all actors
  * @param {string} targetDay - Day of the week
  * @param {Array} existingRehearsals - Existing rehearsals
+ * @param {Array} timeslots - Array of available timeslots
+ * @param {Array} scenes - Array of available scenes
  * @returns {Object} Summary statistics
  */
-export const getSchedulingSummary = (actors, targetDay, existingRehearsals = []) => {
-  const opportunities = findBestRehearsalOpportunities(actors, targetDay, existingRehearsals);
-  const dayTimeslots = GLOBAL_TIMESLOTS.filter(timeslot => 
-    timeslot.day.toLowerCase() === targetDay.toLowerCase()
+export const getSchedulingSummary = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = []) => {
+  const opportunities = findBestRehearsalOpportunities(actors, targetDay, existingRehearsals, timeslots, scenes);
+  const dayTimeslots = timeslots.filter(timeslot => 
+    timeslot.day && timeslot.day.toLowerCase() === targetDay.toLowerCase()
   );
   
   return {

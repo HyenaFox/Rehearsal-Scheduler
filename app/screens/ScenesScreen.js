@@ -6,43 +6,51 @@ import SceneEditModal from '../components/SceneEditModal';
 import { useApp } from '../contexts/AppContext';
 import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
-import { getActorsInScene, removeScene } from '../utils/actorUtils';
 
-const ScenesScreen = ({ onBack, actors, setActors }) => {
-  const [scenes, setScenes] = useState(GLOBAL_SCENES);
+const ScenesScreen = ({ onBack }) => {
+  const { scenes, setScenes, actors, setActors } = useApp();
   const [editingScene, setEditingScene] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const handleDeleteScene = async (sceneId) => {
-    const sceneToDelete = scenes.find(s => s.id === sceneId);
-    
-    // Direct deletion without confirmation
-    // Remove from global scenes
-    const updatedScenes = scenes.filter(s => s.id !== sceneId);
-    setScenes(updatedScenes);
-    GLOBAL_SCENES.length = 0;
-    GLOBAL_SCENES.push(...updatedScenes);
-    await AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(updatedScenes));
-
-    // Remove from all actors
-    const updatedActors = actors.map(actor => 
-      removeScene(actor, sceneToDelete.title)
-    );
-    setActors(updatedActors);
+  
+  const handleDeleteScene = async (sceneToDelete) => {
+    try {
+      await ApiService.deleteScene(sceneToDelete.id || sceneToDelete._id);
+      const updatedScenes = scenes.filter(s => (s.id || s._id) !== (sceneToDelete.id || sceneToDelete._id));
+      setScenes(updatedScenes);
+      
+      // Remove scene from all actors who were assigned to it
+      const updatedActors = actors.map(actor => ({
+        ...actor,
+        scenes: actor.scenes.filter(sceneName => sceneName !== sceneToDelete.title)
+      }));
+      setActors(updatedActors);
+      
+      console.log('✅ Scene deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting scene:', error);
+      Alert.alert('Error', 'Failed to delete scene');
+    }
   };
 
   const handleAddScene = async () => {
-    const newId = `scene-${Date.now()}`;
-    const newScene = {
-      id: newId,
-      title: 'New Scene',
-      description: 'Scene description'
-    };
-    
-    const updatedScenes = [...scenes, newScene];
-    setScenes(updatedScenes);
-    GLOBAL_SCENES.length = 0;
-    GLOBAL_SCENES.push(...updatedScenes);
-    await AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(updatedScenes));
+    try {
+      const newScene = {
+        title: 'New Scene',
+        description: 'Scene description',
+        actorsRequired: [],
+        location: '',
+        duration: 60,
+        priority: 5
+      };
+      
+      const createdScene = await ApiService.createScene(newScene);
+      const updatedScenes = [...scenes, createdScene];
+      setScenes(updatedScenes);
+      console.log('✅ Scene created successfully');
+    } catch (error) {
+      console.error('❌ Error creating scene:', error);
+      Alert.alert('Error', 'Failed to create scene');
+    }
   };
 
   return (
@@ -71,14 +79,16 @@ const ScenesScreen = ({ onBack, actors, setActors }) => {
                   },
                   {
                     title: 'Actors in this Scene',
-                    content: getActorsInScene(actors, scene.title).map(actor => actor.name).join(', ') || 'No actors assigned'
+                    content: actors.filter(actor => 
+                      actor.scenes && actor.scenes.includes(scene.title)
+                    ).map(actor => actor.name).join(', ') || 'No actors assigned'
                   }
                 ]}
                 onEdit={() => {
                   setEditingScene(scene);
                   setShowEditModal(true);
                 }}
-                onDelete={() => handleDeleteScene(scene.id)}
+                onDelete={() => handleDeleteScene(scene)}
               />
             ))}
             {scenes.length === 0 && (
@@ -94,31 +104,35 @@ const ScenesScreen = ({ onBack, actors, setActors }) => {
           scene={editingScene}
           visible={showEditModal}
           onSave={async (updatedScene) => {
-            const updatedScenes = scenes.map(s => 
-              s.id === updatedScene.id ? updatedScene : s
-            );
-            
-            setScenes(updatedScenes);
-            GLOBAL_SCENES.length = 0;
-            GLOBAL_SCENES.push(...updatedScenes);
-            await AsyncStorage.setItem(STORAGE_KEYS.SCENES, JSON.stringify(updatedScenes));
+            try {
+              const savedScene = await ApiService.updateScene(updatedScene.id || updatedScene._id, updatedScene);
+              const updatedScenes = scenes.map(s => 
+                (s.id || s._id) === (updatedScene.id || updatedScene._id) ? savedScene : s
+              );
+              
+              setScenes(updatedScenes);
+              
+              // Update actors if scene title changed
+              if (editingScene.title !== updatedScene.title) {
+                const updatedActors = actors.map(actor => {
+                  if (actor.scenes && actor.scenes.includes(editingScene.title)) {
+                    const newScenes = actor.scenes.map(sceneName => 
+                      sceneName === editingScene.title ? updatedScene.title : sceneName
+                    );
+                    return { ...actor, scenes: newScenes };
+                  }
+                  return actor;
+                });
+                setActors(updatedActors);
+              }
 
-            // Update actors if scene title changed
-            if (editingScene.title !== updatedScene.title) {
-              const updatedActors = actors.map(actor => {
-                const sceneIndex = actor.scenes.indexOf(editingScene.title);
-                if (sceneIndex !== -1) {
-                  const newScenes = [...actor.scenes];
-                  newScenes[sceneIndex] = updatedScene.title;
-                  return { ...actor, scenes: newScenes };
-                }
-                return actor;
-              });
-              setActors(updatedActors);
+              setShowEditModal(false);
+              setEditingScene(null);
+              console.log('✅ Scene updated successfully');
+            } catch (error) {
+              console.error('❌ Error updating scene:', error);
+              Alert.alert('Error', 'Failed to update scene');
             }
-
-            setShowEditModal(false);
-            setEditingScene(null);
           }}
           onCancel={() => {
             setShowEditModal(false);

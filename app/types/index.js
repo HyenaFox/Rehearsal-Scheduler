@@ -28,8 +28,9 @@ export const DEFAULT_SCENES = [
 ];
 
 // Global mutable arrays that all components can reference
-export const GLOBAL_TIMESLOTS = [...DEFAULT_TIMESLOTS];
-export const GLOBAL_SCENES = [...DEFAULT_SCENES];
+// NOTE: These are deprecated - components should use AppContext instead
+// export const GLOBAL_TIMESLOTS = [...DEFAULT_TIMESLOTS];
+// export const GLOBAL_SCENES = [...DEFAULT_SCENES];
 
 export const DEFAULT_ACTORS = [
   {

@@ -1,4 +1,3 @@
-import React from 'react';
 import TimeslotsScreen from '../screens/TimeslotsScreen';
 
 export default function TimeslotsTab() {

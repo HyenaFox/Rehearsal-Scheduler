@@ -33,6 +33,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          title: '📅 Shows',
+          tabBarLabel: 'Shows',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>📅</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="rehearsals"
+        options={{
           title: '🎭 Actors',
           tabBarLabel: 'Actors',
           tabBarIcon: ({ color, focused }) => (
@@ -57,16 +67,6 @@ export default function TabLayout() {
           tabBarLabel: 'Times',
           tabBarIcon: ({ color, focused }) => (
             <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>⏰</Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="rehearsals"
-        options={{
-          title: '📅 Shows',
-          tabBarLabel: 'Shows',
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>📅</Text>
           ),
         }}
       />

@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import LoginScreen from '../screens/LoginScreen';
 import { testApiConnection } from '../services/api';
 
 interface AuthWrapperProps {
@@ -31,6 +30,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     }
   }, [user, isLoading]);
 
+  // Show loading spinner while authenticating
   if (isLoading) {
     console.log('AuthWrapper - showing loading screen');
     return (
@@ -40,12 +40,8 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     );
   }
 
-  if (!user) {
-    console.log('AuthWrapper - no user, showing login screen');
-    return <LoginScreen />;
-  }
-
-  console.log('AuthWrapper - user logged in, showing main app');
+  // Always show main app, authentication is now handled per-screen
+  console.log('AuthWrapper - showing main app, user:', user ? `logged in as ${user.email}` : 'not logged in');
   return (
     <>
       {children}

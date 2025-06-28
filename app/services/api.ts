@@ -76,7 +76,14 @@ class ApiService {
     });
 
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+      // Add timeout to prevent hanging requests
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
+      });
+      
+      const fetchPromise = fetch(`${API_BASE_URL}${endpoint}`, config);
+      
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
       
       console.log(`🌐 Response status: ${response.status} ${response.statusText}`);
       
@@ -323,7 +330,7 @@ class ApiService {
   }
 
   static async getGoogleCalendarStatus(): Promise<{
-    isConnected: boolean;
+    connected: boolean;
     googleEmail?: string;
     hasAvailableSlots: boolean;
   }> {
@@ -351,6 +358,11 @@ class ApiService {
     dateRange: { from: string; to: string };
   }> {
     return this.makeRequest('/calendar/available-slots');
+  }
+
+  static async importGoogleCalendarAvailability(): Promise<any[]> {
+    const response = await this.makeRequest('/calendar/import-availability');
+    return response.availableSlots || [];
   }
 
   static async importSelectedSlots(selectedSlots: any[]): Promise<any> {

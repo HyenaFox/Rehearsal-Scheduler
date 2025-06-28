@@ -39,8 +39,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { user } = useAuth();
 
   const loadData = async () => {
-    if (!user || user.id === 'guest') {
+    if (!user) {
+      // For guests or no user, use empty arrays
+      console.log('AppContext - No user, setting empty data arrays');
+      setActors([]);
+      setRehearsals([]);
+      setTimeslots([]);
+      setScenes([]);
+      return;
+    }
+
+    if (user.id === 'guest') {
       // For guest users, use empty arrays
+      console.log('AppContext - Guest user, setting empty data arrays');
       setActors([]);
       setRehearsals([]);
       setTimeslots([]);
@@ -79,6 +90,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setScenes(scenesData);
     } catch (error) {
       console.error('❌ Error loading data:', error);
+      // Set empty arrays on error
+      setActors([]);
+      setTimeslots([]);
+      setScenes([]);
     } finally {
       setIsLoading(false);
     }

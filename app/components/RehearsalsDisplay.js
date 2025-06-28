@@ -1,4 +1,3 @@
-import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal, isAdmin = false }) => {

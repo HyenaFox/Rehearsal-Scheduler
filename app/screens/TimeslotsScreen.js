@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import Card from '../components/Card';
@@ -81,7 +81,9 @@ const TimeslotsScreen = ({ onBack }) => {
         </View>
 
         <View style={commonStyles.scrollView}>
-          <ActionButton title="Add New Timeslot" onPress={handleAddTimeslot} />
+          {isAdmin && (
+            <ActionButton title="Add New Timeslot" onPress={handleAddTimeslot} />
+          )}
 
           <ScrollView style={{ flex: 1 }}>
             {timeslots.map(timeslot => (

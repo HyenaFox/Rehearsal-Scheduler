@@ -42,6 +42,14 @@ const userSchema = new mongoose.Schema({
     type: Object,
     default: null
   },
+  googleTokens: {
+    type: Object,
+    default: null
+  },
+  googleConnected: {
+    type: Boolean,
+    default: false
+  },
   googleEmail: {
     type: String,
     default: null

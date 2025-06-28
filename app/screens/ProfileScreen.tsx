@@ -1,21 +1,20 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
+import LoginScreen from './LoginScreen';
 import ApiService from '../services/api';
 
 export default function ProfileScreen() {
   const { user, updateProfile, forceLogout, isLoading: authLoading } = useAuth();
-  const { actors, setActors, timeslots, scenes } = useApp();
+  const { setActors, timeslots, scenes } = useApp();
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [isActor, setIsActor] = useState(user?.isActor || false);
   const [selectedTimeslots, setSelectedTimeslots] = useState<string[]>(user?.availableTimeslots || []);
   const [selectedScenes, setSelectedScenes] = useState<string[]>(user?.scenes || []);
   const [isLoading, setIsLoading] = useState(false);
-
-  const isGuestUser = user?.id === 'guest';
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -92,7 +91,10 @@ export default function ProfileScreen() {
     );
   }
 
-  if (!user) return null;
+  // Show login screen if no user is authenticated
+  if (!user) {
+    return <LoginScreen />;
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -207,10 +209,35 @@ export default function ProfileScreen() {
         {/* Google Calendar Integration Section */}
         {isActor && (
           <GoogleCalendarIntegration 
-            onSlotsImported={(slots) => {
-              // Handle imported slots - you can add logic here to merge with existing timeslots
+            onSlotsImported={async (slots) => {
+              // Handle imported slots - merge with existing selections
               console.log('Slots imported:', slots);
-              // Optionally refresh the profile data
+              const merged = [...new Set([...selectedTimeslots, ...slots])];
+              console.log('Merged timeslots:', merged);
+              setSelectedTimeslots(merged);
+              
+              // Automatically save the updated availability
+              try {
+                const updates = {
+                  name: name.trim(),
+                  phone: phone.trim(),
+                  isActor,
+                  availableTimeslots: merged,
+                  scenes: selectedScenes,
+                };
+                
+                console.log('🗓️ Auto-saving imported availability:', updates);
+                await updateProfile(updates);
+                
+                // Refresh the actors list
+                const updatedActors = await ApiService.getAllActors();
+                setActors(updatedActors);
+                
+                Alert.alert('Success', 'Availability imported and saved successfully!');
+              } catch (error) {
+                console.error('Error saving imported availability:', error);
+                Alert.alert('Warning', 'Availability imported but failed to save. Please click Save to persist your changes.');
+              }
             }}
           />
         )}

@@ -1,4 +1,3 @@
-import React from 'react';
 import ScenesScreen from '../screens/ScenesScreen';
 
 export default function ScenesTab() {

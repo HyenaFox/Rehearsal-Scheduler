@@ -55,14 +55,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!token) {
         // No token stored, user is not logged in
         console.log('No auth token found, user not logged in');
-        setIsLoading(false); // Important: Set loading to false here!
+        setUser(null);
+        setIsLoading(false);
         return;
       }
 
       console.log('Token found, validating session...');
-      // Check if there's a stored token and try to get current user
+      
       try {
+        // Validate the session with the API
         const currentUser = await ApiService.getCurrentUser();
+        
         if (currentUser) {
           console.log('Session valid, user logged in:', currentUser.email);
           setUser({
@@ -78,17 +81,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           console.log('Session validation returned no user');
           setUser(null);
+          // Clear invalid token
+          await AsyncStorage.removeItem('auth_token');
         }
       } catch (apiError) {
         console.log('Session validation API call failed:', apiError);
-        // Don't automatically logout on API errors - backend might be down
-        // Instead, just set user to null and let them try to login again
+        // Clear invalid token and set user to null
+        await AsyncStorage.removeItem('auth_token');
         setUser(null);
       }
     } catch (error) {
       console.log('Session validation failed with error:', error);
       setUser(null);
     } finally {
+      console.log('loadUser completed, setting isLoading to false');
       setIsLoading(false);
     }
   }, [hasInitialized]);

@@ -1,69 +1,58 @@
-import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
-import ActorEditModal from '../components/ActorEditModal';
-import Card from '../components/Card';
+import AddRehearsalModal from '../components/AddRehearsalModal';
+import AutoSchedulerModal from '../components/AutoSchedulerModal';
+import RehearsalsDisplay from '../components/RehearsalsDisplay';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
-import ApiService from '../services/api';
-import { commonStyles } from '../styles/common';
-import { getAvailableTimeslots, getScenes } from '../utils/actorUtils';
 
-export default function ActorsScreen() {
-  const { actors, setActors, handleDeleteActor, handleAddActor } = useApp();
+export default function RehearsalsScreen() {
+  const { actors, rehearsals, handleDeleteRehearsal, handleAddRehearsal, handleAddMultipleRehearsals } = useApp();
   const { user } = useAuth();
   
   // Admin check
   const isAdmin = user?.isAdmin || false;
   
-  // Modal states
-  const [actorEditModalVisible, setActorEditModalVisible] = useState(false);
-  const [selectedActor, setSelectedActor] = useState(null);
+  const [addRehearsalModalVisible, setAddRehearsalModalVisible] = useState(false);
+  const [autoSchedulerModalVisible, setAutoSchedulerModalVisible] = useState(false);
 
-  const handleEditActor = (actor: any) => {
+  const handleAddRehearsalButton = () => {
     if (!isAdmin) {
-      Alert.alert('Access Denied', 'Only administrators can edit actors.');
+      Alert.alert('Access Denied', 'Only administrators can add rehearsals.');
       return;
     }
-    setSelectedActor(actor);
-    setActorEditModalVisible(true);
+    setAddRehearsalModalVisible(true);
   };
 
-  const handleSaveActor = async (editedActor: any) => {
-    try {
-      console.log('🔄 Saving actor to backend:', editedActor);
-      
-      if (!editedActor.id) {
-        console.error('❌ Actor ID is missing, cannot update');
-        Alert.alert('Error', 'Actor ID is missing, cannot update');
-        return;
-      }
-      
-      // Update actor in backend
-      await ApiService.updateActor(editedActor.id, {
-        name: editedActor.name,
-        availableTimeslots: editedActor.availableTimeslots,
-        scenes: editedActor.scenes
-      });
-      
-      // Update local state
-      const updatedActors = actors.map(actor => 
-        actor.id === editedActor.id ? editedActor : actor
-      );
-      setActors(updatedActors);
-      setActorEditModalVisible(false);
-      setSelectedActor(null);
-      
-      console.log('✅ Actor updated successfully');
-    } catch (error) {
-      console.error('❌ Error updating actor:', error);
-      Alert.alert('Error', 'Failed to update actor');
+  const handleAutoScheduler = () => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can use the auto-scheduler.');
+      return;
     }
+    setAutoSchedulerModalVisible(true);
   };
 
-  const handleCancelActorEdit = () => {
-    setActorEditModalVisible(false);
-    setSelectedActor(null);
+  const handleSaveRehearsal = (newRehearsal: any) => {
+    handleAddRehearsal(newRehearsal);
+    setAddRehearsalModalVisible(false);
+  };
+
+  const handleSaveAutoRehearsal = (data: any, isMultiple: boolean = false) => {
+    if (isMultiple && Array.isArray(data)) {
+      handleAddMultipleRehearsals(data);
+    } else {
+      handleAddRehearsal(data);
+    }
+    setAutoSchedulerModalVisible(false);
+  };
+
+  const handleCancelAddRehearsal = () => {
+    setAddRehearsalModalVisible(false);
+  };
+
+  const handleCancelAutoScheduler = () => {
+    setAutoSchedulerModalVisible(false);
   };
 
   return (
@@ -71,58 +60,46 @@ export default function ActorsScreen() {
       <StatusBar barStyle="light-content" />
       <View style={styles.container}>
         <View style={styles.content}>
-          <Text style={styles.screenTitle}>🎭 Actors</Text>
-          <ActionButton 
-            title="Add Actor" 
-            onPress={() => {
-              if (!isAdmin) {
-                Alert.alert('Access Denied', 'Only administrators can add actors.');
-                return;
-              }
-              handleAddActor();
-            }} 
-            style={undefined} 
-          />
-          <ScrollView style={styles.scrollView}>
-            {actors.map(actor => (
-              <Card
-                key={actor.id}
-                title={actor.name}
-                sections={[
-                  {
-                    title: 'Available Timeslots',
-                    content: getAvailableTimeslots(actor).map((ts: any) => ts.label).join(', ') || 'No timeslots assigned'
-                  },
-                  {
-                    title: 'Scenes',
-                    content: getScenes(actor).join(', ') || 'No scenes assigned'
-                  }
-                ]}
-                onEdit={isAdmin ? () => handleEditActor(actor) : undefined}
-                onDelete={isAdmin ? () => {
-                  if (!isAdmin) {
-                    Alert.alert('Access Denied', 'Only administrators can delete actors.');
-                    return;
-                  }
-                  handleDeleteActor(actor);
-                } : undefined}
+          <Text style={styles.screenTitle}>📅 Rehearsals</Text>
+          
+          {/* Action Buttons */}
+          {isAdmin && (
+            <View style={styles.buttonRow}>
+              <ActionButton 
+                title="Add Rehearsal" 
+                onPress={handleAddRehearsalButton} 
+                style={[styles.actionButton, { backgroundColor: '#10b981' }]} 
               />
-            ))}
-            {actors.length === 0 && (
-              <View style={commonStyles.emptyState}>
-                <Text style={commonStyles.emptyStateText}>No actors available</Text>
-              </View>
-            )}
-          </ScrollView>
+              <ActionButton 
+                title="🤖 Auto Schedule" 
+                onPress={handleAutoScheduler} 
+                style={[styles.actionButton, { backgroundColor: '#6366f1' }]} 
+              />
+            </View>
+          )}
+          
+          <RehearsalsDisplay
+            rehearsals={rehearsals}
+            onDeleteRehearsal={handleDeleteRehearsal}
+            isAdmin={isAdmin}
+          />
         </View>
       </View>
 
       {/* Modals */}
-      <ActorEditModal
-        actor={selectedActor}
-        visible={actorEditModalVisible}
-        onSave={handleSaveActor}
-        onCancel={handleCancelActorEdit}
+      <AddRehearsalModal
+        visible={addRehearsalModalVisible}
+        onSave={handleSaveRehearsal}
+        onCancel={handleCancelAddRehearsal}
+        actors={actors}
+      />
+      
+      <AutoSchedulerModal
+        visible={autoSchedulerModalVisible}
+        onSave={handleSaveAutoRehearsal}
+        onCancel={handleCancelAutoScheduler}
+        actors={actors}
+        existingRehearsals={rehearsals}
       />
     </SafeAreaView>
   );
@@ -140,14 +117,20 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  scrollView: {
-    flex: 1,
-  },
   screenTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#1e293b',
     marginBottom: 20,
     letterSpacing: 0.3,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
   },
 });

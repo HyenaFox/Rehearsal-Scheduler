@@ -8,7 +8,12 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const actors = await User.getAllActors();
-    res.json(actors);
+    // Transform _id to id for frontend compatibility
+    const transformedActors = actors.map(actor => ({
+      ...actor.toObject(),
+      id: actor._id.toString()
+    }));
+    res.json(transformedActors);
   } catch (error) {
     console.error('Get actors error:', error);
     res.status(500).json({ error: 'Failed to get actors' });
@@ -36,7 +41,13 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     // In a real implementation, you'd save to a dedicated actors collection
     const actor = await User.createActor(actorData);
     
-    res.status(201).json(actor);
+    // Transform _id to id for frontend compatibility
+    const transformedActor = {
+      ...actor.toObject(),
+      id: actor._id.toString()
+    };
+    
+    res.status(201).json(transformedActor);
   } catch (error) {
     console.error('Create actor error:', error);
     res.status(500).json({ error: 'Failed to create actor' });
@@ -74,7 +85,13 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Actor not found' });
     }
     
-    res.json(updatedActor);
+    // Transform _id to id for frontend compatibility
+    const transformedActor = {
+      ...updatedActor.toObject(),
+      id: updatedActor._id.toString()
+    };
+    
+    res.json(transformedActor);
   } catch (error) {
     console.error('Update actor error:', error);
     res.status(500).json({ error: 'Failed to update actor' });

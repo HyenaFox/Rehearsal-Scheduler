@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "build": "echo 'Using pre-built web app from committed dist directory'",
+    "build": "cd .. && npm ci && npx expo export --platform web && echo 'Frontend built successfully'",
     "build:web": "echo 'Using pre-built web app from committed dist directory'",
     "prebuild": "echo 'Starting build process...'",
     "postinstall": "echo 'Dependencies installed successfully'",

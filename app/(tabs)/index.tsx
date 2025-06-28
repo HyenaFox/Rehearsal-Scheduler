@@ -11,14 +11,11 @@ export default function RehearsalsScreen() {
   const { actors, rehearsals, handleDeleteRehearsal, handleAddRehearsal, handleAddMultipleRehearsals } = useApp();
   const { user } = useAuth();
   
-  // Admin check
+  // Admin check for admin-only actions
   const isAdmin = user?.isAdmin || false;
   
   const [addRehearsalModalVisible, setAddRehearsalModalVisible] = useState(false);
   const [autoSchedulerModalVisible, setAutoSchedulerModalVisible] = useState(false);
-
-  console.log('RehearsalsScreen rendering, rehearsals:', rehearsals?.length || 0);
-  console.log('RehearsalsScreen user:', user ? `${user.email} (admin: ${isAdmin})` : 'no user');
 
   const handleAddRehearsalButton = () => {
     if (!isAdmin) {

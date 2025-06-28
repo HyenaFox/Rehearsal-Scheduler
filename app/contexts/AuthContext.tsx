@@ -37,106 +37,69 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // Start with false to prevent infinite loading
+  const [isLoading, setIsLoading] = useState(false); // Start with false - let individual screens handle their loading
   const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Web failsafe - immediately set loading to false on web platform
+  // Force immediate initialization for web - only run once on mount
   useEffect(() => {
-    const platform = typeof window !== 'undefined' ? 'web' : 'native';
-    console.log('AuthProvider - Platform detected:', platform);
+    console.log('🚀 AuthProvider - FORCED IMMEDIATE INITIALIZATION');
+    console.log('🚀 Current state:', { user, isLoading, hasInitialized });
     
-    if (platform === 'web') {
-      // Add a small delay to allow for proper rendering, then ensure loading is false
-      const webFailsafe = setTimeout(() => {
-        console.log('🌐 Web failsafe triggered - ensuring loading state is cleared');
-        setIsLoading(false);
-        if (!hasInitialized) {
-          setHasInitialized(true);
-        }
-      }, 1000); // 1 second failsafe
-      
-      return () => clearTimeout(webFailsafe);
-    }
-  }, [hasInitialized]);
-
-  const loadUser = useCallback(async () => {
-    console.log('=== loadUser called ===');
-    console.log('hasInitialized:', hasInitialized);
-    
-    if (hasInitialized) {
-      console.log('loadUser already called, skipping');
-      return;
-    }
-
-    setHasInitialized(true);
-    setIsLoading(true); // Only set loading to true when we actually start
-    console.log('Loading user session...');
-
-    try {
-      // Much shorter timeout for web to prevent blocking
-      const timeoutId = setTimeout(() => {
-        console.warn('⚠️ Auth initialization timeout - setting user to null and completing');
-        setUser(null);
-        setIsLoading(false);
-      }, 2000); // 2 second timeout
-
-      // Check for stored token
-      const token = await AsyncStorage.getItem('auth_token');
-      if (!token) {
-        console.log('No auth token found, user not logged in');
-        clearTimeout(timeoutId);
-        setUser(null);
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('Token found, attempting quick validation...');
-      
-      try {
-        const currentUser = await ApiService.getCurrentUser();
-        clearTimeout(timeoutId);
-        
-        if (currentUser) {
-          console.log('Session valid, user logged in:', currentUser.email);
-          setUser({
-            id: currentUser.id,
-            email: currentUser.email,
-            name: currentUser.name,
-            phone: currentUser.phone || '',
-            isActor: currentUser.isActor,
-            isAdmin: currentUser.isAdmin || false,
-            availableTimeslots: currentUser.availableTimeslots || [],
-            scenes: currentUser.scenes || []
-          });
-        } else {
-          console.log('Session validation returned no user');
-          setUser(null);
-          await AsyncStorage.removeItem('auth_token');
-        }
-        console.log('Setting isLoading to false after success');
-        setIsLoading(false);
-      } catch (apiError) {
-        clearTimeout(timeoutId);
-        console.log('Session validation failed, clearing token and continuing:', apiError);
-        await AsyncStorage.removeItem('auth_token');
-        setUser(null);
-        console.log('Setting isLoading to false after API error');
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.log('Auth initialization error:', error);
-      setUser(null);
-      console.log('Setting isLoading to false after general error');
+    // Force loading to false immediately for web
+    if (typeof window !== 'undefined') {
+      console.log('🌐 Web environment detected - setting loading to false immediately');
       setIsLoading(false);
-    }
-  }, [hasInitialized]);
-
-  useEffect(() => {
-    if (!hasInitialized) {
-      loadUser();
+      setHasInitialized(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasInitialized]); // Removed loadUser from dependencies to prevent circular dependency
+  }, []); // Empty dependency array - only run once on mount
+
+  // Backup initialization attempt - only run when hasInitialized changes
+  useEffect(() => {
+    console.log('AuthProvider - Backup initialization attempt...');
+    console.log('AuthProvider - hasInitialized:', hasInitialized);
+    console.log('AuthProvider - isLoading:', isLoading);
+    console.log('AuthProvider - user:', user);
+    
+    if (!hasInitialized) {
+      console.log('AuthProvider - Running backup initialization...');
+      const timer = setTimeout(() => {
+        console.log('AuthProvider - Timer-based initialization');
+        setHasInitialized(true);
+        setIsLoading(false);
+        
+        // Try to load user if there's a token, but don't block the UI
+        AsyncStorage.getItem('auth_token').then(token => {
+          if (token) {
+            console.log('Found token during backup init, attempting to validate user');
+            ApiService.getCurrentUser().then(currentUser => {
+              if (currentUser) {
+                console.log('Setting user from backup init:', currentUser.email);
+                setUser({
+                  id: currentUser.id,
+                  email: currentUser.email,
+                  name: currentUser.name,
+                  phone: currentUser.phone || '',
+                  isActor: currentUser.isActor,
+                  isAdmin: currentUser.isAdmin || false,
+                  availableTimeslots: currentUser.availableTimeslots || [],
+                  scenes: currentUser.scenes || []
+                });
+              }
+            }).catch(err => {
+              console.log('Backup init user validation failed:', err);
+              AsyncStorage.removeItem('auth_token');
+            });
+          }
+        }).catch(err => {
+          console.log('Backup init token check failed:', err);
+        });
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasInitialized]); // Only depend on hasInitialized to avoid loops
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
@@ -145,20 +108,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       console.log('🔐 AuthContext: Starting login for', email);
-      console.log('🔐 AuthContext: Current user state before login:', user);
       setIsLoading(true);
       
-      console.log('🔐 AuthContext: Calling ApiService.login...');
       const response = await ApiService.login({ email, password });
       
       console.log('🔐 AuthContext: Login response received', { 
         hasToken: !!response.token, 
         hasUser: !!response.user,
-        userEmail: response.user?.email,
-        fullResponse: response
+        userEmail: response.user?.email
       });
       
-      if (response.user) {
+      if (response.user && response.token) {
         const userData = {
           id: response.user.id,
           email: response.user.email,
@@ -170,13 +130,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           scenes: response.user.scenes || []
         };
         
-        console.log('🔐 AuthContext: Setting user data and login successful', userData);
+        console.log('🔐 AuthContext: Setting user data', userData);
         setUser(userData);
-        console.log('🔐 AuthContext: User state after setUser:', userData);
+        setIsLoading(false);
+        
+        console.log('🔐 AuthContext: Login completed successfully');
         return true;
       } else {
-        console.log('🔐 AuthContext: No user in response, login failed');
-        console.log('🔐 AuthContext: Full response object:', response);
+        console.log('🔐 AuthContext: No user or token in response, login failed');
+        console.log('🔐 AuthContext: Response token:', !!response.token);
+        console.log('🔐 AuthContext: Response user:', !!response.user);
+        setUser(null);
         return false;
       }
     } catch (error) {
@@ -188,7 +152,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       return false;
     } finally {
-      console.log('🔐 AuthContext: Login process completed, setting loading to false');
       setIsLoading(false);
     }
   };

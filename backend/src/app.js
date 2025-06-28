@@ -63,6 +63,11 @@ if (fs.existsSync(distPath)) {
   console.log('🔍 Tried path:', distPath);
 }
 
+// Trust proxy for Render.com deployment
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Security middleware
 app.use(helmet());
 

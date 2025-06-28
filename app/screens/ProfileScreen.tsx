@@ -22,9 +22,6 @@ export default function ProfileScreen() {
       return;
     }
 
-    console.log(`🎭 Saving profile with isActor: ${isActor}, user.isActor: ${user?.isActor}`);
-    console.log('🔍 User object:', { id: user?.id, email: user?.email, name: user?.name });
-
     setIsLoading(true);
     
     try {
@@ -82,6 +79,7 @@ export default function ProfileScreen() {
 
   // Show loading spinner while checking authentication
   if (authLoading) {
+    console.log('🔍 ProfileScreen - Showing loading (authLoading: true)');
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -91,9 +89,21 @@ export default function ProfileScreen() {
     );
   }
 
-  // Show login screen if no user is authenticated
-  if (!user) {
+  // Only show login screen if we're definitely not authenticated AND not loading
+  if (!user && !authLoading) {
     return <LoginScreen />;
+  }
+
+  // If we have a user, show the profile screen
+  if (!user) {
+    // Loading state - show loading indicator
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Error: No user data</Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -101,9 +111,8 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
         <TouchableOpacity style={styles.logoutButton} onPress={() => {
-          console.log('Force logout button pressed');
           forceLogout();
-          Alert.alert('Force Logout', "You're logged out (force)!");
+          Alert.alert('Logged Out', 'You have been logged out successfully');
         }}>
           <Text style={styles.logoutButtonText}>Log Out</Text>
         </TouchableOpacity>

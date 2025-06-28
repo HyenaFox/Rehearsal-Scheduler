@@ -2,31 +2,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Determine the correct API base URL based on platform and environment
 const getApiBaseUrl = () => {
-  // Check environment variable first (highest priority)
-  const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envApiUrl) {
-    console.log('🌐 Using API URL from environment variable:', envApiUrl);
-    return envApiUrl;
-  }
-  
-  // For web builds, check the current hostname to determine if we're in production
+  // For web builds, check the current hostname to determine environment
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
+    
+    // If we're on localhost, always use local API for development
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.log('🌐 Localhost detected, using local API');
+      return 'http://localhost:3000/api';
+    }
     
     // If we're on the production domain
     if (hostname === 'rehearsal-scheduler.onrender.com' || hostname.includes('.onrender.com')) {
       console.log('🌐 Production hostname detected, using production API');
       return 'https://rehearsal-scheduler-api.onrender.com/api';
     }
-    
-    // If we're on localhost
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      console.log('🌐 Localhost detected, using local API');
-      return 'http://localhost:3000/api';
-    }
   }
   
-  // Check if we're in development mode
+  // Check if we're in development mode (fallback)
   if (__DEV__) {
     console.log('🌐 Development mode detected, using local API');
     return 'http://localhost:3000/api';

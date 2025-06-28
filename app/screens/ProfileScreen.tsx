@@ -99,33 +99,48 @@ export default function ProfileScreen() {
   };
 
   const toggleTimeslot = (timeslotId: string) => {
-    setSelectedTimeslots(prev => 
-      prev.includes(timeslotId) 
+    console.log('🔄 Toggle timeslot clicked:', timeslotId);
+    console.log('🔄 Current selectedTimeslots:', selectedTimeslots);
+    setSelectedTimeslots(prev => {
+      const newSelection = prev.includes(timeslotId) 
         ? prev.filter(id => id !== timeslotId)
-        : [...prev, timeslotId]
-    );
+        : [...prev, timeslotId];
+      console.log('🔄 New selectedTimeslots:', newSelection);
+      return newSelection;
+    });
   };
 
   const toggleScene = (sceneId: string) => {
-    setSelectedScenes(prev => 
-      prev.includes(sceneId) 
+    console.log('🔄 Toggle scene clicked:', sceneId);
+    console.log('🔄 Current selectedScenes:', selectedScenes);
+    setSelectedScenes(prev => {
+      const newSelection = prev.includes(sceneId) 
         ? prev.filter(id => id !== sceneId)
-        : [...prev, sceneId]
-    );
+        : [...prev, sceneId];
+      console.log('🔄 New selectedScenes:', newSelection);
+      return newSelection;
+    });
   };
 
   // The actual profile content
   const ProfileContent = () => {
-    // Update local state when user changes
+    // Update local state when user data is available
     React.useEffect(() => {
       if (user) {
+        console.log('👤 Initializing profile form with user data:', {
+          name: user.name,
+          phone: user.phone,
+          isActor: user.isActor,
+          availableTimeslots: user.availableTimeslots,
+          scenes: user.scenes
+        });
         setName(user.name || '');
         setPhone(user.phone || '');
         setIsActor(user.isActor || false);
         setSelectedTimeslots(user.availableTimeslots || []);
         setSelectedScenes(user.scenes || []);
       }
-    }); // No dependencies - will run on every render but only when user exists
+    }); // Run on every render to keep form in sync with user data
 
     // Ensure user exists (SimpleAuthGate should guarantee this)
     if (!user) {

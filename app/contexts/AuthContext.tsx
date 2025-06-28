@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import ApiService from '../services/api';
+import StorageService from '../services/storage';
 
 export interface User {
   id: string;
@@ -38,17 +38,25 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start with true - we need to check for existing auth
+  const [initializationAttempted, setInitializationAttempted] = useState(false);
 
   // Initialize authentication state - check for existing tokens
   useEffect(() => {
+    // Prevent multiple initialization attempts
+    if (initializationAttempted) {
+      console.log('🚀 AuthProvider - Initialization already attempted, skipping...');
+      return;
+    }
+
     let isMounted = true;
     
     const initializeAuth = async () => {
       console.log('🚀 AuthProvider - Starting initialization...');
+      setInitializationAttempted(true);
       
       try {
         // Check if we have a stored token
-        const token = await AsyncStorage.getItem('auth_token');
+        const token = await StorageService.getItem('auth_token');
         
         if (token) {
           console.log('🔑 Found existing auth token, validating user...');
@@ -70,13 +78,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 scenes: currentUser.scenes || []
               });
             } else if (isMounted) {
-              console.log('❌ Token invalid, removing...');
-              await AsyncStorage.removeItem('auth_token');
+              console.log('❌ Token invalid or no user returned, removing token...');
+              await StorageService.removeItem('auth_token');
             }
           } catch (error) {
             console.log('❌ Token validation failed:', error);
             if (isMounted) {
-              await AsyncStorage.removeItem('auth_token');
+              console.log('🧹 Cleaning up invalid token...');
+              await StorageService.removeItem('auth_token');
             }
           }
         } else {
@@ -84,6 +93,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('❌ Auth initialization error:', error);
+        // Clear any potentially corrupted auth data
+        if (isMounted) {
+          try {
+            await StorageService.clearAuthData();
+          } catch (clearError) {
+            console.error('❌ Failed to clear auth data:', clearError);
+          }
+        }
       } finally {
         if (isMounted) {
           console.log('✅ Auth initialization complete');
@@ -97,11 +114,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       isMounted = false;
     };
-  }, []); // Only run once on mount
+  }, [initializationAttempted]); // Include the dependency
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
+    if (user) {
+      console.log('AuthProvider - user object details:', {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isActor: user.isActor,
+        isAdmin: user.isAdmin
+      });
+    }
   }, [user]);
+
+  useEffect(() => {
+    console.log('AuthProvider - isLoading state changed:', isLoading);
+  }, [isLoading]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {

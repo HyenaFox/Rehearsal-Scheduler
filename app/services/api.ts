@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import StorageService from './storage';
 
 // Determine the correct API base URL based on platform and environment
 const getApiBaseUrl = () => {
@@ -48,7 +48,7 @@ console.log('🌐 API Configuration:', {
 class ApiService {
   private static async getAuthToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem('auth_token');
+      return await StorageService.getItem('auth_token');
     } catch (error) {
       console.error('Error getting auth token:', error);
       return null;
@@ -57,7 +57,7 @@ class ApiService {
 
   private static async setAuthToken(token: string): Promise<void> {
     try {
-      await AsyncStorage.setItem('auth_token', token);
+      await StorageService.setItem('auth_token', token);
       console.log('🔑 Auth token stored successfully');
     } catch (error) {
       console.error('Error setting auth token:', error);
@@ -66,7 +66,7 @@ class ApiService {
 
   private static async removeAuthToken(): Promise<void> {
     try {
-      await AsyncStorage.removeItem('auth_token');
+      await StorageService.removeItem('auth_token');
       console.log('🔑 Auth token removed successfully');
     } catch (error) {
       console.error('Error removing auth token:', error);

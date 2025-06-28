@@ -13,11 +13,19 @@ services:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: CACHE_VERSION
         value: "v2.0"
+      - key: MONGODB_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: "https://rehearsal-scheduler.onrender.com/api/calendar/auth/google/callback"
 
-databases:
-  # PostgreSQL database
-  - name: rehearsal-scheduler-db
-    plan: free
+# Note: Using external MongoDB Atlas, no Render database needed
+# databases:
+#   - name: rehearsal-scheduler-db
+#     plan: free

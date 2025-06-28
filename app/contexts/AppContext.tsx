@@ -39,36 +39,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { user } = useAuth();
 
   const loadData = async () => {
-    if (!user) {
-      // For guests or no user, use empty arrays
-      console.log('AppContext - No user, setting empty data arrays');
-      setActors([]);
-      setRehearsals([]);
-      setTimeslots([]);
-      setScenes([]);
-      return;
-    }
-
-    if (user.id === 'guest') {
-      // For guest users, use empty arrays
-      console.log('AppContext - Guest user, setting empty data arrays');
-      setActors([]);
-      setRehearsals([]);
-      setTimeslots([]);
-      setScenes([]);
-      return;
-    }
-
     setIsLoading(true);
     try {
       console.log('🔄 Loading data from API...');
       
-      // Load all data from API in parallel
-      const [actorsData, timeslotsData, scenesData, rehearsalsData] = await Promise.all([
-        ApiService.getAllActors().catch(err => {
-          console.warn('Failed to load actors:', err);
-          return [];
-        }),
+      // Always load public data (rehearsals, timeslots, scenes) for all users
+      const [timeslotsData, scenesData, rehearsalsData] = await Promise.all([
         ApiService.getAllTimeslots().catch(err => {
           console.warn('Failed to load timeslots:', err);
           return [];
@@ -83,11 +59,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       ]);
 
+      // Only load actors for authenticated users (not guests or unauthenticated users)
+      let actorsData = [];
+      if (user && user.id !== 'guest') {
+        console.log('🔄 Loading actors for authenticated user...');
+        actorsData = await ApiService.getAllActors().catch(err => {
+          console.warn('Failed to load actors:', err);
+          return [];
+        });
+      } else {
+        console.log('AppContext - Guest/unauthenticated user, skipping actors load');
+      }
+
       console.log('📦 Data loaded:', {
         actors: actorsData.length,
         timeslots: timeslotsData.length,
         scenes: scenesData.length,
-        rehearsals: rehearsalsData.length
+        rehearsals: rehearsalsData.length,
+        userStatus: user ? (user.id === 'guest' ? 'guest' : 'authenticated') : 'unauthenticated'
       });
 
       setActors(actorsData);
@@ -96,10 +85,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRehearsals(rehearsalsData);
     } catch (error) {
       console.error('❌ Error loading data:', error);
-      // Set empty arrays on error
+      // On error, set empty arrays for user-specific data but keep trying to load public data
       setActors([]);
-      setTimeslots([]);
-      setScenes([]);
+      // Don't clear public data on error - let them keep their current state
     } finally {
       setIsLoading(false);
     }
@@ -111,6 +99,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user]);
 
   const handleDeleteActor = async (actor: any) => {
+    // Only allow authenticated users to manage actors
+    if (!user || user.id === 'guest') {
+      console.warn('Cannot delete actors for unauthenticated/guest users');
+      throw new Error('Authentication required to manage actors');
+    }
+    
     try {
       await ApiService.deleteActor(actor.id);
       const updatedActors = actors.filter(a => a.id !== actor.id);
@@ -142,6 +136,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const handleAddActor = async () => {
+    // Only allow authenticated users to manage actors
+    if (!user || user.id === 'guest') {
+      console.warn('Cannot add actors for unauthenticated/guest users');
+      throw new Error('Authentication required to manage actors');
+    }
+    
     try {
       const defaultName = `Actor ${actors.length + 1}`;
       const newActor = {

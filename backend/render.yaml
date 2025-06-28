@@ -7,13 +7,15 @@ services:
     name: rehearsal-scheduler-api
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm ci && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
         generateValue: true
+      - key: CACHE_VERSION
+        value: "v2.0"
 
 databases:
   # PostgreSQL database

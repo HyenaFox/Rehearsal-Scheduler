@@ -110,6 +110,17 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Version endpoint to verify deployment
+app.get('/version', (req, res) => {
+  res.json({
+    version: '2.0.0',
+    buildTime: new Date().toISOString(),
+    features: ['rehearsals-api', 'actor-id-fix', 'navigation-fix'],
+    commit: 'eb7a80b468e7b4b737b187209e6265718f19179d',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);

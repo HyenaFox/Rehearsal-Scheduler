@@ -2,6 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Determine the correct API base URL based on platform and environment
 const getApiBaseUrl = () => {
+  // For web builds, check the current hostname to determine if we're in production
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'rehearsal-scheduler.onrender.com' || hostname.includes('.onrender.com')) {
+      return 'https://rehearsal-scheduler.onrender.com/api';
+    }
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:3000/api';
+    }
+  }
+  
   if (!__DEV__) {
     // Production - use the deployed API
     return 'https://rehearsal-scheduler.onrender.com/api';
@@ -17,7 +28,8 @@ const API_BASE_URL = getApiBaseUrl();
 console.log('🌐 API Configuration:', {
   isDev: __DEV__,
   apiBaseUrl: API_BASE_URL,
-  environment: 'development - using localhost:3000'
+  hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+  environment: API_BASE_URL.includes('onrender.com') ? 'production' : 'development'
 });
 
 // Alternative URLs for different testing scenarios:

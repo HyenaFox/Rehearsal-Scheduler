@@ -50,11 +50,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasInitialized(true);
       console.log('Loading user session...');
       
+      // Add a timeout to prevent infinite loading
+      const timeout = setTimeout(() => {
+        console.warn('⚠️ Auth initialization timeout - forcing completion');
+        setUser(null);
+        setIsLoading(false);
+      }, 8000); // 8 second timeout
+      
       // First check if we have a token before making the API call
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
         // No token stored, user is not logged in
         console.log('No auth token found, user not logged in');
+        clearTimeout(timeout);
         setUser(null);
         setIsLoading(false);
         return;
@@ -65,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         // Validate the session with the API
         const currentUser = await ApiService.getCurrentUser();
+        clearTimeout(timeout);
         
         if (currentUser) {
           console.log('Session valid, user logged in:', currentUser.email);
@@ -85,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await AsyncStorage.removeItem('auth_token');
         }
       } catch (apiError) {
+        clearTimeout(timeout);
         console.log('Session validation API call failed:', apiError);
         // Clear invalid token and set user to null
         await AsyncStorage.removeItem('auth_token');

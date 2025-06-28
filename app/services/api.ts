@@ -1,4 +1,4 @@
-import StorageService from './storage';
+import { StorageService } from './storage';
 
 // Determine the correct API base URL based on platform and environment
 const getApiBaseUrl = () => {

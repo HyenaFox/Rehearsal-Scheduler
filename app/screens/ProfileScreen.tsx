@@ -250,6 +250,20 @@ export default function ProfileScreen() {
           />
         )}
 
+        {/* Admin Section */}
+        {user.isAdmin && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>👑 Administrator</Text>
+            <Text style={styles.adminNotice}>
+              You have administrator privileges. You can create, edit, and delete actors, scenes, timeslots, and rehearsals.
+            </Text>
+            
+            <Text style={styles.adminNote}>
+              To manage other administrators, contact the system administrator.
+            </Text>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[styles.saveButton, isLoading && styles.disabledButton]}
           onPress={handleSave}
@@ -422,5 +436,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginTop: 10,
+  },
+  adminNotice: {
+    fontSize: 14,
+    color: '#10b981',
+    backgroundColor: '#f0fdf4',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  adminNote: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
   },
 });

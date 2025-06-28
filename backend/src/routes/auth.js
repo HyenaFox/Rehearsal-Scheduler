@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -131,6 +131,7 @@ router.post('/login', async (req, res) => {
         name: user.name,
         phone: user.phone,
         isActor: user.isActor,
+        isAdmin: user.isAdmin,
         availableTimeslots: user.availableTimeslots,
         scenes: user.scenes
       }
@@ -158,6 +159,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       name: user.name,
       phone: user.phone,
       isActor: user.isActor,
+      isAdmin: user.isAdmin,
       availableTimeslots: user.availableTimeslots,
       scenes: user.scenes
     });
@@ -194,6 +196,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
         name: user.name,
         phone: user.phone,
         isActor: user.isActor,
+        isAdmin: user.isAdmin,
         availableTimeslots: user.availableTimeslots,
         scenes: user.scenes
       }
@@ -202,6 +205,105 @@ router.put('/profile', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Admin routes
+// Make user admin (admin only)
+router.post('/make-admin', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.isAdmin) {
+      return res.status(400).json({ error: 'User is already an admin' });
+    }
+
+    user.isAdmin = true;
+    await user.save();
+
+    console.log(`✅ User ${user.email} made admin by ${req.user.email}`);
+
+    res.json({
+      message: 'User made admin successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        isAdmin: user.isAdmin
+      }
+    });
+
+  } catch (error) {
+    console.error('Make admin error:', error);
+    res.status(500).json({ error: 'Failed to make user admin' });
+  }
+});
+
+// Remove admin privileges (admin only)
+router.post('/remove-admin', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Prevent removing admin from self
+    if (email.toLowerCase() === req.user.email.toLowerCase()) {
+      return res.status(400).json({ error: 'Cannot remove admin privileges from yourself' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.isAdmin) {
+      return res.status(400).json({ error: 'User is not an admin' });
+    }
+
+    user.isAdmin = false;
+    await user.save();
+
+    console.log(`✅ Admin privileges removed from ${user.email} by ${req.user.email}`);
+
+    res.json({
+      message: 'Admin privileges removed successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        isAdmin: user.isAdmin
+      }
+    });
+
+  } catch (error) {
+    console.error('Remove admin error:', error);
+    res.status(500).json({ error: 'Failed to remove admin privileges' });
+  }
+});
+
+// Get all users (admin only)
+router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find({})
+      .select('email name isActor isAdmin createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json(users);
+
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Failed to get users' });
   }
 });
 

@@ -4,18 +4,27 @@ import ActionButton from '../components/ActionButton';
 import ActorEditModal from '../components/ActorEditModal';
 import Card from '../components/Card';
 import { useApp } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
 import { getAvailableTimeslots, getScenes } from '../utils/actorUtils';
 
 export default function ActorsScreen() {
   const { actors, setActors, handleDeleteActor, handleAddActor } = useApp();
+  const { user } = useAuth();
+  
+  // Admin check
+  const isAdmin = user?.isAdmin || false;
   
   // Modal states
   const [actorEditModalVisible, setActorEditModalVisible] = useState(false);
   const [selectedActor, setSelectedActor] = useState(null);
 
   const handleEditActor = (actor: any) => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can edit actors.');
+      return;
+    }
     setSelectedActor(actor);
     setActorEditModalVisible(true);
   };
@@ -63,7 +72,17 @@ export default function ActorsScreen() {
       <View style={styles.container}>
         <View style={styles.content}>
           <Text style={styles.screenTitle}>🎭 Actors</Text>
-          <ActionButton title="Add Actor" onPress={handleAddActor} style={undefined} />
+          <ActionButton 
+            title="Add Actor" 
+            onPress={() => {
+              if (!isAdmin) {
+                Alert.alert('Access Denied', 'Only administrators can add actors.');
+                return;
+              }
+              handleAddActor();
+            }} 
+            style={undefined} 
+          />
           <ScrollView style={styles.scrollView}>
             {actors.map(actor => (
               <Card
@@ -79,8 +98,14 @@ export default function ActorsScreen() {
                     content: getScenes(actor).join(', ') || 'No scenes assigned'
                   }
                 ]}
-                onEdit={() => handleEditActor(actor)}
-                onDelete={() => handleDeleteActor(actor)}
+                onEdit={isAdmin ? () => handleEditActor(actor) : undefined}
+                onDelete={isAdmin ? () => {
+                  if (!isAdmin) {
+                    Alert.alert('Access Denied', 'Only administrators can delete actors.');
+                    return;
+                  }
+                  handleDeleteActor(actor);
+                } : undefined}
               />
             ))}
             {actors.length === 0 && (

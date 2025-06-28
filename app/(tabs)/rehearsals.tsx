@@ -1,21 +1,35 @@
 import React, { useState } from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import AddRehearsalModal from '../components/AddRehearsalModal';
 import AutoSchedulerModal from '../components/AutoSchedulerModal';
 import RehearsalsDisplay from '../components/RehearsalsDisplay';
 import { useApp } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function RehearsalsScreen() {
   const { actors, rehearsals, handleDeleteRehearsal, handleAddRehearsal, handleAddMultipleRehearsals } = useApp();
+  const { user } = useAuth();
+  
+  // Admin check
+  const isAdmin = user?.isAdmin || false;
+  
   const [addRehearsalModalVisible, setAddRehearsalModalVisible] = useState(false);
   const [autoSchedulerModalVisible, setAutoSchedulerModalVisible] = useState(false);
 
   const handleAddRehearsalButton = () => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can add rehearsals.');
+      return;
+    }
     setAddRehearsalModalVisible(true);
   };
 
   const handleAutoScheduler = () => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can use the auto-scheduler.');
+      return;
+    }
     setAutoSchedulerModalVisible(true);
   };
 
@@ -64,6 +78,7 @@ export default function RehearsalsScreen() {
           <RehearsalsDisplay
             rehearsals={rehearsals}
             onDeleteRehearsal={handleDeleteRehearsal}
+            isAdmin={isAdmin}
           />
         </View>
       </View>

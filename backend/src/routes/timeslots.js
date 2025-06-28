@@ -1,6 +1,6 @@
 const express = require('express');
 const Timeslot = require('../models/Timeslot');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -16,7 +16,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Create new timeslot
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { label, day, startTime, endTime, description } = req.body;
     

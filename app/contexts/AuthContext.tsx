@@ -10,6 +10,7 @@ export interface User {
   availableTimeslots: string[];
   scenes: string[];
   isActor: boolean;
+  isAdmin: boolean;
 }
 
 interface AuthContextType {
@@ -70,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: currentUser.name,
             phone: currentUser.phone || '',
             isActor: currentUser.isActor,
+            isAdmin: currentUser.isAdmin || false,
             availableTimeslots: currentUser.availableTimeslots || [],
             scenes: currentUser.scenes || []
           });
@@ -121,6 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: response.user.name,
           phone: response.user.phone || '',
           isActor: response.user.isActor,
+          isAdmin: response.user.isAdmin || false,
           availableTimeslots: response.user.availableTimeslots || [],
           scenes: response.user.scenes || []
         };
@@ -160,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: response.user.name,
           phone: response.user.phone || '',
           isActor: response.user.isActor,
+          isAdmin: response.user.isAdmin || false,
           availableTimeslots: response.user.availableTimeslots || [],
           scenes: response.user.scenes || []
         };
@@ -209,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: updatedUser.name,
         phone: updatedUser.phone || '',
         isActor: updatedUser.isActor,
+        isAdmin: updatedUser.isAdmin || false,
         availableTimeslots: updatedUser.availableTimeslots || [],
         scenes: updatedUser.scenes || []
       });
@@ -235,6 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: 'Guest User',
       phone: '',
       isActor: false,
+      isAdmin: false,
       availableTimeslots: [],
       scenes: []
     };

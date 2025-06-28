@@ -4,15 +4,26 @@ import ActionButton from '../components/ActionButton';
 import Card from '../components/Card';
 import SceneEditModal from '../components/SceneEditModal';
 import { useApp } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
 
 const ScenesScreen = ({ onBack }) => {
   const { scenes, setScenes, actors, setActors } = useApp();
+  const { user } = useAuth();
+  
+  // Admin check
+  const isAdmin = user?.isAdmin || false;
+  
   const [editingScene, setEditingScene] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   
   const handleDeleteScene = async (sceneToDelete) => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can delete scenes.');
+      return;
+    }
+    
     try {
       await ApiService.deleteScene(sceneToDelete.id || sceneToDelete._id);
       const updatedScenes = scenes.filter(s => (s.id || s._id) !== (sceneToDelete.id || sceneToDelete._id));
@@ -33,6 +44,11 @@ const ScenesScreen = ({ onBack }) => {
   };
 
   const handleAddScene = async () => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can add scenes.');
+      return;
+    }
+    
     try {
       const newScene = {
         title: 'New Scene',
@@ -84,11 +100,11 @@ const ScenesScreen = ({ onBack }) => {
                     ).map(actor => actor.name).join(', ') || 'No actors assigned'
                   }
                 ]}
-                onEdit={() => {
+                onEdit={isAdmin ? () => {
                   setEditingScene(scene);
                   setShowEditModal(true);
-                }}
-                onDelete={() => handleDeleteScene(scene)}
+                } : undefined}
+                onDelete={isAdmin ? () => handleDeleteScene(scene) : undefined}
               />
             ))}
             {scenes.length === 0 && (

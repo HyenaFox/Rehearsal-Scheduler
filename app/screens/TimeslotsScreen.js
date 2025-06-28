@@ -4,15 +4,26 @@ import ActionButton from '../components/ActionButton';
 import Card from '../components/Card';
 import TimeslotEditModal from '../components/TimeslotEditModal';
 import { useApp } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
 
 const TimeslotsScreen = ({ onBack }) => {
   const { timeslots, setTimeslots, actors, setActors } = useApp();
+  const { user } = useAuth();
+  
+  // Admin check
+  const isAdmin = user?.isAdmin || false;
+  
   const [editingTimeslot, setEditingTimeslot] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   
   const handleDeleteTimeslot = async (timeslotToDelete) => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can delete timeslots.');
+      return;
+    }
+    
     try {
       await ApiService.deleteTimeslot(timeslotToDelete.id || timeslotToDelete._id);
       const updatedTimeslots = timeslots.filter(t => (t.id || t._id) !== (timeslotToDelete.id || timeslotToDelete._id));
@@ -34,6 +45,11 @@ const TimeslotsScreen = ({ onBack }) => {
   };
 
   const handleAddTimeslot = async () => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can add timeslots.');
+      return;
+    }
+    
     try {
       const newTimeslot = {
         label: 'New Timeslot',
@@ -88,11 +104,11 @@ const TimeslotsScreen = ({ onBack }) => {
                     ).map(actor => actor.name).join(', ') || 'No actors available'
                   }
                 ]}
-                onEdit={() => {
+                onEdit={isAdmin ? () => {
                   setEditingTimeslot(timeslot);
                   setShowEditModal(true);
-                }}
-                onDelete={() => handleDeleteTimeslot(timeslot)}
+                } : undefined}
+                onDelete={isAdmin ? () => handleDeleteTimeslot(timeslot) : undefined}
               />
             ))}
             {timeslots.length === 0 && (

@@ -1,6 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -16,7 +16,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Create new actor
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { name, availableTimeslots, scenes } = req.body;
     
@@ -44,7 +44,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update actor
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, availableTimeslots, scenes } = req.body;
@@ -82,7 +82,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete actor
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     

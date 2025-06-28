@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal }) => {
+const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal, isAdmin = false }) => {
   if (rehearsals.length === 0) {
     return (
       <View style={styles.rehearsalsContainer}>
@@ -18,13 +18,15 @@ const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal }) => {
         {rehearsals.map((rehearsal, index) => (
           <View key={index} style={styles.rehearsalCard}>            <View style={styles.rehearsalHeader}>
               <Text style={styles.rehearsalTitle}>{rehearsal.title}</Text>
-              <TouchableOpacity 
-                style={styles.deleteRehearsalButton}
-                onPress={() => onDeleteRehearsal(index)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.deleteRehearsalText}>×</Text>
-              </TouchableOpacity>
+              {isAdmin && (
+                <TouchableOpacity 
+                  style={styles.deleteRehearsalButton}
+                  onPress={() => onDeleteRehearsal(index)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.deleteRehearsalText}>×</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <Text style={styles.rehearsalTime}>{rehearsal.timeslot.label}</Text>
             <Text style={styles.rehearsalActors}>

@@ -1,6 +1,6 @@
 const express = require('express');
 const Scene = require('../models/Scene');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -16,7 +16,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Create new scene
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { title, description, actorsRequired, location, duration, priority } = req.body;
     
@@ -41,7 +41,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update scene
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, actorsRequired, location, duration, priority } = req.body;
@@ -76,7 +76,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete scene
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     

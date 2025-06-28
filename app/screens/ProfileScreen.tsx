@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
-import SimpleAuthGate from '../components/SimpleAuthGate';
+import LoginScreen from './LoginScreen';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 
 export default function ProfileScreen() {
-  const { user, updateProfile, forceLogout } = useAuth();
+  const { user, updateProfile, forceLogout, isLoading: authLoading } = useAuth();
   const { setActors, timeslots, scenes } = useApp();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -15,6 +15,44 @@ export default function ProfileScreen() {
   const [selectedTimeslots, setSelectedTimeslots] = useState<string[]>([]);
   const [selectedScenes, setSelectedScenes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+
+  // If user wants to login, show login form
+  if (showLogin && !user) {
+    return <LoginScreen />;
+  }
+
+  // If no user, show login option
+  if (!user && !authLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loginPrompt}>
+          <Text style={styles.title}>👤 Profile</Text>
+          <Text style={styles.loginPromptText}>
+            Login to manage your profile, set your availability, and participate in rehearsals.
+          </Text>
+          <TouchableOpacity 
+            style={styles.loginButton} 
+            onPress={() => setShowLogin(true)}
+          >
+            <Text style={styles.loginButtonText}>Login / Register</Text>
+          </TouchableOpacity>
+          <Text style={styles.loginNote}>
+            You can still view rehearsals and other content without logging in.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -232,12 +270,8 @@ export default function ProfileScreen() {
     );
   };
 
-  // Wrap the entire component with SimpleAuthGate
-  return (
-    <SimpleAuthGate>
-      <ProfileContent />
-    </SimpleAuthGate>
-  );
+  // Wrap the entire component - now shows either login prompt or profile content
+  return user ? <ProfileContent /> : null;
 }
 
 const styles = StyleSheet.create({
@@ -403,5 +437,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.2,
+  },
+  loginPrompt: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loginPromptText: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  loginButton: {
+    backgroundColor: '#6366f1',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  loginButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  loginNote: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

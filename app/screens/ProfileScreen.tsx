@@ -72,6 +72,11 @@ export default function ProfileScreen() {
       };
 
       console.log(`🎭 Updating profile with isActor: ${isActor}`, updates);
+      console.log('🎭 Selected timeslots:', selectedTimeslots);
+      console.log('🎭 Selected scenes:', selectedScenes);
+      console.log('🎭 Available timeslots data:', timeslots.map(t => ({ id: t.id || t._id, day: t.day })));
+      console.log('🎭 Available scenes data:', scenes.map(s => ({ id: s.id || s._id, name: s.name })));
+      
       await updateProfile(updates);
 
       console.log('✅ Profile updated successfully, refreshing actor list...');
@@ -200,16 +205,18 @@ export default function ProfileScreen() {
                     Select the time slots when you are available for rehearsals.
                   </Text>
                   
-                  {timeslots.map((timeslot) => (
-                    <View key={timeslot.id} style={styles.checkboxContainer}>
+                  {timeslots.map((timeslot) => {
+                    const timeslotId = timeslot.id || timeslot._id;
+                    return (
+                    <View key={timeslotId} style={styles.checkboxContainer}>
                       <TouchableOpacity
                         style={[
                           styles.checkbox,
-                          selectedTimeslots.includes(timeslot.id) && styles.checkboxSelected
+                          selectedTimeslots.includes(timeslotId) && styles.checkboxSelected
                         ]}
-                        onPress={() => toggleTimeslot(timeslot.id)}
+                        onPress={() => toggleTimeslot(timeslotId)}
                       >
-                        {selectedTimeslots.includes(timeslot.id) && (
+                        {selectedTimeslots.includes(timeslotId) && (
                           <Text style={styles.checkboxText}>✓</Text>
                         )}
                       </TouchableOpacity>
@@ -217,7 +224,8 @@ export default function ProfileScreen() {
                         {timeslot.day} - {timeslot.startTime} to {timeslot.endTime}
                       </Text>
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
 
                 <View style={styles.subsection}>
@@ -226,16 +234,18 @@ export default function ProfileScreen() {
                     Select the scenes you are involved in.
                   </Text>
                   
-                  {scenes.map((scene) => (
-                    <View key={scene.id} style={styles.checkboxContainer}>
+                  {scenes.map((scene) => {
+                    const sceneId = scene.id || scene._id;
+                    return (
+                    <View key={sceneId} style={styles.checkboxContainer}>
                       <TouchableOpacity
                         style={[
                           styles.checkbox,
-                          selectedScenes.includes(scene.id) && styles.checkboxSelected
+                          selectedScenes.includes(sceneId) && styles.checkboxSelected
                         ]}
-                        onPress={() => toggleScene(scene.id)}
+                        onPress={() => toggleScene(sceneId)}
                       >
-                        {selectedScenes.includes(scene.id) && (
+                        {selectedScenes.includes(sceneId) && (
                           <Text style={styles.checkboxText}>✓</Text>
                         )}
                       </TouchableOpacity>
@@ -243,7 +253,8 @@ export default function ProfileScreen() {
                         {scene.name}
                       </Text>
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
               </>
             )}

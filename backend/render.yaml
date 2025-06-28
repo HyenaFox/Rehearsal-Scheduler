@@ -7,6 +7,7 @@ services:
     name: rehearsal-scheduler-api
     runtime: node
     plan: free
+    rootDir: backend
     buildCommand: npm ci && npm run build
     startCommand: npm start
     envVars:
@@ -23,9 +24,10 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: "https://rehearsal-scheduler.onrender.com/api/calendar/auth/google/callback"
+        value: "https://rehearsal-scheduler-api.onrender.com/api/calendar/auth/google/callback"
+
+# Static sites need to be configured separately via the dashboard
+# We'll configure the frontend as a separate static site in Render
 
 # Note: Using external MongoDB Atlas, no Render database needed
 # databases:
-#   - name: rehearsal-scheduler-db
-#     plan: free

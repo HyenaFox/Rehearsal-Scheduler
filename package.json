@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "build": "expo export --platform web --output-dir build --clear",
+    "build:web": "expo export --platform web --output-dir build --clear",
     "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "dev:clean": "concurrently \"npm run start:backend\" \"npm run start:frontend:clean\"",
     "start:backend": "cd backend && npm run dev",

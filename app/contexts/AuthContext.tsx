@@ -46,34 +46,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    setHasInitialized(true);
+    console.log('Loading user session...');
+
     try {
-      setHasInitialized(true);
-      console.log('Loading user session...');
-      
-      // Add a timeout to prevent infinite loading
-      const timeout = setTimeout(() => {
-        console.warn('⚠️ Auth initialization timeout - forcing completion');
+      // Use a much shorter timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.warn('⚠️ Auth initialization timeout - setting user to null and completing');
         setUser(null);
         setIsLoading(false);
-      }, 8000); // 8 second timeout
-      
-      // First check if we have a token before making the API call
+      }, 2000); // 2 second timeout
+
+      // Check for stored token
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        // No token stored, user is not logged in
         console.log('No auth token found, user not logged in');
-        clearTimeout(timeout);
+        clearTimeout(timeoutId);
         setUser(null);
         setIsLoading(false);
         return;
       }
 
-      console.log('Token found, validating session...');
+      console.log('Token found, attempting quick validation...');
       
       try {
-        // Validate the session with the API
+        // Try to validate with a very short timeout
+        const controller = new AbortController();
+        const apiTimeout = setTimeout(() => controller.abort(), 1500); // 1.5 second timeout for API
+        
         const currentUser = await ApiService.getCurrentUser();
-        clearTimeout(timeout);
+        clearTimeout(apiTimeout);
+        clearTimeout(timeoutId);
         
         if (currentUser) {
           console.log('Session valid, user logged in:', currentUser.email);
@@ -90,21 +93,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           console.log('Session validation returned no user');
           setUser(null);
-          // Clear invalid token
           await AsyncStorage.removeItem('auth_token');
         }
       } catch (apiError) {
-        clearTimeout(timeout);
-        console.log('Session validation API call failed:', apiError);
-        // Clear invalid token and set user to null
+        clearTimeout(timeoutId);
+        console.log('Session validation failed, clearing token and continuing:', apiError);
         await AsyncStorage.removeItem('auth_token');
         setUser(null);
       }
     } catch (error) {
-      console.log('Session validation failed with error:', error);
+      console.log('Auth initialization error:', error);
       setUser(null);
     } finally {
-      console.log('loadUser completed, setting isLoading to false');
+      console.log('Auth initialization completed, setting isLoading to false');
       setIsLoading(false);
     }
   }, [hasInitialized]);

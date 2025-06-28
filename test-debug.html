@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug AsyncStorage</title>
+</head>
+<body>
+    <h1>Debug AsyncStorage & API</h1>
+    <button onclick="testAsyncStorage()">Test AsyncStorage</button>
+    <button onclick="testApiDirect()">Test API Direct</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAsyncStorage() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing AsyncStorage...';
+            
+            try {
+                // Test if AsyncStorage is available
+                if (typeof window !== 'undefined' && window.localStorage) {
+                    console.log('localStorage is available');
+                    window.localStorage.setItem('test', 'value');
+                    const value = window.localStorage.getItem('test');
+                    console.log('localStorage test value:', value);
+                    
+                    resultDiv.innerHTML = `<p style="color: green;">AsyncStorage (localStorage) works: ${value}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">localStorage not available</p>`;
+                }
+            } catch (error) {
+                console.error('AsyncStorage error:', error);
+                resultDiv.innerHTML = `<p style="color: red;">AsyncStorage error: ${error.message}</p>`;
+            }
+        }
+        
+        async function testApiDirect() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing API direct call...';
+            
+            try {
+                // Test register first
+                console.log('Testing register...');
+                const registerData = {
+                    email: 'debug@test.com',
+                    password: 'password123',
+                    name: 'Debug User'
+                };
+                
+                const registerResponse = await fetch('http://localhost:3001/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(registerData)
+                });
+                
+                const registerResult = await registerResponse.json();
+                console.log('Register response:', registerResult);
+                
+                if (registerResponse.ok) {
+                    // Store token if received
+                    if (registerResult.token) {
+                        console.log('Storing token:', registerResult.token);
+                        window.localStorage.setItem('auth_token', registerResult.token);
+                    }
+                    
+                    resultDiv.innerHTML = `
+                        <p style="color: green;">Registration successful!</p>
+                        <p>User: ${registerResult.user?.email}</p>
+                        <p>Token: ${registerResult.token ? 'received' : 'missing'}</p>
+                    `;
+                } else {
+                    // If user already exists, try login
+                    console.log('User exists, trying login...');
+                    const loginData = {
+                        email: 'debug@test.com',
+                        password: 'password123'
+                    };
+                    
+                    const loginResponse = await fetch('http://localhost:3001/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(loginData)
+                    });
+                    
+                    const loginResult = await loginResponse.json();
+                    console.log('Login response:', loginResult);
+                    
+                    if (loginResponse.ok) {
+                        if (loginResult.token) {
+                            console.log('Storing token:', loginResult.token);
+                            window.localStorage.setItem('auth_token', loginResult.token);
+                        }
+                        
+                        resultDiv.innerHTML = `
+                            <p style="color: green;">Login successful!</p>
+                            <p>User: ${loginResult.user?.email}</p>
+                            <p>Token: ${loginResult.token ? 'received' : 'missing'}</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `<p style="color: red;">Login failed: ${loginResult.error}</p>`;
+                    }
+                }
+            } catch (error) {
+                console.error('API test error:', error);
+                resultDiv.innerHTML = `<p style="color: red;">API error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Connection Test</h1>
+    <button onclick="testAPI()">Test API Connection</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Test version endpoint
+                console.log('Testing version endpoint...');
+                const versionResponse = await fetch('https://rehearsal-scheduler-api.onrender.com/api/version');
+                const versionText = await versionResponse.text();
+                console.log('Version response:', versionResponse.status, versionText);
+                
+                // Test login endpoint
+                console.log('Testing login endpoint...');
+                const loginResponse = await fetch('https://rehearsal-scheduler-api.onrender.com/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'testpass'
+                    })
+                });
+                const loginText = await loginResponse.text();
+                console.log('Login response:', loginResponse.status, loginText);
+                
+                resultDiv.innerHTML = `
+                    <h3>Results:</h3>
+                    <p><strong>Version:</strong> ${versionResponse.status} - ${versionText}</p>
+                    <p><strong>Login:</strong> ${loginResponse.status} - ${loginText}</p>
+                `;
+            } catch (error) {
+                console.error('API test error:', error);
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

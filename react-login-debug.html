@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>React App Login Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { margin: 10px; padding: 10px 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+        .error { background: #ffe6e6; border-color: #ff0000; }
+        .success { background: #e6ffe6; border-color: #00ff00; }
+    </style>
+</head>
+<body>
+    <h1>React App Login Debug</h1>
+    <p>This simulates exactly what the React app does during login</p>
+    
+    <button onclick="simulateReactLogin()">Simulate React Login Flow</button>
+    <button onclick="checkAsyncStorage()">Check AsyncStorage</button>
+    <button onclick="clearStorage()">Clear Storage</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api';
+        const resultsDiv = document.getElementById('results');
+        
+        function addResult(message, type = 'normal') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            resultsDiv.appendChild(div);
+            console.log(message);
+        }
+
+        // Simulate AsyncStorage using localStorage
+        const AsyncStorage = {
+            async getItem(key) {
+                const value = localStorage.getItem(key);
+                console.log(`AsyncStorage.getItem('${key}'):`, value);
+                return value;
+            },
+            async setItem(key, value) {
+                localStorage.setItem(key, value);
+                console.log(`AsyncStorage.setItem('${key}', '${value}')`);
+            },
+            async removeItem(key) {
+                localStorage.removeItem(key);
+                console.log(`AsyncStorage.removeItem('${key}')`);
+            }
+        };
+
+        async function simulateReactLogin() {
+            addResult('🔐 Starting React login simulation...', 'normal');
+            
+            const credentials = {
+                email: 'test@example.com',
+                password: 'testpass123'
+            };
+
+            try {
+                // Step 1: Make the login request (exactly like ApiService.login)
+                addResult('Step 1: Making login request to API...', 'normal');
+                
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(credentials)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                addResult(`Step 2: Login response - hasToken: ${!!data.token}, hasUser: ${!!data.user}`, 'normal');
+
+                // Step 2: Store token (exactly like ApiService.setAuthToken)
+                if (data.token) {
+                    await AsyncStorage.setItem('auth_token', data.token);
+                    addResult('Step 3: Token stored in AsyncStorage ✅', 'success');
+                } else {
+                    addResult('Step 3: No token in response ❌', 'error');
+                    return;
+                }
+
+                // Step 3: Process user data (exactly like AuthContext.login)
+                if (data.user) {
+                    const userData = {
+                        id: data.user.id,
+                        email: data.user.email,
+                        name: data.user.name,
+                        phone: data.user.phone || '',
+                        isActor: data.user.isActor,
+                        isAdmin: data.user.isAdmin || false,
+                        availableTimeslots: data.user.availableTimeslots || [],
+                        scenes: data.user.scenes || []
+                    };
+                    
+                    addResult(`Step 4: User data processed - ${userData.name} (${userData.email}) ✅`, 'success');
+                    
+                    // Store for verification
+                    await AsyncStorage.setItem('current_user', JSON.stringify(userData));
+                    
+                    // Step 4: Test token validation (exactly like ApiService.getCurrentUser)
+                    addResult('Step 5: Testing token validation...', 'normal');
+                    const storedToken = await AsyncStorage.getItem('auth_token');
+                    
+                    const meResponse = await fetch(`${API_BASE}/auth/me`, {
+                        headers: {
+                            'Authorization': `Bearer ${storedToken}`
+                        }
+                    });
+                    
+                    if (meResponse.ok) {
+                        const meData = await meResponse.json();
+                        addResult(`Step 6: Token validation successful - ${meData.email} ✅`, 'success');
+                        addResult('🎉 LOGIN FLOW COMPLETED SUCCESSFULLY!', 'success');
+                    } else {
+                        addResult(`Step 6: Token validation failed - ${meResponse.status} ❌`, 'error');
+                    }
+                    
+                } else {
+                    addResult('Step 4: No user in response ❌', 'error');
+                }
+
+            } catch (error) {
+                addResult(`❌ Login simulation failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkAsyncStorage() {
+            addResult('📦 Checking AsyncStorage contents...', 'normal');
+            const token = await AsyncStorage.getItem('auth_token');
+            const user = await AsyncStorage.getItem('current_user');
+            
+            addResult(`Token: ${token ? 'Present' : 'Missing'}`, token ? 'success' : 'error');
+            if (user) {
+                const userData = JSON.parse(user);
+                addResult(`User: ${userData.name} (${userData.email})`, 'success');
+            } else {
+                addResult('User: Missing', 'error');
+            }
+        }
+
+        async function clearStorage() {
+            await AsyncStorage.removeItem('auth_token');
+            await AsyncStorage.removeItem('current_user');
+            await AsyncStorage.removeItem('testToken');
+            await AsyncStorage.removeItem('testUser');
+            addResult('🗑️ All storage cleared', 'normal');
+        }
+    </script>
+</body>
+</html>

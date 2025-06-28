@@ -43,30 +43,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       console.log('🔄 Loading data from API...');
       
+      // Add timeout to all API calls to prevent hanging
+      const timeoutPromise = (ms: number) => new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('API call timeout')), ms)
+      );
+      
       // Always load public data (rehearsals, timeslots, scenes) for all users
       const [timeslotsData, scenesData, rehearsalsData] = await Promise.all([
-        ApiService.getAllTimeslots().catch(err => {
+        Promise.race([
+          ApiService.getAllTimeslots(),
+          timeoutPromise(5000)
+        ]).catch(err => {
           console.warn('Failed to load timeslots:', err);
           return [];
-        }),
-        ApiService.getAllScenes().catch(err => {
+        }) as Promise<any[]>,
+        Promise.race([
+          ApiService.getAllScenes(),
+          timeoutPromise(5000)
+        ]).catch(err => {
           console.warn('Failed to load scenes:', err);
           return [];
-        }),
-        ApiService.getAllRehearsals().catch(err => {
+        }) as Promise<any[]>,
+        Promise.race([
+          ApiService.getAllRehearsals(),
+          timeoutPromise(5000)
+        ]).catch(err => {
           console.warn('Failed to load rehearsals:', err);
           return [];
-        })
+        }) as Promise<any[]>
       ]);
 
       // Only load actors for authenticated users (not guests or unauthenticated users)
-      let actorsData = [];
+      let actorsData: any[] = [];
       if (user && user.id !== 'guest') {
         console.log('🔄 Loading actors for authenticated user...');
-        actorsData = await ApiService.getAllActors().catch(err => {
+        actorsData = await Promise.race([
+          ApiService.getAllActors(),
+          timeoutPromise(5000)
+        ]).catch(err => {
           console.warn('Failed to load actors:', err);
           return [];
-        });
+        }) as any[];
       } else {
         console.log('AppContext - Guest/unauthenticated user, skipping actors load');
       }
@@ -85,10 +102,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setRehearsals(rehearsalsData);
     } catch (error) {
       console.error('❌ Error loading data:', error);
-      // On error, set empty arrays for user-specific data but keep trying to load public data
+      // On error, set empty arrays but don't block the app
       setActors([]);
-      // Don't clear public data on error - let them keep their current state
+      setTimeslots([]);
+      setScenes([]);
+      setRehearsals([]);
     } finally {
+      console.log('📦 Data loading completed, setting isLoading to false');
       setIsLoading(false);
     }
   };

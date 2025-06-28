@@ -37,20 +37,43 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start with false to prevent infinite loading
   const [hasInitialized, setHasInitialized] = useState(false);
 
+  // Web failsafe - immediately set loading to false on web platform
+  useEffect(() => {
+    const platform = typeof window !== 'undefined' ? 'web' : 'native';
+    console.log('AuthProvider - Platform detected:', platform);
+    
+    if (platform === 'web') {
+      // Add a small delay to allow for proper rendering, then ensure loading is false
+      const webFailsafe = setTimeout(() => {
+        console.log('🌐 Web failsafe triggered - ensuring loading state is cleared');
+        setIsLoading(false);
+        if (!hasInitialized) {
+          setHasInitialized(true);
+        }
+      }, 1000); // 1 second failsafe
+      
+      return () => clearTimeout(webFailsafe);
+    }
+  }, [hasInitialized]);
+
   const loadUser = useCallback(async () => {
+    console.log('=== loadUser called ===');
+    console.log('hasInitialized:', hasInitialized);
+    
     if (hasInitialized) {
       console.log('loadUser already called, skipping');
       return;
     }
 
     setHasInitialized(true);
+    setIsLoading(true); // Only set loading to true when we actually start
     console.log('Loading user session...');
 
     try {
-      // Use a much shorter timeout to prevent infinite loading
+      // Much shorter timeout for web to prevent blocking
       const timeoutId = setTimeout(() => {
         console.warn('⚠️ Auth initialization timeout - setting user to null and completing');
         setUser(null);
@@ -70,12 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Token found, attempting quick validation...');
       
       try {
-        // Try to validate with a very short timeout
-        const controller = new AbortController();
-        const apiTimeout = setTimeout(() => controller.abort(), 1500); // 1.5 second timeout for API
-        
         const currentUser = await ApiService.getCurrentUser();
-        clearTimeout(apiTimeout);
         clearTimeout(timeoutId);
         
         if (currentUser) {
@@ -95,17 +113,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           await AsyncStorage.removeItem('auth_token');
         }
+        console.log('Setting isLoading to false after success');
+        setIsLoading(false);
       } catch (apiError) {
         clearTimeout(timeoutId);
         console.log('Session validation failed, clearing token and continuing:', apiError);
         await AsyncStorage.removeItem('auth_token');
         setUser(null);
+        console.log('Setting isLoading to false after API error');
+        setIsLoading(false);
       }
     } catch (error) {
       console.log('Auth initialization error:', error);
       setUser(null);
-    } finally {
-      console.log('Auth initialization completed, setting isLoading to false');
+      console.log('Setting isLoading to false after general error');
       setIsLoading(false);
     }
   }, [hasInitialized]);
@@ -124,13 +145,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       console.log('🔐 AuthContext: Starting login for', email);
+      console.log('🔐 AuthContext: Current user state before login:', user);
       setIsLoading(true);
+      
+      console.log('🔐 AuthContext: Calling ApiService.login...');
       const response = await ApiService.login({ email, password });
       
       console.log('🔐 AuthContext: Login response received', { 
         hasToken: !!response.token, 
         hasUser: !!response.user,
-        userEmail: response.user?.email 
+        userEmail: response.user?.email,
+        fullResponse: response
       });
       
       if (response.user) {
@@ -147,13 +172,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         console.log('🔐 AuthContext: Setting user data and login successful', userData);
         setUser(userData);
+        console.log('🔐 AuthContext: User state after setUser:', userData);
         return true;
       } else {
         console.log('🔐 AuthContext: No user in response, login failed');
+        console.log('🔐 AuthContext: Full response object:', response);
         return false;
       }
     } catch (error) {
       console.error('🔐 AuthContext: Login error:', error);
+      console.error('🔐 AuthContext: Error details:', {
+        message: (error as any)?.message || 'Unknown error',
+        stack: (error as any)?.stack || 'No stack trace',
+        name: (error as any)?.name || 'Unknown error type'
+      });
       return false;
     } finally {
       console.log('🔐 AuthContext: Login process completed, setting loading to false');

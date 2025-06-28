@@ -15,7 +15,8 @@ const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal, isAdmin = false }) =
       <Text style={styles.rehearsalsTitle}>📅 Scheduled Rehearsals ({rehearsals.length})</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rehearsalsScroll}>
         {rehearsals.map((rehearsal, index) => (
-          <View key={index} style={styles.rehearsalCard}>            <View style={styles.rehearsalHeader}>
+          <View key={index} style={styles.rehearsalCard}>
+            <View style={styles.rehearsalHeader}>
               <Text style={styles.rehearsalTitle}>{rehearsal.title}</Text>
               {isAdmin && (
                 <TouchableOpacity 

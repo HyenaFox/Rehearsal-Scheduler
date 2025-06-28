@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Test</title>
+</head>
+<body>
+    <h1>Login Test</h1>
+    <div>
+        <input type="email" id="email" placeholder="Email" value="test@example.com">
+        <input type="password" id="password" placeholder="Password" value="password">
+        <button onclick="testLogin()">Test Login</button>
+        <button onclick="testRegister()">Test Register</button>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = 'Testing login...';
+            
+            try {
+                console.log('Attempting login with:', { email, password });
+                
+                const response = await fetch('http://localhost:3001/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                console.log('Login response status:', response.status);
+                console.log('Login response headers:', response.headers);
+                
+                const data = await response.json();
+                console.log('Login response data:', data);
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p style="color: green;">Login successful! Token: ${data.token ? 'received' : 'missing'}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">Login failed: ${data.error || 'Unknown error'}</p>`;
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                resultDiv.innerHTML = `<p style="color: red;">Network error: ${error.message}</p>`;
+            }
+        }
+        
+        async function testRegister() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = 'Testing registration...';
+            
+            try {
+                console.log('Attempting registration with:', { email, password });
+                
+                const response = await fetch('http://localhost:3001/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        email, 
+                        password, 
+                        name: 'Test User' 
+                    })
+                });
+                
+                console.log('Register response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Register response data:', data);
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p style="color: green;">Registration successful! Token: ${data.token ? 'received' : 'missing'}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">Registration failed: ${data.error || 'Unknown error'}</p>`;
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                resultDiv.innerHTML = `<p style="color: red;">Network error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

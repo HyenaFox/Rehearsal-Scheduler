@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { testApiConnection } from '../services/api';
 
@@ -42,10 +42,22 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
   // Always show main app, authentication is now handled per-screen
   console.log('AuthWrapper - showing main app, user:', user ? `logged in as ${user.email}` : 'not logged in');
+  console.log('AuthWrapper - about to render children');
+  
+  // Add a fallback in case children is undefined (happens during static rendering)
+  if (!children) {
+    console.error('AuthWrapper - children is undefined!');
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Loading app...</Text>
+      </View>
+    );
+  }
+  
   return (
-    <>
+    <View style={{ flex: 1 }}>
       {children}
-    </>
+    </View>
   );
 }
 

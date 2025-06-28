@@ -53,14 +53,24 @@ if (process.env.NODE_ENV === 'production') {
   distPath = path.resolve(process.cwd(), '../dist');
 }
 
-console.log('📁 Serving static files from:', distPath);
+console.log('📁 Static file serving path would be:', distPath);
+
 const fs = require('fs');
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-  console.log('✅ Static file serving enabled');
+
+// Only serve static files in production or when SERVE_STATIC is explicitly set
+const shouldServeStatic = process.env.NODE_ENV === 'production' || process.env.SERVE_STATIC === 'true';
+
+if (shouldServeStatic) {
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    console.log('✅ Static file serving enabled');
+  } else {
+    console.log('❌ Static files directory not found - web app will not be served');
+    console.log('🔍 Tried path:', distPath);
+  }
 } else {
-  console.log('❌ Static files directory not found - web app will not be served');
-  console.log('🔍 Tried path:', distPath);
+  console.log('🚫 Static file serving disabled (development mode)');
+  console.log('💡 Set SERVE_STATIC=true environment variable to enable static file serving');
 }
 
 // Trust proxy for Render.com deployment

@@ -37,58 +37,23 @@ export default function ProfileScreen() {
         scenes: isActor ? selectedScenes : [],
       };
 
+      console.log(`🎭 Updating profile with isActor: ${isActor}`, updates);
       await updateProfile(updates);
 
-      // Handle actor status changes
-      if (isActor && user) {
-        const existingActorIndex = actors.findIndex(actor => actor.id === user.id);
-        const actorData = {
-          id: user.id,
-          name: name.trim(),
-          availableTimeslots: selectedTimeslots,
-          scenes: selectedScenes.map(sceneId => {
-            const scene = scenes.find((s: any) => s.id === sceneId);
-            return scene ? scene.title : sceneId;
-          })
-        };
-
-        try {
-          if (existingActorIndex >= 0) {
-            // Update existing actor in database
-            if (!user.id) {
-              console.error('❌ User ID is missing, cannot update actor');
-              throw new Error('User ID is required to update actor');
-            }
-            console.log('🔄 Updating actor with ID:', user.id);
-            await ApiService.updateActor(user.id, actorData);
-            const updatedActors = [...actors];
-            updatedActors[existingActorIndex] = actorData;
-            setActors(updatedActors);
-            console.log('✅ Actor updated in database');
-          } else {
-            // Create new actor in database
-            const createdActor = await ApiService.createActor(actorData);
-            setActors([...actors, createdActor]);
-            console.log('✅ Actor created in database');
-          }
-        } catch (error) {
-          console.error('❌ Error managing actor in database:', error);
-          // Don't throw error here, profile was still updated
-        }
-      } else if (!isActor && user) {
-        // Remove from actors list if no longer an actor
-        try {
-          const existingActorIndex = actors.findIndex(actor => actor.id === user.id);
-          if (existingActorIndex >= 0) {
-            await ApiService.deleteActor(user.id);
-            const updatedActors = actors.filter(actor => actor.id !== user.id);
-            setActors(updatedActors);
-            console.log('✅ Actor removed from database');
-          }
-        } catch (error) {
-          console.error('❌ Error removing actor from database:', error);
-          // Don't throw error here, profile was still updated
-        }
+      // The backend will automatically handle the actor status in the user record
+      // No need to manually create/update in actors collection since getAllActors()
+      // fetches users where isActor: true
+      
+      console.log('✅ Profile updated successfully, refreshing actor list...');
+      
+      // Refresh the actors list to reflect the changes
+      try {
+        const updatedActors = await ApiService.getAllActors();
+        setActors(updatedActors);
+        console.log('✅ Actors list refreshed');
+      } catch (error) {
+        console.error('❌ Error refreshing actors list:', error);
+        // Don't throw error here, profile was still updated
       }
 
       Alert.alert('Success', 'Profile updated successfully');

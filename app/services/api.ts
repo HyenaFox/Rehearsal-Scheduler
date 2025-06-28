@@ -248,6 +248,43 @@ class ApiService {
     });
   }
 
+  // Rehearsals API
+  static async getAllRehearsals(): Promise<any[]> {
+    return this.makeRequest('/rehearsals');
+  }
+
+  static async createRehearsal(rehearsal: any): Promise<any> {
+    return this.makeRequest('/rehearsals', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: rehearsal.title,
+        timeslotId: rehearsal.timeslot.id || rehearsal.timeslot._id,
+        timeslot: rehearsal.timeslot,
+        actorIds: rehearsal.actors.map((actor: any) => actor.id),
+        actors: rehearsal.actors
+      }),
+    });
+  }
+
+  static async updateRehearsal(id: string, rehearsal: any): Promise<any> {
+    return this.makeRequest(`/rehearsals/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: rehearsal.title,
+        timeslotId: rehearsal.timeslot.id || rehearsal.timeslot._id,
+        timeslot: rehearsal.timeslot,
+        actorIds: rehearsal.actors.map((actor: any) => actor.id),
+        actors: rehearsal.actors
+      }),
+    });
+  }
+
+  static async deleteRehearsal(id: string): Promise<any> {
+    return this.makeRequest(`/rehearsals/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Health check
   static async healthCheck() {
     try {

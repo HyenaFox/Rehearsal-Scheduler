@@ -64,7 +64,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('🔄 Loading data from API...');
       
       // Load all data from API in parallel
-      const [actorsData, timeslotsData, scenesData] = await Promise.all([
+      const [actorsData, timeslotsData, scenesData, rehearsalsData] = await Promise.all([
         ApiService.getAllActors().catch(err => {
           console.warn('Failed to load actors:', err);
           return [];
@@ -76,18 +76,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ApiService.getAllScenes().catch(err => {
           console.warn('Failed to load scenes:', err);
           return [];
+        }),
+        ApiService.getAllRehearsals().catch(err => {
+          console.warn('Failed to load rehearsals:', err);
+          return [];
         })
       ]);
 
       console.log('📦 Data loaded:', {
         actors: actorsData.length,
         timeslots: timeslotsData.length,
-        scenes: scenesData.length
+        scenes: scenesData.length,
+        rehearsals: rehearsalsData.length
       });
 
       setActors(actorsData);
       setTimeslots(timeslotsData);
       setScenes(scenesData);
+      setRehearsals(rehearsalsData);
     } catch (error) {
       console.error('❌ Error loading data:', error);
       // Set empty arrays on error
@@ -116,9 +122,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const handleDeleteRehearsal = (index: number) => {
-    const updatedRehearsals = rehearsals.filter((_, i) => i !== index);
-    setRehearsals(updatedRehearsals);
+  const handleDeleteRehearsal = async (index: number) => {
+    try {
+      const rehearsalToDelete = rehearsals[index];
+      if (rehearsalToDelete.id && rehearsalToDelete.id !== 'local') {
+        // Delete from backend if it has a real ID
+        await ApiService.deleteRehearsal(rehearsalToDelete.id);
+        console.log('✅ Rehearsal deleted from backend successfully');
+      }
+      const updatedRehearsals = rehearsals.filter((_, i) => i !== index);
+      setRehearsals(updatedRehearsals);
+    } catch (error) {
+      console.error('❌ Error deleting rehearsal from backend:', error);
+      // Still remove from local state even if backend fails
+      const updatedRehearsals = rehearsals.filter((_, i) => i !== index);
+      setRehearsals(updatedRehearsals);
+      throw error;
+    }
   };
 
   const handleAddActor = async () => {
@@ -142,14 +162,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const handleAddRehearsal = (rehearsal: any) => {
-    const updatedRehearsals = [...rehearsals, rehearsal];
-    setRehearsals(updatedRehearsals);
+  const handleAddRehearsal = async (rehearsal: any) => {
+    try {
+      console.log('🎭 Adding rehearsal to backend:', rehearsal);
+      const savedRehearsal = await ApiService.createRehearsal(rehearsal);
+      const updatedRehearsals = [...rehearsals, savedRehearsal];
+      setRehearsals(updatedRehearsals);
+      console.log('✅ Rehearsal saved to backend successfully');
+    } catch (error) {
+      console.error('❌ Error saving rehearsal to backend:', error);
+      // Fallback to local storage for now
+      const updatedRehearsals = [...rehearsals, rehearsal];
+      setRehearsals(updatedRehearsals);
+      throw error;
+    }
   };
 
-  const handleAddMultipleRehearsals = (newRehearsals: any[]) => {
-    const updatedRehearsals = [...rehearsals, ...newRehearsals];
-    setRehearsals(updatedRehearsals);
+  const handleAddMultipleRehearsals = async (newRehearsals: any[]) => {
+    try {
+      console.log('🎭 Adding multiple rehearsals to backend:', newRehearsals.length);
+      const savedRehearsals = await Promise.all(
+        newRehearsals.map(rehearsal => ApiService.createRehearsal(rehearsal))
+      );
+      const updatedRehearsals = [...rehearsals, ...savedRehearsals];
+      setRehearsals(updatedRehearsals);
+      console.log('✅ Multiple rehearsals saved to backend successfully');
+    } catch (error) {
+      console.error('❌ Error saving multiple rehearsals to backend:', error);
+      // Fallback to local storage for now
+      const updatedRehearsals = [...rehearsals, ...newRehearsals];
+      setRehearsals(updatedRehearsals);
+      throw error;
+    }
   };
 
   const value = {

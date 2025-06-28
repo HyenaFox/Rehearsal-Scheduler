@@ -13,6 +13,7 @@ const calendarRoutes = require('./routes/calendar');
 const actorsRoutes = require('./routes/actors');
 const timeslotsRoutes = require('./routes/timeslots');
 const scenesRoutes = require('./routes/scenes');
+const rehearsalsRoutes = require('./routes/rehearsals');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -115,6 +116,7 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/actors', actorsRoutes);
 app.use('/api/timeslots', timeslotsRoutes);
 app.use('/api/scenes', scenesRoutes);
+app.use('/api/rehearsals', rehearsalsRoutes);
 
 // Root endpoint - provide API information
 app.get('/', (req, res) => {

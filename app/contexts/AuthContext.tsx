@@ -37,69 +37,67 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // Start with false - let individual screens handle their loading
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with true - we need to check for existing auth
 
-  // Force immediate initialization for web - only run once on mount
+  // Initialize authentication state - check for existing tokens
   useEffect(() => {
-    console.log('🚀 AuthProvider - FORCED IMMEDIATE INITIALIZATION');
-    console.log('🚀 Current state:', { user, isLoading, hasInitialized });
+    let isMounted = true;
     
-    // Force loading to false immediately for web
-    if (typeof window !== 'undefined') {
-      console.log('🌐 Web environment detected - setting loading to false immediately');
-      setIsLoading(false);
-      setHasInitialized(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once on mount
-
-  // Backup initialization attempt - only run when hasInitialized changes
-  useEffect(() => {
-    console.log('AuthProvider - Backup initialization attempt...');
-    console.log('AuthProvider - hasInitialized:', hasInitialized);
-    console.log('AuthProvider - isLoading:', isLoading);
-    console.log('AuthProvider - user:', user);
-    
-    if (!hasInitialized) {
-      console.log('AuthProvider - Running backup initialization...');
-      const timer = setTimeout(() => {
-        console.log('AuthProvider - Timer-based initialization');
-        setHasInitialized(true);
-        setIsLoading(false);
-        
-        // Try to load user if there's a token, but don't block the UI
-        AsyncStorage.getItem('auth_token').then(token => {
-          if (token) {
-            console.log('Found token during backup init, attempting to validate user');
-            ApiService.getCurrentUser().then(currentUser => {
-              if (currentUser) {
-                console.log('Setting user from backup init:', currentUser.email);
-                setUser({
-                  id: currentUser.id,
-                  email: currentUser.email,
-                  name: currentUser.name,
-                  phone: currentUser.phone || '',
-                  isActor: currentUser.isActor,
-                  isAdmin: currentUser.isAdmin || false,
-                  availableTimeslots: currentUser.availableTimeslots || [],
-                  scenes: currentUser.scenes || []
-                });
-              }
-            }).catch(err => {
-              console.log('Backup init user validation failed:', err);
-              AsyncStorage.removeItem('auth_token');
-            });
-          }
-        }).catch(err => {
-          console.log('Backup init token check failed:', err);
-        });
-      }, 100);
+    const initializeAuth = async () => {
+      console.log('🚀 AuthProvider - Starting initialization...');
       
-      return () => clearTimeout(timer);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasInitialized]); // Only depend on hasInitialized to avoid loops
+      try {
+        // Check if we have a stored token
+        const token = await AsyncStorage.getItem('auth_token');
+        
+        if (token) {
+          console.log('🔑 Found existing auth token, validating user...');
+          
+          try {
+            // Validate the token by getting current user
+            const currentUser = await ApiService.getCurrentUser();
+            
+            if (currentUser && isMounted) {
+              console.log('✅ Token valid, restoring user session:', currentUser.email);
+              setUser({
+                id: currentUser.id,
+                email: currentUser.email,
+                name: currentUser.name,
+                phone: currentUser.phone || '',
+                isActor: currentUser.isActor,
+                isAdmin: currentUser.isAdmin || false,
+                availableTimeslots: currentUser.availableTimeslots || [],
+                scenes: currentUser.scenes || []
+              });
+            } else if (isMounted) {
+              console.log('❌ Token invalid, removing...');
+              await AsyncStorage.removeItem('auth_token');
+            }
+          } catch (error) {
+            console.log('❌ Token validation failed:', error);
+            if (isMounted) {
+              await AsyncStorage.removeItem('auth_token');
+            }
+          }
+        } else {
+          console.log('🔍 No existing auth token found');
+        }
+      } catch (error) {
+        console.error('❌ Auth initialization error:', error);
+      } finally {
+        if (isMounted) {
+          console.log('✅ Auth initialization complete');
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Only run once on mount
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');

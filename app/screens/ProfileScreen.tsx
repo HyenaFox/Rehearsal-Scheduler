@@ -89,21 +89,10 @@ export default function ProfileScreen() {
     );
   }
 
-  // Only show login screen if we're definitely not authenticated AND not loading
-  if (!user && !authLoading) {
-    return <LoginScreen />;
-  }
-
-  // If we have a user, show the profile screen
+  // If we're not loading and don't have a user, show login screen
   if (!user) {
-    // Loading state - show loading indicator
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Error: No user data</Text>
-        </View>
-      </View>
-    );
+    console.log('🔍 ProfileScreen - No user found, showing login screen');
+    return <LoginScreen />;
   }
 
   return (

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import ApiService from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -38,7 +38,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
 
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     setIsLoading(true);
     try {
       console.log('🔄 Loading data from API...');
@@ -111,11 +111,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('📦 Data loading completed, setting isLoading to false');
       setIsLoading(false);
     }
-  }, [user]);
+  };
 
+  // Load data on mount and when user changes
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleDeleteActor = async (actor: any) => {
     // Only allow authenticated users to manage actors

@@ -50,6 +50,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let isMounted = true;
     
+    // Add a timeout fallback to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.log('⏰ AuthProvider - Initialization timeout, forcing completion');
+        setIsLoading(false);
+      }
+    }, 10000); // 10 second timeout
+    
     const initializeAuth = async () => {
       console.log('🚀 AuthProvider - Starting initialization...');
       setInitializationAttempted(true);
@@ -62,8 +70,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('🔑 Found existing auth token, validating user...');
           
           try {
-            // Validate the token by getting current user
-            const currentUser = await ApiService.getCurrentUser();
+            // Validate the token by getting current user with timeout
+            const currentUser = await Promise.race([
+              ApiService.getCurrentUser(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('getCurrentUser timeout')), 5000)
+              )
+            ]) as any;
             
             if (currentUser && isMounted) {
               console.log('✅ Token valid, restoring user session:', currentUser.email);
@@ -102,6 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } finally {
+        clearTimeout(timeoutId);
         if (isMounted) {
           console.log('✅ Auth initialization complete');
           setIsLoading(false);
@@ -113,8 +127,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
     };
-  }, [initializationAttempted]); // Include the dependency
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');

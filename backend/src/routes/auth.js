@@ -181,7 +181,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
     if (availableTimeslots !== undefined) updates.availableTimeslots = availableTimeslots;
     if (scenes !== undefined) updates.scenes = scenes;
 
-    const user = await User.updateUser(req.user.userId, updates);
+    const user = await User.updateUser(req.user._id, updates);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

@@ -1,0 +1,40 @@
+# Render.com deployment configuration for full-stack app
+version: "1"
+
+services:
+  # Single web service that builds the frontend and serves it with the API
+  - type: web
+    name: rehearsal-scheduler-fullstack
+    runtime: node
+    plan: free
+    buildCommand: |
+      npm ci
+      npm run build
+      cd backend && npm ci
+    startCommand: cd backend && npm run start:production
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: CACHE_VERSION
+        value: "v2.0"
+      - key: MONGODB_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: "https://rehearsal-scheduler-fullstack.onrender.com/api/calendar/auth/google/callback"
+      - key: FRONTEND_BUILD_DIR
+        value: "../dist"
+
+  # Optional: Separate static site service (alternative approach)
+  # - type: static
+  #   name: rehearsal-scheduler-frontend
+  #   buildCommand: npm ci && npm run build
+  #   publishPath: dist
+  #   envVars:
+  #     - key: EXPO_PUBLIC_API_URL
+  #       value: "https://rehearsal-scheduler-api.onrender.com/api"

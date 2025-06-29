@@ -13,9 +13,9 @@ const getApiBaseUrl = () => {
     }
     
     // If we're on the production domain
-    if (hostname === 'rehearsal-scheduler.onrender.com' || hostname.includes('.onrender.com')) {
+    if (hostname === 'rehearsal-scheduler.onrender.com' || hostname.includes('rehearsal-scheduler.onrender.com')) {
       console.log('🌐 Production hostname detected, using production API');
-      return 'https://rehearsal-scheduler-api.onrender.com/api';
+      return 'https://rehearsal-scheduler.onrender.com/api';
     }
   }
   
@@ -27,7 +27,7 @@ const getApiBaseUrl = () => {
   
   // Production fallback
   console.log('🌐 Using production API fallback');
-  return 'https://rehearsal-scheduler-api.onrender.com/api';
+  return 'https://rehearsal-scheduler.onrender.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

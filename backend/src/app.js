@@ -94,7 +94,9 @@ app.use(limiter);
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://rehearsal-scheduler.onrender.com',] // Add your production domains here
+    ? [
+        'https://rehearsal-scheduler.onrender.com'
+      ] // Add your production domains here
     : true, // Allow all origins in development
   credentials: true
 }));

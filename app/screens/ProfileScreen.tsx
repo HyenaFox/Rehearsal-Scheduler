@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
-import LoginScreen from './LoginScreen';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
+import LoginScreen from './LoginScreen';
 
 export default function ProfileScreen() {
   const { user, updateProfile, forceLogout, isLoading: authLoading } = useAuth();
@@ -16,6 +16,28 @@ export default function ProfileScreen() {
   const [selectedScenes, setSelectedScenes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  
+  // Track the last user ID to prevent resetting form state on every render
+  const lastUserIdRef = useRef<string | null>(null);
+  
+  // Update local state when user data is available (only when user changes)
+  useEffect(() => {
+    if (user && user.id !== lastUserIdRef.current) {
+      console.log('👤 Initializing profile form with user data:', {
+        name: user.name,
+        phone: user.phone,
+        isActor: user.isActor,
+        availableTimeslots: user.availableTimeslots,
+        scenes: user.scenes
+      });
+      setName(user.name || '');
+      setPhone(user.phone || '');
+      setIsActor(user.isActor || false);
+      setSelectedTimeslots(user.availableTimeslots || []);
+      setSelectedScenes(user.scenes || []);
+      lastUserIdRef.current = user.id;
+    }
+  }, [user]);
 
   // If user wants to login, show login form
   if (showLogin && !user) {
@@ -122,182 +144,167 @@ export default function ProfileScreen() {
     });
   };
 
-  // The actual profile content
-  const ProfileContent = () => {
-    // Update local state when user data is available
-    React.useEffect(() => {
-      if (user) {
-        console.log('👤 Initializing profile form with user data:', {
-          name: user.name,
-          phone: user.phone,
-          isActor: user.isActor,
-          availableTimeslots: user.availableTimeslots,
-          scenes: user.scenes
-        });
-        setName(user.name || '');
-        setPhone(user.phone || '');
-        setIsActor(user.isActor || false);
-        setSelectedTimeslots(user.availableTimeslots || []);
-        setSelectedScenes(user.scenes || []);
-      }
-    }); // Run on every render to keep form in sync with user data
-
-    // Ensure user exists (SimpleAuthGate should guarantee this)
-    if (!user) {
-      return (
-        <View style={styles.container}>
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading user data...</Text>
-          </View>
-        </View>
-      );
-    }
-
+  // Show loading while checking auth
+  if (authLoading) {
     return (
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={() => {
-            forceLogout();
-            Alert.alert('Logged Out', 'You have been logged out successfully');
-          }}>
-            <Text style={styles.logoutButtonText}>Log Out</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter your full name"
-                autoCapitalize="words"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <Text style={styles.emailText}>{user.email}</Text>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Phone (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Enter your phone number"
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.switchContainer}>
-              <Text style={styles.sectionTitle}>Actor Settings</Text>
-              <Switch
-                value={isActor}
-                onValueChange={setIsActor}
-                trackColor={{ false: '#e2e8f0', true: '#10b981' }}
-                thumbColor={isActor ? '#ffffff' : '#f4f4f5'}
-              />
-            </View>
-            
-            <Text style={styles.description}>
-              Enable this if you are an actor and want to specify your availability and scenes.
-            </Text>
-
-            {isActor && (
-              <>
-                <View style={styles.subsection}>
-                  <Text style={styles.subsectionTitle}>Available Time Slots</Text>
-                  <Text style={styles.description}>
-                    Select the time slots when you are available for rehearsals.
-                  </Text>
-                  
-                  {timeslots.map((timeslot) => {
-                    const timeslotId = timeslot.id || timeslot._id;
-                    return (
-                    <View key={timeslotId} style={styles.checkboxContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.checkbox,
-                          selectedTimeslots.includes(timeslotId) && styles.checkboxSelected
-                        ]}
-                        onPress={() => toggleTimeslot(timeslotId)}
-                      >
-                        {selectedTimeslots.includes(timeslotId) && (
-                          <Text style={styles.checkboxText}>✓</Text>
-                        )}
-                      </TouchableOpacity>
-                      <Text style={styles.checkboxLabel}>
-                        {timeslot.day} - {timeslot.startTime} to {timeslot.endTime}
-                      </Text>
-                    </View>
-                    );
-                  })}
-                </View>
-
-                <View style={styles.subsection}>
-                  <Text style={styles.subsectionTitle}>Scenes</Text>
-                  <Text style={styles.description}>
-                    Select the scenes you are involved in.
-                  </Text>
-                  
-                  {scenes.map((scene) => {
-                    const sceneId = scene.id || scene._id;
-                    return (
-                    <View key={sceneId} style={styles.checkboxContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.checkbox,
-                          selectedScenes.includes(sceneId) && styles.checkboxSelected
-                        ]}
-                        onPress={() => toggleScene(sceneId)}
-                      >
-                        {selectedScenes.includes(sceneId) && (
-                          <Text style={styles.checkboxText}>✓</Text>
-                        )}
-                      </TouchableOpacity>
-                      <Text style={styles.checkboxLabel}>
-                        {scene.name}
-                      </Text>
-                    </View>
-                    );
-                  })}
-                </View>
-              </>
-            )}
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.saveButton, isLoading && styles.disabledButton]}
-            onPress={handleSave}
-            disabled={isLoading}
-          >
-            <Text style={styles.saveButtonText}>
-              {isLoading ? 'Saving...' : 'Save Changes'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {user.isAdmin && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Admin Tools</Text>
-            <GoogleCalendarIntegration />
-          </View>
-        )}
-      </ScrollView>
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
     );
-  };
+  }
 
-  // Wrap the entire component - now shows either login prompt or profile content
-  return user ? <ProfileContent /> : null;
+  // Ensure user exists for the profile form
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading user data...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Profile</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={() => {
+          forceLogout();
+          Alert.alert('Logged Out', 'You have been logged out successfully');
+        }}>
+          <Text style={styles.logoutButtonText}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.form}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Personal Information</Text>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter your full name"
+              autoCapitalize="words"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
+            <Text style={styles.emailText}>{user.email}</Text>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Phone (Optional)</Text>
+            <TextInput
+              style={styles.input}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Enter your phone number"
+              keyboardType="phone-pad"
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.switchContainer}>
+            <Text style={styles.sectionTitle}>Actor Settings</Text>
+            <Switch
+              value={isActor}
+              onValueChange={setIsActor}
+              trackColor={{ false: '#e2e8f0', true: '#10b981' }}
+              thumbColor={isActor ? '#ffffff' : '#f4f4f5'}
+            />
+          </View>
+          
+          <Text style={styles.description}>
+            Enable this if you are an actor and want to specify your availability and scenes.
+          </Text>
+
+          {isActor && (
+            <>
+              <View style={styles.subsection}>
+                <Text style={styles.subsectionTitle}>Available Time Slots</Text>
+                <Text style={styles.description}>
+                  Select the time slots when you are available for rehearsals.
+                </Text>
+                
+                {timeslots.map((timeslot) => {
+                  const timeslotId = timeslot.id || timeslot._id;
+                  return (
+                  <View key={timeslotId} style={styles.checkboxContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.checkbox,
+                        selectedTimeslots.includes(timeslotId) && styles.checkboxSelected
+                      ]}
+                      onPress={() => toggleTimeslot(timeslotId)}
+                    >
+                      {selectedTimeslots.includes(timeslotId) && (
+                        <Text style={styles.checkboxText}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                    <Text style={styles.checkboxLabel}>
+                      {timeslot.day} - {timeslot.startTime} to {timeslot.endTime}
+                    </Text>
+                  </View>
+                  );
+                })}
+              </View>
+
+              <View style={styles.subsection}>
+                <Text style={styles.subsectionTitle}>Scenes</Text>
+                <Text style={styles.description}>
+                  Select the scenes you are involved in.
+                </Text>
+                
+                {scenes.map((scene) => {
+                  const sceneId = scene.id || scene._id;
+                  return (
+                  <View key={sceneId} style={styles.checkboxContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.checkbox,
+                        selectedScenes.includes(sceneId) && styles.checkboxSelected
+                      ]}
+                      onPress={() => toggleScene(sceneId)}
+                    >
+                      {selectedScenes.includes(sceneId) && (
+                        <Text style={styles.checkboxText}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                    <Text style={styles.checkboxLabel}>
+                      {scene.name}
+                    </Text>
+                  </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.saveButton, isLoading && styles.disabledButton]}
+          onPress={handleSave}
+          disabled={isLoading}
+        >
+          <Text style={styles.saveButtonText}>
+            {isLoading ? 'Saving...' : 'Save Changes'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {user.isAdmin && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Admin Tools</Text>
+          <GoogleCalendarIntegration />
+        </View>
+      )}
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({

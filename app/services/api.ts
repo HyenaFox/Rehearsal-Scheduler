@@ -1,33 +1,13 @@
 import { StorageService } from './storage';
 
-// Determine the correct API base URL based on platform and environment
+// Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
-  // For web builds, check the current hostname to determine environment
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    
-    // If we're on localhost, always use local API for development
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      console.log('🌐 Localhost detected, using local API');
-      return 'http://localhost:3000/api';
-    }
-    
-    // If we're on the production domain
-    if (hostname === 'rehearsal-scheduler.onrender.com' || hostname.includes('rehearsal-scheduler.onrender.com')) {
-      console.log('🌐 Production hostname detected, using production API');
-      return 'https://rehearsal-scheduler.onrender.com/api';
-    }
+  const envUrl = process.env.EXPO_PUBLIC_API_URL || (typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_API_URL);
+  if (envUrl) {
+    console.log('🌐 Using EXPO_PUBLIC_API_URL from environment:', envUrl);
+    return envUrl;
   }
-  
-  // Check if we're in development mode (fallback)
-  if (__DEV__) {
-    console.log('🌐 Development mode detected, using local API');
-    return 'http://localhost:3000/api';
-  }
-  
-  // Production fallback
-  console.log('🌐 Using production API fallback');
-  return 'https://rehearsal-scheduler.onrender.com/api';
+  throw new Error('EXPO_PUBLIC_API_URL environment variable is not set. Please set it in your environment.');
 };
 
 const API_BASE_URL = getApiBaseUrl();

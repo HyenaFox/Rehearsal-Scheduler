@@ -2,17 +2,12 @@ import { StorageService } from './storage';
 
 // Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-
+  const envUrl = process.env.EXPO_PUBLIC_API_URL || (typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_API_URL);
   if (envUrl) {
     console.log('🌐 Using EXPO_PUBLIC_API_URL from environment:', envUrl);
     return envUrl;
   }
-
-  // Fallback for local development
-  const localApiUrl = 'http://localhost:3000/api';
-  console.log(`⚠️ EXPO_PUBLIC_API_URL not set, falling back to local URL: ${localApiUrl}`);
-  return localApiUrl;
+  throw new Error('EXPO_PUBLIC_API_URL environment variable is not set. Please set it in your environment.');
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -126,11 +121,11 @@ class ApiService {
     return response;
   }
 
-  static async login({ email, password }: { email: string, password: string }): Promise<{ token: string; user: any }> {
-    console.log('🔐 Attempting login for:', email);
+  static async login(credentials: { email: string; password: string }) {
+    console.log('🔐 Attempting login for:', credentials.email);
     const response = await this.makeRequest('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(credentials),
     });
 
     console.log('🔐 Login response received:', { hasToken: !!response.token, hasUser: !!response.user });
@@ -143,13 +138,6 @@ class ApiService {
     }
 
     return response;
-  }
-
-  static async googleLogin(idToken: string): Promise<{ token: string; user: any }> {
-    return this.makeRequest('/auth/google', {
-      method: 'POST',
-      body: JSON.stringify({ token: idToken }),
-    });
   }
 
   static async logout() {

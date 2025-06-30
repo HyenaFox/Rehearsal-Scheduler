@@ -5,9 +5,9 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 // Get all scenes
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
-    const scenes = await Scene.getAll();
+    const scenes = await Scene.getAllForUser(req.userId);
     res.json(scenes);
   } catch (error) {
     console.error('Error fetching scenes:', error);

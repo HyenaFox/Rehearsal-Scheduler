@@ -18,7 +18,6 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
-  googleLogin: (idToken: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
@@ -39,19 +38,46 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start with true - we need to check for existing auth
+  const [initializationAttempted, setInitializationAttempted] = useState(false);
 
   // Initialize authentication state - check for existing tokens
   useEffect(() => {
-    let isMounted = true;
+    // Prevent multiple initialization attempts
+    if (initializationAttempted) {
+      console.log('🚀 AuthProvider - Initialization already attempted, skipping...');
+      return;
+    }
 
+    let isMounted = true;
+    
+    // Add a timeout fallback to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.log('⏰ AuthProvider - Initialization timeout, forcing completion');
+        setIsLoading(false);
+      }
+    }, 10000); // 10 second timeout
+    
     const initializeAuth = async () => {
       console.log('🚀 AuthProvider - Starting initialization...');
+      setInitializationAttempted(true);
+      
       try {
+        // Check if we have a stored token
         const token = await StorageService.getItem('auth_token');
+        
         if (token) {
           console.log('🔑 Found existing auth token, validating user...');
+          
           try {
-            const currentUser = await ApiService.getCurrentUser();
+            // Validate the token by getting current user with timeout
+            const currentUser = await Promise.race([
+              ApiService.getCurrentUser(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('getCurrentUser timeout')), 5000)
+              )
+            ]) as any;
+            
             if (currentUser && isMounted) {
               console.log('✅ Token valid, restoring user session:', currentUser.email);
               setUser({
@@ -75,23 +101,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await StorageService.removeItem('auth_token');
             }
           }
+        } else {
+          console.log('🔍 No existing auth token found');
         }
       } catch (error) {
-        console.error('🚨 AuthProvider - Error during initialization:', error);
-      } finally {
+        console.error('❌ Auth initialization error:', error);
+        // Clear any potentially corrupted auth data
         if (isMounted) {
-          console.log('🏁 AuthProvider - Initialization complete.');
+          try {
+            await StorageService.clearAuthData();
+          } catch (clearError) {
+            console.error('❌ Failed to clear auth data:', clearError);
+          }
+        }
+      } finally {
+        clearTimeout(timeoutId);
+        if (isMounted) {
+          console.log('✅ Auth initialization complete');
           setIsLoading(false);
         }
       }
     };
 
     initializeAuth();
-
+    
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
@@ -110,31 +149,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthProvider - isLoading state changed:', isLoading);
   }, [isLoading]);
 
-  const googleLogin = useCallback(async (idToken: string) => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const { token, user } = await ApiService.googleLogin(idToken);
-      await StorageService.setItem('auth_token', token);
-      setUser(user);
-      return true;
+      console.log('🔐 AuthContext: Starting login for', email);
+      setIsLoading(true);
+      
+      const response = await ApiService.login({ email, password });
+      
+      console.log('🔐 AuthContext: Login response received', { 
+        hasToken: !!response.token, 
+        hasUser: !!response.user,
+        userEmail: response.user?.email
+      });
+      
+      if (response.user && response.token) {
+        const userData = {
+          id: response.user.id,
+          email: response.user.email,
+          name: response.user.name,
+          phone: response.user.phone || '',
+          isActor: response.user.isActor,
+          isAdmin: response.user.isAdmin || false,
+          availableTimeslots: response.user.availableTimeslots || [],
+          scenes: response.user.scenes || []
+        };
+        
+        console.log('🔐 AuthContext: Setting user data', userData);
+        setUser(userData);
+        setIsLoading(false);
+        
+        console.log('🔐 AuthContext: Login completed successfully');
+        return true;
+      } else {
+        console.log('🔐 AuthContext: No user or token in response, login failed');
+        console.log('🔐 AuthContext: Response token:', !!response.token);
+        console.log('🔐 AuthContext: Response user:', !!response.user);
+        setUser(null);
+        return false;
+      }
     } catch (error) {
-      console.error('Google login error in AuthContext:', error);
+      console.error('🔐 AuthContext: Login error:', error);
+      console.error('🔐 AuthContext: Error details:', {
+        message: (error as any)?.message || 'Unknown error',
+        stack: (error as any)?.stack || 'No stack trace',
+        name: (error as any)?.name || 'Unknown error type'
+      });
       return false;
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  };
 
-  const login = useCallback(async (email: string, password: string) => {
-    try {
-      const { token, user } = await ApiService.login({ email, password });
-      await StorageService.setItem('auth_token', token);
-      setUser(user);
-      return true;
-    } catch (error) {
-      console.error('Login error in AuthContext:', error);
-      return false;
-    }
-  }, []);
-
-  const register = useCallback(async (email: string, password: string, name: string) => {
+  const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
       console.log('🔐 AuthContext: Starting registration for', email);
       setIsLoading(true);
@@ -171,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
   const logout = useCallback(() => {
     console.log('Logout called');
@@ -238,7 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const value = {
+  const value: AuthContextType = {
     user,
     isLoading,
     login,
@@ -248,7 +314,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserAsActor,
     forceLogout,
     skipLogin,
-    googleLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

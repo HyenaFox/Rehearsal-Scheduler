@@ -1,11 +1,10 @@
-import { useAuth } from '@/app/contexts/AuthContext';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function GoogleCallback() {
   const { googleLogin } = useAuth();
-  const params = useLocalSearchParams();
 
   useEffect(() => {
     const handleLogin = async (idToken: string) => {
@@ -25,11 +24,10 @@ export default function GoogleCallback() {
     if (idToken) {
       handleLogin(idToken);
     } else {
-      const error = params.error || 'An unknown error occurred during Google Sign-In.';
-      alert(`Login Error: ${error}`);
+      alert('Login Error: No token received from Google.');
       router.replace('/');
     }
-  }, [params, googleLogin]);
+  }, [googleLogin]);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

@@ -16,7 +16,7 @@ const scenesRoutes = require('./routes/scenes');
 const rehearsalsRoutes = require('./routes/rehearsals');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // Serve static files from the dist directory (web app)
 // Handle different deployment scenarios

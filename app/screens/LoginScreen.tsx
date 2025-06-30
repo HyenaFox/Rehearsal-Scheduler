@@ -1,5 +1,4 @@
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,51 +9,7 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login, register, skipLogin, googleLogin } = useAuth();
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      GoogleSignin.configure({
-        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-      });
-    }
-  }, []);
-
-  const handleGoogleSignIn = async () => {
-    if (Platform.OS === 'web') {
-      // For web, we use a redirect-based flow
-      const nonce = Math.random().toString(36).substring(2, 15);
-      sessionStorage.setItem('google_nonce', nonce);
-
-      const redirectUri = `${window.location.origin}/auth/google/callback`;
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=id_token&scope=openid%20email%20profile&nonce=${nonce}`;
-      
-      window.open(googleAuthUrl, '_self');
-    } else {
-      // For native, we use the library
-      try {
-        await GoogleSignin.hasPlayServices();
-        const response = await GoogleSignin.signIn();
-        if ('user' in response) {
-          const success = await googleLogin((response as any).user.idToken);
-          if (!success) {
-            Alert.alert('Google Sign-In Failed', 'Could not sign in with Google. Please try again.');
-          }
-        }
-      } catch (error: any) {
-        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-          // user cancelled the login flow
-        } else if (error.code === statusCodes.IN_PROGRESS) {
-          // operation (e.g. sign in) is in progress already
-        } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-          // play services not available or outdated
-        } else {
-          // some other error happened
-          Alert.alert('Google Sign-In Error', 'An unexpected error occurred.');
-        }
-      }
-    }
-  };
+  const { login, register, skipLogin } = useAuth();
 
   const handleSubmit = async () => {
     if (!email || !password || (isRegisterMode && !name)) {
@@ -151,10 +106,6 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn}>
-            <Text style={styles.googleButtonText}>Sign in with Google</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.toggleButton} onPress={toggleMode}>
             <Text style={styles.toggleButtonText}>
               {isRegisterMode 
@@ -239,19 +190,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
   },
   submitButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  googleButton: {
-    backgroundColor: '#4285F4',
-    borderRadius: 8,
-    paddingVertical: 14,
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  googleButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',

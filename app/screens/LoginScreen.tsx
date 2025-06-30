@@ -13,31 +13,40 @@ export default function LoginScreen() {
   const { login, register, skipLogin, googleLogin } = useAuth();
 
   useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // client ID of type WEB for your server.
-    });
+    if (Platform.OS !== 'web') {
+      GoogleSignin.configure({
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      });
+    }
   }, []);
 
   const handleGoogleSignIn = async () => {
-    try {
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      if (userInfo.idToken) {
-        const success = await googleLogin(userInfo.idToken);
-        if (!success) {
-          Alert.alert('Google Sign-In Failed', 'Could not sign in with Google. Please try again.');
+    if (Platform.OS === 'web') {
+      // Handle web-based Google Sign-In
+      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID}&redirect_uri=${window.location.origin}/auth/google/callback&response_type=token&scope=openid%20email%20profile`;
+      window.open(googleAuthUrl, '_self');
+    } else {
+      // Handle native Google Sign-In
+      try {
+        await GoogleSignin.hasPlayServices();
+        const response = await GoogleSignin.signIn();
+        if ('user' in response) {
+          const success = await googleLogin((response as any).user.idToken);
+          if (!success) {
+            Alert.alert('Google Sign-In Failed', 'Could not sign in with Google. Please try again.');
+          }
         }
-      }
-    } catch (error: any) {
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // user cancelled the login flow
-      } else if (error.code === statusCodes.IN_PROGRESS) {
-        // operation (e.g. sign in) is in progress already
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        // play services not available or outdated
-      } else {
-        // some other error happened
-        Alert.alert('Google Sign-In Error', 'An unexpected error occurred.');
+      } catch (error: any) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+          // user cancelled the login flow
+        } else if (error.code === statusCodes.IN_PROGRESS) {
+          // operation (e.g. sign in) is in progress already
+        } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          // play services not available or outdated
+        } else {
+          // some other error happened
+          Alert.alert('Google Sign-In Error', 'An unexpected error occurred.');
+        }
       }
     }
   };

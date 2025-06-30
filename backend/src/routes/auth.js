@@ -2,8 +2,54 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { OAuth2Client } = require('google-auth-library');
 
 const router = express.Router();
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Google Login Endpoint
+router.post('/google', async (req, res) => {
+  try {
+    const { token } = req.body;
+    const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const { name, email, picture } = ticket.getPayload();
+    
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.createUser({
+        email: email.toLowerCase().trim(),
+        name: name.trim(),
+        isActor: false,
+        // You might want to store the googleId (ticket.getUserId()) and picture
+      });
+    }
+
+    const jwtToken = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+    console.log(`✅ User logged in via Google: ${user.email}`);
+
+    res.json({
+      message: 'Google login successful',
+      token: jwtToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        isActor: user.isActor,
+        isAdmin: user.isAdmin,
+        availableTimeslots: user.availableTimeslots,
+        scenes: user.scenes
+      }
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(400).json({ error: 'Google login failed. Invalid token.' });
+  }
+});
 
 // Register endpoint
 router.post('/register', async (req, res) => {

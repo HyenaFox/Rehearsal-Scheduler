@@ -5,7 +5,7 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 // Get all actors
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const actors = await User.getAllActors();
     // Transform _id to id for frontend compatibility

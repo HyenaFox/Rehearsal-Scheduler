@@ -23,12 +23,6 @@ const timeslotSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: ''
-  },
-  // Reference to the user who created this timeslot
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
   }
 }, {
   timestamps: true
@@ -36,19 +30,20 @@ const timeslotSchema = new mongoose.Schema({
 
 // Index for faster lookups
 timeslotSchema.index({ day: 1, startTime: 1 });
-timeslotSchema.index({ createdBy: 1 });
 
 // Static method to get all timeslots for a user
 timeslotSchema.statics.getAllForUser = async function(userId) {
   return this.find({ createdBy: userId }).sort({ day: 1, startTime: 1 });
 };
 
+// Static method to get all timeslots
+timeslotSchema.statics.getAll = async function() {
+  return this.find({}).sort({ day: 1, startTime: 1 });
+};
+
 // Static method to create timeslot
-timeslotSchema.statics.createTimeslot = async function(timeslotData, userId) {
-  const timeslot = new this({
-    ...timeslotData,
-    createdBy: userId
-  });
+timeslotSchema.statics.createTimeslot = async function(timeslotData) {
+  const timeslot = new this(timeslotData);
   return timeslot.save();
 };
 

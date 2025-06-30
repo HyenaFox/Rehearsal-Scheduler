@@ -5,9 +5,9 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 // Get all timeslots
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const timeslots = await Timeslot.getAllForUser(req.userId);
+    const timeslots = await Timeslot.getAll();
     res.json(timeslots);
   } catch (error) {
     console.error('Error fetching timeslots:', error);

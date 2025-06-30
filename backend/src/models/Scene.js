@@ -29,12 +29,6 @@ const sceneSchema = new mongoose.Schema({
     min: 1,
     max: 10,
     default: 5
-  },
-  // Reference to the user who created this scene
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
   }
 }, {
   timestamps: true
@@ -42,7 +36,6 @@ const sceneSchema = new mongoose.Schema({
 
 // Index for faster lookups
 sceneSchema.index({ title: 1 });
-sceneSchema.index({ createdBy: 1 });
 sceneSchema.index({ priority: -1 }); // Higher priority first
 
 // Static method to get all scenes for a user
@@ -50,12 +43,14 @@ sceneSchema.statics.getAllForUser = async function(userId) {
   return this.find({ createdBy: userId }).sort({ priority: -1, title: 1 });
 };
 
+// Static method to get all scenes
+sceneSchema.statics.getAll = async function() {
+  return this.find({}).sort({ priority: -1, title: 1 });
+};
+
 // Static method to create scene
-sceneSchema.statics.createScene = async function(sceneData, userId) {
-  const scene = new this({
-    ...sceneData,
-    createdBy: userId
-  });
+sceneSchema.statics.createScene = async function(sceneData) {
+  const scene = new this(sceneData);
   return scene.save();
 };
 

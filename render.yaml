@@ -19,6 +19,8 @@ services:
         sync: false
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
 
   # Frontend static site service
   - type: web

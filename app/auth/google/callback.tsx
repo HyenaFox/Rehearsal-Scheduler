@@ -1,49 +1,40 @@
+import { useAuth } from '@/app/contexts/AuthContext';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 export default function GoogleCallback() {
+  const { googleLogin } = useAuth();
+  const params = useLocalSearchParams();
+
   useEffect(() => {
-    // Extract the authorization code from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const error = urlParams.get('error');
-
-    if (error) {
-      // Send error message to parent window
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'GOOGLE_AUTH_ERROR',
-          error: error
-        }, window.location.origin);
+    const handleLogin = async (idToken: string) => {
+      const success = await googleLogin(idToken);
+      if (success) {
+        router.replace('/(tabs)/profile');
+      } else {
+        alert('Google login failed. Please try again.');
+        router.replace('/');
       }
-      window.close();
-      return;
-    }
+    };
 
-    if (code) {
-      // Send the authorization code to parent window
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'GOOGLE_AUTH_SUCCESS',
-          code: code
-        }, window.location.origin);
-      }
-      window.close();
+    const hash = window.location.hash.substring(1);
+    const urlParams = new URLSearchParams(hash);
+    const idToken = urlParams.get('id_token');
+
+    if (idToken) {
+      handleLogin(idToken);
     } else {
-      // No code or error - something went wrong
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'GOOGLE_AUTH_ERROR',
-          error: 'No authorization code received'
-        }, window.location.origin);
-      }
-      window.close();
+      const error = params.error || 'An unknown error occurred during Google Sign-In.';
+      alert(`Login Error: ${error}`);
+      router.replace('/');
     }
-  }, []);
+  }, [params, googleLogin]);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Processing Google Sign-In...</Text>
+      <ActivityIndicator size="large" />
+      <Text style={{ marginTop: 20 }}>Finalizing login...</Text>
     </View>
   );
 }

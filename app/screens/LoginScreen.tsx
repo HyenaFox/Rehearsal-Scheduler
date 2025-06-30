@@ -22,11 +22,16 @@ export default function LoginScreen() {
 
   const handleGoogleSignIn = async () => {
     if (Platform.OS === 'web') {
-      // Handle web-based Google Sign-In
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID}&redirect_uri=${window.location.origin}/auth/google/callback&response_type=token&scope=openid%20email%20profile`;
+      // For web, we use a redirect-based flow
+      const nonce = Math.random().toString(36).substring(2, 15);
+      sessionStorage.setItem('google_nonce', nonce);
+
+      const redirectUri = `${window.location.origin}/auth/google/callback`;
+      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=id_token&scope=openid%20email%20profile&nonce=${nonce}`;
+      
       window.open(googleAuthUrl, '_self');
     } else {
-      // Handle native Google Sign-In
+      // For native, we use the library
       try {
         await GoogleSignin.hasPlayServices();
         const response = await GoogleSignin.signIn();

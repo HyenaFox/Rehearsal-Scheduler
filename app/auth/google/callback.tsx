@@ -9,6 +9,7 @@ export default function GoogleCallback() {
   useEffect(() => {
     const handleLogin = async (idToken: string) => {
       const success = await googleLogin(idToken);
+      // Redirect immediately based on success, don't wait for other state changes
       if (success) {
         router.replace('/(tabs)/profile');
       } else {
@@ -24,10 +25,15 @@ export default function GoogleCallback() {
     if (idToken) {
       handleLogin(idToken);
     } else {
-      alert('Login Error: No token received from Google.');
-      router.replace('/');
-    }
-  }, [googleLogin]);
+      // Use a timeout to ensure any initial rendering is complete before alerting
+      setTimeout(() => {
+        alert('Login Error: No token received from Google.');
+        router.replace('/');
+      }, 100);
+    };
+    // The dependency array is intentionally empty to ensure this runs only once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

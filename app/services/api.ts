@@ -2,12 +2,17 @@ import { StorageService } from './storage';
 
 // Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL || (typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_API_URL);
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+
   if (envUrl) {
     console.log('🌐 Using EXPO_PUBLIC_API_URL from environment:', envUrl);
     return envUrl;
   }
-  throw new Error('EXPO_PUBLIC_API_URL environment variable is not set. Please set it in your environment.');
+
+  // Fallback for local development
+  const localApiUrl = 'http://localhost:3000/api';
+  console.log(`⚠️ EXPO_PUBLIC_API_URL not set, falling back to local URL: ${localApiUrl}`);
+  return localApiUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();

@@ -38,46 +38,19 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start with true - we need to check for existing auth
-  const [initializationAttempted, setInitializationAttempted] = useState(false);
 
   // Initialize authentication state - check for existing tokens
   useEffect(() => {
-    // Prevent multiple initialization attempts
-    if (initializationAttempted) {
-      console.log('🚀 AuthProvider - Initialization already attempted, skipping...');
-      return;
-    }
-
     let isMounted = true;
-    
-    // Add a timeout fallback to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.log('⏰ AuthProvider - Initialization timeout, forcing completion');
-        setIsLoading(false);
-      }
-    }, 10000); // 10 second timeout
-    
+
     const initializeAuth = async () => {
       console.log('🚀 AuthProvider - Starting initialization...');
-      setInitializationAttempted(true);
-      
       try {
-        // Check if we have a stored token
         const token = await StorageService.getItem('auth_token');
-        
         if (token) {
           console.log('🔑 Found existing auth token, validating user...');
-          
           try {
-            // Validate the token by getting current user with timeout
-            const currentUser = await Promise.race([
-              ApiService.getCurrentUser(),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('getCurrentUser timeout')), 5000)
-              )
-            ]) as any;
-            
+            const currentUser = await ApiService.getCurrentUser();
             if (currentUser && isMounted) {
               console.log('✅ Token valid, restoring user session:', currentUser.email);
               setUser({
@@ -101,36 +74,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await StorageService.removeItem('auth_token');
             }
           }
-        } else {
-          console.log('🔍 No existing auth token found');
         }
       } catch (error) {
-        console.error('❌ Auth initialization error:', error);
-        // Clear any potentially corrupted auth data
-        if (isMounted) {
-          try {
-            await StorageService.clearAuthData();
-          } catch (clearError) {
-            console.error('❌ Failed to clear auth data:', clearError);
-          }
-        }
+        console.error('🚨 AuthProvider - Error during initialization:', error);
       } finally {
-        clearTimeout(timeoutId);
         if (isMounted) {
-          console.log('✅ Auth initialization complete');
+          console.log('🏁 AuthProvider - Initialization complete.');
           setIsLoading(false);
         }
       }
     };
 
     initializeAuth();
-    
+
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once on mount
+  }, []);
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');

@@ -126,11 +126,11 @@ class ApiService {
     return response;
   }
 
-  static async login(credentials: { email: string; password: string }) {
-    console.log('🔐 Attempting login for:', credentials.email);
+  static async login({ email, password }: { email: string, password: string }): Promise<{ token: string; user: any }> {
+    console.log('🔐 Attempting login for:', email);
     const response = await this.makeRequest('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      body: JSON.stringify({ email, password }),
     });
 
     console.log('🔐 Login response received:', { hasToken: !!response.token, hasUser: !!response.user });
@@ -143,6 +143,13 @@ class ApiService {
     }
 
     return response;
+  }
+
+  static async googleLogin(idToken: string): Promise<{ token: string; user: any }> {
+    return this.makeRequest('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ token: idToken }),
+    });
   }
 
   static async logout() {

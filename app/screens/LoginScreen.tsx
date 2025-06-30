@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -9,7 +10,37 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login, register, skipLogin } = useAuth();
+  const { login, register, skipLogin, googleLogin } = useAuth();
+
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // client ID of type WEB for your server.
+    });
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      if (userInfo.idToken) {
+        const success = await googleLogin(userInfo.idToken);
+        if (!success) {
+          Alert.alert('Google Sign-In Failed', 'Could not sign in with Google. Please try again.');
+        }
+      }
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // user cancelled the login flow
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        // operation (e.g. sign in) is in progress already
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        // play services not available or outdated
+      } else {
+        // some other error happened
+        Alert.alert('Google Sign-In Error', 'An unexpected error occurred.');
+      }
+    }
+  };
 
   const handleSubmit = async () => {
     if (!email || !password || (isRegisterMode && !name)) {
@@ -106,6 +137,10 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn}>
+            <Text style={styles.googleButtonText}>Sign in with Google</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.toggleButton} onPress={toggleMode}>
             <Text style={styles.toggleButtonText}>
               {isRegisterMode 
@@ -190,6 +225,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
   },
   submitButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  googleButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',

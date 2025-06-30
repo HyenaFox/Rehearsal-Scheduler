@@ -18,6 +18,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
+  googleLogin: (idToken: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
@@ -109,58 +110,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthProvider - isLoading state changed:', isLoading);
   }, [isLoading]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const googleLogin = useCallback(async (idToken: string) => {
     try {
-      console.log('🔐 AuthContext: Starting login for', email);
-      setIsLoading(true);
-      
-      const response = await ApiService.login({ email, password });
-      
-      console.log('🔐 AuthContext: Login response received', { 
-        hasToken: !!response.token, 
-        hasUser: !!response.user,
-        userEmail: response.user?.email
-      });
-      
-      if (response.user && response.token) {
-        const userData = {
-          id: response.user.id,
-          email: response.user.email,
-          name: response.user.name,
-          phone: response.user.phone || '',
-          isActor: response.user.isActor,
-          isAdmin: response.user.isAdmin || false,
-          availableTimeslots: response.user.availableTimeslots || [],
-          scenes: response.user.scenes || []
-        };
-        
-        console.log('🔐 AuthContext: Setting user data', userData);
-        setUser(userData);
-        setIsLoading(false);
-        
-        console.log('🔐 AuthContext: Login completed successfully');
-        return true;
-      } else {
-        console.log('🔐 AuthContext: No user or token in response, login failed');
-        console.log('🔐 AuthContext: Response token:', !!response.token);
-        console.log('🔐 AuthContext: Response user:', !!response.user);
-        setUser(null);
-        return false;
-      }
+      const { token, user } = await ApiService.googleLogin(idToken);
+      await StorageService.setItem('auth_token', token);
+      setUser(user);
+      return true;
     } catch (error) {
-      console.error('🔐 AuthContext: Login error:', error);
-      console.error('🔐 AuthContext: Error details:', {
-        message: (error as any)?.message || 'Unknown error',
-        stack: (error as any)?.stack || 'No stack trace',
-        name: (error as any)?.name || 'Unknown error type'
-      });
+      console.error('Google login error in AuthContext:', error);
       return false;
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, []);
 
-  const register = async (email: string, password: string, name: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const { token, user } = await ApiService.login({ email, password });
+      await StorageService.setItem('auth_token', token);
+      setUser(user);
+      return true;
+    } catch (error) {
+      console.error('Login error in AuthContext:', error);
+      return false;
+    }
+  }, []);
+
+  const register = useCallback(async (email: string, password: string, name: string) => {
     try {
       console.log('🔐 AuthContext: Starting registration for', email);
       setIsLoading(true);
@@ -197,7 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const logout = useCallback(() => {
     console.log('Logout called');
@@ -264,7 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const value: AuthContextType = {
+  const value = {
     user,
     isLoading,
     login,
@@ -274,6 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserAsActor,
     forceLogout,
     skipLogin,
+    googleLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

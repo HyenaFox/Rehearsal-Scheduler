@@ -140,6 +140,13 @@ class ApiService {
     return response;
   }
 
+  static async googleLogin(idToken: string): Promise<{ token: string; user: any }> {
+    return this.makeRequest('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ token: idToken }),
+    });
+  }
+
   static async logout() {
     await this.removeAuthToken();
   }

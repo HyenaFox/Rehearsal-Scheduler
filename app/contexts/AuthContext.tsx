@@ -16,8 +16,10 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isLoggingIn: boolean; // Add this line
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
+  googleLogin: (idToken: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
@@ -37,7 +39,8 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start with true - we need to check for existing auth
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false); // Add this line
   const [initializationAttempted, setInitializationAttempted] = useState(false);
 
   // Initialize authentication state - check for existing tokens
@@ -239,6 +242,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const googleLogin = useCallback(async (idToken: string) => {
+    setIsLoggingIn(true); // Set loading state to true
+    try {
+      const { token, user } = await ApiService.googleLogin(idToken);
+      await StorageService.setItem('auth_token', token);
+      setUser(user);
+      return true;
+    } catch (error) {
+      console.error('Google login error in AuthContext:', error);
+      return false;
+    } finally {
+      setIsLoggingIn(false); // Set loading state to false
+    }
+  }, []);
+
   const logout = useCallback(() => {
     console.log('Logout called');
     ApiService.logout();
@@ -307,6 +325,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value: AuthContextType = {
     user,
     isLoading,
+    isLoggingIn, // Add this line
     login,
     register,
     logout,
@@ -314,6 +333,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserAsActor,
     forceLogout,
     skipLogin,
+    googleLogin // Add this line
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

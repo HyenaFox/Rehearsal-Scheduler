@@ -8,7 +8,7 @@ interface AuthWrapperProps {
 }
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isLoggingIn } = useAuth();
 
   useEffect(() => {
     console.log('AuthWrapper - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
@@ -30,8 +30,8 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
     }
   }, [user, isLoading]);
 
-  // Show loading spinner while authenticating
-  if (isLoading) {
+  // Show loading spinner while authenticating or logging in
+  if (isLoading || isLoggingIn) {
     console.log('AuthWrapper - showing loading screen');
     return (
       <View style={styles.loadingContainer}>

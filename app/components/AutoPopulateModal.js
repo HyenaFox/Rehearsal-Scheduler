@@ -25,15 +25,17 @@ const AutoPopulateModal = ({ visible, onClose, onPopulate }) => {
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
           <Text style={styles.modalText}>Auto-populate Timeslots</Text>
+          <Text style={styles.label}>Start Time (24-hour format)</Text>
           <TextInput
             style={styles.input}
-            placeholder="Start Time (e.g., 09:00)"
+            placeholder="e.g., 09:00"
             value={startTime}
             onChangeText={setStartTime}
           />
+          <Text style={styles.label}>End Time (24-hour format)</Text>
           <TextInput
             style={styles.input}
-            placeholder="End Time (e.g., 17:00)"
+            placeholder="e.g., 17:00"
             value={endTime}
             onChangeText={setEndTime}
           />
@@ -97,6 +99,13 @@ const styles = StyleSheet.create({
   },
   buttonClose: {
     backgroundColor: '#f44336',
+  },
+  label: {
+    alignSelf: 'flex-start',
+    marginLeft: 10,
+    marginBottom: 5,
+    fontSize: 12,
+    color: '#555',
   },
 });
 

@@ -70,6 +70,14 @@ const TimeslotsScreen = ({ onBack }) => {
     }
   };
 
+  const formatTime12Hour = (date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
   const handleAutoPopulate = async (startTime, endTime) => {
     if (!isAdmin) {
       Alert.alert('Access Denied', 'Only administrators can auto-populate timeslots.');
@@ -79,9 +87,16 @@ const TimeslotsScreen = ({ onBack }) => {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const newTimeslots = [];
 
+    // Basic time parsing (assumes HH:mm format)
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+
     days.forEach(day => {
-      let current = new Date(`1970-01-01T${startTime}:00`);
-      const end = new Date(`1970-01-01T${endTime}:00`);
+      let current = new Date();
+      current.setHours(startHour, startMinute, 0, 0);
+      
+      const end = new Date();
+      end.setHours(endHour, endMinute, 0, 0);
 
       while (current < end) {
         const next = new Date(current.getTime() + 30 * 60000);
@@ -89,8 +104,8 @@ const TimeslotsScreen = ({ onBack }) => {
 
         newTimeslots.push({
           day,
-          startTime: current.toTimeString().substring(0, 5),
-          endTime: next.toTimeString().substring(0, 5),
+          startTime: formatTime12Hour(current),
+          endTime: formatTime12Hour(next),
           description: 'Auto-populated',
         });
         current = next;

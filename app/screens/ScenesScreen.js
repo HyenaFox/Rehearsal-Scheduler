@@ -156,6 +156,7 @@ const ScenesScreen = ({ onBack }) => {
             setShowEditModal(false);
             setEditingScene(null);
           }}
+          allActors={actors}
         />
       </View>
     </SafeAreaView>

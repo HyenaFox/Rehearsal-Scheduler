@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import MultiSelect from './MultiSelect'; // Assuming this component exists
 import { commonStyles } from '../styles/common';
 
-const SceneEditModal = ({ scene, visible, onSave, onCancel }) => {
+const SceneEditModal = ({ scene, visible, onSave, onCancel, allActors }) => {
   const [editedTitle, setEditedTitle] = useState(scene?.title || '');
   const [editedDescription, setEditedDescription] = useState(scene?.description || '');
+  const [selectedActorIds, setSelectedActorIds] = useState(scene?.actorsRequired || []);
 
   React.useEffect(() => {
     if (scene) {
       setEditedTitle(scene.title);
       setEditedDescription(scene.description);
+      setSelectedActorIds(scene.actorsRequired || []);
     }
   }, [scene]);
 
@@ -18,7 +21,8 @@ const SceneEditModal = ({ scene, visible, onSave, onCancel }) => {
       onSave({
         ...scene,
         title: editedTitle.trim(),
-        description: editedDescription.trim()
+        description: editedDescription.trim(),
+        actorsRequired: selectedActorIds,
       });
     }
   };
@@ -46,6 +50,15 @@ const SceneEditModal = ({ scene, visible, onSave, onCancel }) => {
           placeholder="Scene description"
           multiline
           numberOfLines={3}
+        />
+
+        <Text style={styles.inputLabel}>Actors in this Scene:</Text>
+        <MultiSelect
+          items={allActors.map(actor => ({ id: actor.id, name: actor.name }))}
+          selectedItems={selectedActorIds}
+          onSelectedItemsChange={setSelectedActorIds}
+          selectText="Select actors"
+          searchInputPlaceholderText="Search actors..."
         />
 
         <View style={commonStyles.modalButtons}>

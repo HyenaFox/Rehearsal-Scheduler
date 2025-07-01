@@ -113,7 +113,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(false);
       console.log('📦 Data loading completed, setting isLoading to false');
     }
-  }, [user]);
+  }, [user]); // Add user back to this dependency array
 
   // Load data on mount and when user changes
   useEffect(() => {
@@ -122,7 +122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
     loadData();
-  }, [pathname, loadData]);
+  }, [pathname, loadData]); // Keep loadData in this dependency array
 
   const handleDeleteActor = async (actor: any) => {
     // Only allow authenticated users to manage actors

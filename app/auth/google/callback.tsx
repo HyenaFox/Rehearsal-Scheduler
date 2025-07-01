@@ -32,8 +32,8 @@ export default function GoogleCallback() {
       }, 100);
     };
     // The dependency array is intentionally empty to ensure this runs only once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+     
+  }, [googleLogin]);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

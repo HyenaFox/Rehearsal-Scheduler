@@ -124,11 +124,20 @@ userSchema.statics.updateUser = async function(id, updates) {
   );
 };
 
+// Static method to update an actor
+userSchema.statics.updateActor = async function(actorId, actorData) {
+  // Ensure that any user being updated as an actor has the isActor flag set
+  const updateData = {
+    ...actorData,
+    isActor: true,
+  };
+  
+  return this.findByIdAndUpdate(actorId, updateData, { new: true });
+};
+
 // Static method to get all actors
-userSchema.statics.getAllActors = async function() {
-  return this.find({ isActor: true })
-    .select('name email phone availableTimeslots scenes createdAt updatedAt')
-    .sort({ name: 1 });
+userSchema.statics.getAllActors = function() {
+  return this.find({ isActor: true });
 };
 
 // Static method to create actor
@@ -152,36 +161,6 @@ userSchema.statics.createActor = async function(actorData) {
 // Static method to validate ObjectId
 userSchema.statics.isValidObjectId = function(id) {
   return mongoose.Types.ObjectId.isValid(id);
-};
-
-// Static method to update actor
-userSchema.statics.updateActor = async function(id, actorData) {
-  // Validate ID
-  if (!id || id === 'undefined' || id === 'null') {
-    throw new Error('Invalid actor ID provided');
-  }
-  
-  // Validate ObjectId format
-  if (!this.isValidObjectId(id)) {
-    throw new Error('Invalid ObjectId format');
-  }
-  
-  const { name, availableTimeslots, scenes } = actorData;
-  
-  return this.findByIdAndUpdate(
-    id,
-    {
-      name,
-      availableTimeslots: availableTimeslots || [],
-      scenes: scenes || [],
-      isActor: true,
-      updatedAt: new Date()
-    },
-    {
-      new: true, // Return the updated document
-      runValidators: true // Run schema validations
-    }
-  );
 };
 
 // Static method to delete actor

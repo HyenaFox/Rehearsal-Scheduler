@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const timeslotSchema = new mongoose.Schema({
-  label: {
-    type: String,
-    required: true,
-    trim: true
-  },
   day: {
     type: String,
     required: true,
@@ -45,8 +40,12 @@ timeslotSchema.statics.getAllForUser = async function(userId) {
 
 // Static method to create timeslot
 timeslotSchema.statics.createTimeslot = async function(timeslotData, userId) {
+  const { day, startTime, endTime, description } = timeslotData;
   const timeslot = new this({
-    ...timeslotData,
+    day,
+    startTime,
+    endTime,
+    description: description || '',
     createdBy: userId
   });
   return timeslot.save();

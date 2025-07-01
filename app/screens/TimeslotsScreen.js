@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
+import AutoPopulateModal from '../components/AutoPopulateModal';
 import Card from '../components/Card';
 import TimeslotEditModal from '../components/TimeslotEditModal';
 import { useApp } from '../contexts/AppContext';
@@ -17,6 +18,7 @@ const TimeslotsScreen = ({ onBack }) => {
   
   const [editingTimeslot, setEditingTimeslot] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isAutoPopulateModalVisible, setIsAutoPopulateModalVisible] = useState(false);
   
   const handleDeleteTimeslot = async (timeslotToDelete) => {
     if (!isAdmin) {
@@ -52,7 +54,6 @@ const TimeslotsScreen = ({ onBack }) => {
     
     try {
       const newTimeslot = {
-        label: 'New Timeslot',
         day: 'Monday',
         startTime: '9:00 AM',
         endTime: '11:00 AM',
@@ -69,6 +70,43 @@ const TimeslotsScreen = ({ onBack }) => {
     }
   };
 
+  const handleAutoPopulate = async (startTime, endTime) => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can auto-populate timeslots.');
+      return;
+    }
+
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const newTimeslots = [];
+
+    days.forEach(day => {
+      let current = new Date(`1970-01-01T${startTime}:00`);
+      const end = new Date(`1970-01-01T${endTime}:00`);
+
+      while (current < end) {
+        const next = new Date(current.getTime() + 30 * 60000);
+        if (next > end) break;
+
+        newTimeslots.push({
+          day,
+          startTime: current.toTimeString().substring(0, 5),
+          endTime: next.toTimeString().substring(0, 5),
+          description: 'Auto-populated',
+        });
+        current = next;
+      }
+    });
+
+    try {
+      const createdTimeslots = await ApiService.createTimeslotsBulk(newTimeslots);
+      setTimeslots(prev => [...prev, ...createdTimeslots]);
+      console.log('✅ Timeslots auto-populated successfully');
+    } catch (error) {
+      console.error('❌ Error auto-populating timeslots:', error);
+      Alert.alert('Error', 'Failed to auto-populate timeslots');
+    }
+  };
+
   return (
     <SafeAreaView style={commonStyles.container}>
       <StatusBar barStyle="light-content" />
@@ -82,35 +120,33 @@ const TimeslotsScreen = ({ onBack }) => {
 
         <View style={commonStyles.scrollView}>
           {isAdmin && (
-            <ActionButton title="Add New Timeslot" onPress={handleAddTimeslot} />
+            <>
+              <ActionButton title="Add New Timeslot" onPress={handleAddTimeslot} />
+              <ActionButton title="Auto-populate Timeslots" onPress={() => setIsAutoPopulateModalVisible(true)} />
+            </>
           )}
 
           <ScrollView style={{ flex: 1 }}>
             {timeslots.map(timeslot => (
               <Card
                 key={timeslot.id}
-                title={timeslot.label}
+                title={`${timeslot.startTime} - ${timeslot.endTime}`}
                 sections={[
                   {
                     title: 'Day',
                     content: timeslot.day
                   },
                   {
-                    title: 'Time',
-                    content: `${timeslot.startTime} - ${timeslot.endTime}`
-                  },
-                  {
-                    title: 'Actors Available',
-                    content: actors.filter(actor => 
-                      actor.availableTimeslots && actor.availableTimeslots.includes(timeslot.id || timeslot._id)
-                    ).map(actor => actor.name).join(', ') || 'No actors available'
+                    title: 'Description',
+                    content: timeslot.description
                   }
                 ]}
-                onEdit={isAdmin ? () => {
+                onDelete={() => handleDeleteTimeslot(timeslot)}
+                onEdit={() => {
                   setEditingTimeslot(timeslot);
                   setShowEditModal(true);
-                } : undefined}
-                onDelete={isAdmin ? () => handleDeleteTimeslot(timeslot) : undefined}
+                }}
+                showAdminActions={isAdmin}
               />
             ))}
             {timeslots.length === 0 && (
@@ -145,6 +181,13 @@ const TimeslotsScreen = ({ onBack }) => {
             setShowEditModal(false);
             setEditingTimeslot(null);
           }}
+        />
+
+        {/* Auto-populate Modal */}
+        <AutoPopulateModal
+          visible={isAutoPopulateModalVisible}
+          onClose={() => setIsAutoPopulateModalVisible(false)}
+          onPopulate={handleAutoPopulate}
         />
       </View>
     </SafeAreaView>

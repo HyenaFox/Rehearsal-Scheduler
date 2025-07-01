@@ -39,6 +39,22 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Bulk create timeslots
+router.post('/bulk', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { timeslots } = req.body;
+    if (!Array.isArray(timeslots) || timeslots.length === 0) {
+      return res.status(400).json({ error: 'Request body must be a non-empty array of timeslots.' });
+    }
+
+    const createdTimeslots = await Timeslot.create(timeslots.map(t => ({ ...t, createdBy: req.user.id })));
+    res.status(201).json(createdTimeslots);
+  } catch (error) {
+    console.error('Error bulk creating timeslots:', error);
+    res.status(500).json({ error: 'Failed to bulk create timeslots' });
+  }
+});
+
 // Update timeslot
 router.put('/:id', authenticateToken, async (req, res) => {
   try {

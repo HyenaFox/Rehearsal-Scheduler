@@ -210,17 +210,24 @@ class ApiService {
     return this.makeRequest('/timeslots');
   }
 
-  static async createTimeslot(timeslot: any): Promise<any> {
+  static async createTimeslot(timeslotData: any): Promise<any> {
     return this.makeRequest('/timeslots', {
       method: 'POST',
-      body: JSON.stringify(timeslot),
+      body: JSON.stringify(timeslotData),
     });
   }
 
-  static async updateTimeslot(id: string, timeslot: any): Promise<any> {
+  static async createTimeslotsBulk(timeslots: any[]): Promise<any[]> {
+    return this.makeRequest('/timeslots/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ timeslots }),
+    });
+  }
+
+  static async updateTimeslot(id: string, updates: any): Promise<any> {
     return this.makeRequest(`/timeslots/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(timeslot),
+      body: JSON.stringify(updates),
     });
   }
 

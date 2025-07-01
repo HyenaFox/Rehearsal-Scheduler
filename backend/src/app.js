@@ -93,11 +93,17 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        'https://rehearsal-scheduler.onrender.com'
-      ] // Add your production domains here
-    : true, // Allow all origins in development
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://rehearsal-scheduler.onrender.com',
+      'https://rehearsal-scheduler-frontend.onrender.com'
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 

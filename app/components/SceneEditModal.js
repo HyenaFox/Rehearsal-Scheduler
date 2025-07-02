@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { commonStyles } from '../styles/common';
 import MultiSelect from './MultiSelect'; // Assuming this component exists
 
@@ -34,43 +34,45 @@ const SceneEditModal = ({ scene, visible, onSave, onCancel, allActors }) => {
   return (
     <View style={commonStyles.modalOverlay}>
       <View style={commonStyles.modalContent}>
-        <Text style={commonStyles.modalTitle}>Edit Scene</Text>
-        
-        <Text style={styles.inputLabel}>Scene Title:</Text>
-        <TextInput
-          style={commonStyles.textInput}
-          value={editedTitle}
-          onChangeText={setEditedTitle}
-          placeholder="Scene title"
-        />
+        <ScrollView>
+          <Text style={commonStyles.modalTitle}>Edit Scene</Text>
+          
+          <Text style={styles.inputLabel}>Scene Title:</Text>
+          <TextInput
+            style={commonStyles.textInput}
+            value={editedTitle}
+            onChangeText={setEditedTitle}
+            placeholder="Scene title"
+          />
 
-        <Text style={styles.inputLabel}>Description:</Text>
-        <TextInput
-          style={[commonStyles.textInput, commonStyles.multilineInput]}
-          value={editedDescription}
-          onChangeText={setEditedDescription}
-          placeholder="Scene description"
-          multiline
-          numberOfLines={3}
-        />
+          <Text style={styles.inputLabel}>Description:</Text>
+          <TextInput
+            style={[commonStyles.textInput, commonStyles.multilineInput]}
+            value={editedDescription}
+            onChangeText={setEditedDescription}
+            placeholder="Scene description"
+            multiline
+            numberOfLines={3}
+          />
 
-        <Text style={styles.inputLabel}>Actors in this Scene:</Text>
-        <MultiSelect
-          items={allActors.map(actor => ({ id: actor.id, name: actor.name }))}
-          selectedItems={selectedActorIds}
-          onSelectedItemsChange={setSelectedActorIds}
-          selectText="Select actors"
-          searchInputPlaceholderText="Search actors..."
-        />
+          <Text style={styles.inputLabel}>Actors in this Scene:</Text>
+          <MultiSelect
+            items={allActors.map(actor => ({ id: actor.id, name: actor.name }))}
+            selectedItems={selectedActorIds}
+            onSelectedItemsChange={setSelectedActorIds}
+            selectText="Select actors"
+            searchInputPlaceholderText="Search actors..."
+          />
 
-        <View style={commonStyles.modalButtons}>
-          <TouchableOpacity style={commonStyles.cancelButton} onPress={onCancel}>
-            <Text style={commonStyles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={commonStyles.saveButton} onPress={handleSave}>
-            <Text style={commonStyles.saveButtonText}>Save</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={commonStyles.modalButtons}>
+            <TouchableOpacity style={commonStyles.cancelButton} onPress={onCancel}>
+              <Text style={commonStyles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={commonStyles.saveButton} onPress={handleSave}>
+              <Text style={commonStyles.saveButtonText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
     </View>
   );

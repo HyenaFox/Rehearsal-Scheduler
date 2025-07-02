@@ -10,7 +10,7 @@ import { commonStyles } from '../styles/common';
 import { getAvailableTimeslots, getScenes } from '../utils/actorUtils';
 
 export default function ActorsScreen() {
-  const { actors, setActors, handleDeleteActor, handleAddActor } = useApp();
+  const { actors, setActors, handleDeleteActor, handleAddActor, timeslots, scenes } = useApp();
   const { user } = useAuth();
   
   // Admin check
@@ -93,11 +93,11 @@ export default function ActorsScreen() {
                 sections={[
                   {
                     title: 'Available Timeslots',
-                    content: getAvailableTimeslots(actor).map((ts: any) => ts.label).join(', ') || 'No timeslots assigned'
+                    content: getAvailableTimeslots(actor, timeslots).map((ts: any) => `${ts.startTime} - ${ts.endTime}`).join(', ') || 'No timeslots assigned'
                   },
                   {
                     title: 'Scenes',
-                    content: getScenes(actor).join(', ') || 'No scenes assigned'
+                    content: getScenes(actor, scenes).map((scene: any) => scene.title).join(', ') || 'No scenes assigned'
                   }
                 ]}
                 onEdit={isAdmin ? () => handleEditActor(actor) : undefined}

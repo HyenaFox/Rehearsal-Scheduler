@@ -47,14 +47,18 @@ export const isAvailable = (actor, timeslotId) => {
 };
 
 // Helper function to get available timeslots for an actor
-export const getAvailableTimeslots = (actor, timeslots = []) => {
-  return timeslots.filter(timeslot => 
+export const getAvailableTimeslots = (actor, allTimeslots = []) => {
+  if (!actor || !actor.availableTimeslots) return [];
+  return allTimeslots.filter(timeslot => 
     actor.availableTimeslots.includes(timeslot.id || timeslot._id)
   );
 };
 
-export const getScenes = (actor) => {
-  return actor.scenes;
+export const getScenes = (actor, allScenes = []) => {
+  if (!actor || !actor.scenes) return [];
+  return allScenes.filter(scene =>
+    actor.scenes.includes(scene.id || scene._id)
+  );
 };
 
 // Create multiple actors from array data

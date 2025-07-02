@@ -1,4 +1,5 @@
 import { StorageService } from './storage';
+import { User } from '../contexts/AuthContext';
 
 // Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
@@ -172,16 +173,10 @@ class ApiService {
     }
   }
 
-  static async updateProfile(profileData: {
-    name: string;
-    phone?: string;
-    isActor: boolean;
-    availableTimeslots?: string[];
-    scenes?: string[];
-  }) {
+  static async updateProfile(updates: Partial<User>): Promise<any> {
     return await this.makeRequest('/auth/profile', {
       method: 'PUT',
-      body: JSON.stringify(profileData),
+      body: JSON.stringify(updates),
     });
   }
 

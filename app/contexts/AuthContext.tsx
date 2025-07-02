@@ -208,33 +208,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }, []);
 
-  const updateProfile = async (updates: Partial<User>): Promise<void> => {
-    if (!user) throw new Error('No user logged in');
+  const updateProfile = useCallback(async (updates: Partial<User>): Promise<void> => {
+    if (!user) return;
 
     try {
-      const updatedUser = await ApiService.updateProfile({
-        name: updates.name || user.name,
-        phone: updates.phone || user.phone,
-        isActor: updates.isActor !== undefined ? updates.isActor : user.isActor,
-        availableTimeslots: updates.availableTimeslots || user.availableTimeslots,
-        scenes: updates.scenes || user.scenes
-      });
-
-      setUser({
-        id: updatedUser.id,
-        email: updatedUser.email,
-        name: updatedUser.name,
-        phone: updatedUser.phone || '',
-        isActor: updatedUser.isActor,
-        isAdmin: updatedUser.isAdmin || false,
-        availableTimeslots: updatedUser.availableTimeslots || [],
-        scenes: updatedUser.scenes || []
-      });
+      const updatedUser = await ApiService.updateProfile(updates);
+      setUser(prevUser => ({ ...prevUser, ...updatedUser }));
     } catch (error) {
-      console.error('Update profile error:', error);
+      console.error('Error updating profile in AuthContext:', error);
       throw error;
     }
-  };
+  }, [user]);
 
   const setUserAsActor = async (availableTimeslots: string[], scenes: string[]): Promise<void> => {
     await updateProfile({

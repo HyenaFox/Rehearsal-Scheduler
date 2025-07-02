@@ -40,100 +40,39 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoggingIn, setIsLoggingIn] = useState(false); // Add this line
-  const [initializationAttempted, setInitializationAttempted] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Initialize authentication state - check for existing tokens
   useEffect(() => {
-    // Prevent multiple initialization attempts
-    if (initializationAttempted) {
-      console.log('🚀 AuthProvider - Initialization already attempted, skipping...');
-      return;
-    }
-
     let isMounted = true;
-    
-    // Add a timeout fallback to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.log('⏰ AuthProvider - Initialization timeout, forcing completion');
-        setIsLoading(false);
-      }
-    }, 10000); // 10 second timeout
-    
+
     const initializeAuth = async () => {
-      console.log('🚀 AuthProvider - Starting initialization...');
-      setInitializationAttempted(true);
-      
       try {
-        // Check if we have a stored token
         const token = await StorageService.getItem('auth_token');
-        
         if (token) {
-          console.log('🔑 Found existing auth token, validating user...');
-          
-          try {
-            // Validate the token by getting current user with timeout
-            const currentUser = await Promise.race([
-              ApiService.getCurrentUser(),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('getCurrentUser timeout')), 5000)
-              )
-            ]) as any;
-            
-            if (currentUser && isMounted) {
-              console.log('✅ Token valid, restoring user session:', currentUser.email);
-              setUser({
-                id: currentUser.id,
-                email: currentUser.email,
-                name: currentUser.name,
-                phone: currentUser.phone || '',
-                isActor: currentUser.isActor,
-                isAdmin: currentUser.isAdmin || false,
-                availableTimeslots: currentUser.availableTimeslots || [],
-                scenes: currentUser.scenes || []
-              });
-            } else if (isMounted) {
-              console.log('❌ Token invalid or no user returned, removing token...');
-              await StorageService.removeItem('auth_token');
-            }
-          } catch (error) {
-            console.log('❌ Token validation failed:', error);
-            if (isMounted) {
-              console.log('🧹 Cleaning up invalid token...');
-              await StorageService.removeItem('auth_token');
-            }
+          const currentUser = await ApiService.getCurrentUser();
+          if (currentUser && isMounted) {
+            setUser(currentUser);
+          } else {
+            await StorageService.removeItem('auth_token');
           }
-        } else {
-          console.log('🔍 No existing auth token found');
         }
       } catch (error) {
-        console.error('❌ Auth initialization error:', error);
-        // Clear any potentially corrupted auth data
-        if (isMounted) {
-          try {
-            await StorageService.clearAuthData();
-          } catch (clearError) {
-            console.error('❌ Failed to clear auth data:', clearError);
-          }
-        }
+        console.error('Auth initialization error:', error);
+        await StorageService.removeItem('auth_token');
       } finally {
-        clearTimeout(timeoutId);
         if (isMounted) {
-          console.log('✅ Auth initialization complete');
           setIsLoading(false);
         }
       }
     };
 
     initializeAuth();
-    
+
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once on mount
+  }, []);
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');

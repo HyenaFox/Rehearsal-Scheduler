@@ -1,6 +1,6 @@
+import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
-import * as Haptics from 'expo-haptics';
 
 export default function TabLayout() {
   const handleTabPress = () => {

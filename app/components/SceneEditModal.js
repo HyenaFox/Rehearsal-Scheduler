@@ -1,8 +1,8 @@
+import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import MultiSelect from './MultiSelect'; // Assuming this component exists
 import { commonStyles } from '../styles/common';
+import MultiSelect from './MultiSelect'; // Assuming this component exists
 
 const SceneEditModal = ({ scene, visible, onSave, onCancel, allActors }) => {
   const [editedTitle, setEditedTitle] = useState(scene?.title || '');

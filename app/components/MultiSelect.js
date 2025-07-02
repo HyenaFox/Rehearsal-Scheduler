@@ -1,6 +1,5 @@
-import React from 'react';
-import SectionedMultiSelect from 'react-native-sectioned-multi-select';
 import { MaterialIcons } from '@expo/vector-icons';
+import SectionedMultiSelect from 'react-native-sectioned-multi-select';
 
 const MultiSelect = ({ items, selectedItems, onSelectedItemsChange, selectText, searchInputPlaceholderText }) => {
   return (

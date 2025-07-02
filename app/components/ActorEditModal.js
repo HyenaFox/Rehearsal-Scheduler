@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { commonStyles } from '../styles/common';
 import { useApp } from '../contexts/AppContext';
 
@@ -35,6 +36,7 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
 
   const handleSave = () => {
     if (editedName.trim()) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onSave({
         ...actor,
         name: editedName.trim(),

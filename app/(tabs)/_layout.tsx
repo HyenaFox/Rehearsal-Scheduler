@@ -1,7 +1,12 @@
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 export default function TabLayout() {
+  const handleTabPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   return (
     <Tabs
       screenOptions={{
@@ -38,6 +43,9 @@ export default function TabLayout() {
             <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>📅</Text>
           ),
         }}
+        listeners={{
+          tabPress: handleTabPress,
+        }}
       />
       <Tabs.Screen
         name="rehearsals"
@@ -47,6 +55,9 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>🎭</Text>
           ),
+        }}
+        listeners={{
+          tabPress: handleTabPress,
         }}
       />
       <Tabs.Screen
@@ -58,6 +69,9 @@ export default function TabLayout() {
             <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>🎬</Text>
           ),
         }}
+        listeners={{
+          tabPress: handleTabPress,
+        }}
       />
       <Tabs.Screen
         name="timeslots"
@@ -68,6 +82,9 @@ export default function TabLayout() {
             <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>⏰</Text>
           ),
         }}
+        listeners={{
+          tabPress: handleTabPress,
+        }}
       />
       <Tabs.Screen
         name="profile"
@@ -77,6 +94,9 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>👤</Text>
           ),
+        }}
+        listeners={{
+          tabPress: handleTabPress,
         }}
       />
     </Tabs>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import MultiSelect from './MultiSelect'; // Assuming this component exists
 import { commonStyles } from '../styles/common';
 
@@ -18,6 +19,7 @@ const SceneEditModal = ({ scene, visible, onSave, onCancel, allActors }) => {
 
   const handleSave = () => {
     if (editedTitle.trim()) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onSave({
         ...scene,
         title: editedTitle.trim(),

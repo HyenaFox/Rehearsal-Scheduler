@@ -95,6 +95,7 @@ app.use(limiter);
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
+      'http://localhost:8081', // For local development
       'https://rehearsal-scheduler.onrender.com',
       'https://rehearsal-scheduler-frontend.onrender.com'
     ];

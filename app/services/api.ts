@@ -2,12 +2,21 @@ import { StorageService } from './storage';
 
 // Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL || (typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_API_URL);
+  // For local development, always use localhost:3000
+  if (__DEV__) {
+    const localApiUrl = 'http://localhost:3000/api';
+    console.log(`⚠️ Development mode, forcing API URL to: ${localApiUrl}`);
+    return localApiUrl;
+  }
+
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl) {
     console.log('🌐 Using EXPO_PUBLIC_API_URL from environment:', envUrl);
     return envUrl;
   }
-  throw new Error('EXPO_PUBLIC_API_URL environment variable is not set. Please set it in your environment.');
+
+  // Fallback for production if the env var isn't set for some reason
+  return 'https://rehearsal-scheduler-backend.onrender.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

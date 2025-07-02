@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 
 // Load environment variables - dotenv will look for .env in the current working directory
 require('dotenv').config();
@@ -18,78 +19,10 @@ const rehearsalsRoutes = require('./routes/rehearsals');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve static files from the dist directory (web app)
-// Handle different deployment scenarios
-let distPath;
-if (process.env.NODE_ENV === 'production') {
-  // Production: try different possible paths
-  const productionPaths = [
-    path.resolve(process.cwd(), '../dist'),           // If backend is in subfolder
-    path.resolve(process.cwd(), 'dist'),              // If at root level
-    path.resolve(process.cwd(), '../../dist'),        // Two levels up
-    path.resolve(process.cwd(), '../../../dist')      // Three levels up
-  ];
-  
-  // Use the first path that exists
-  for (const testPath of productionPaths) {
-    try {
-      const fs = require('fs');
-      if (fs.existsSync(testPath)) {
-        distPath = testPath;
-        break;
-      }
-    } catch (_err) {
-      // Continue to next path
-    }
-  }
-  
-  if (!distPath) {
-    console.log('⚠️ Warning: dist directory not found in production. Web app will not be served.');
-    console.log('🔍 Searched paths:', productionPaths);
-    distPath = path.resolve(process.cwd(), 'dist'); // Fallback
-  }
-} else {
-  // Development: dist is in parent directory
-  distPath = path.resolve(process.cwd(), '../dist');
-}
-
-console.log('📁 Static file serving path would be:', distPath);
-
-const fs = require('fs');
-
-// Only serve static files in production or when SERVE_STATIC is explicitly set
-const shouldServeStatic = process.env.NODE_ENV === 'production' || process.env.SERVE_STATIC === 'true';
-
-if (shouldServeStatic) {
-  if (fs.existsSync(distPath)) {
-    app.use(express.static(distPath));
-    console.log('✅ Static file serving enabled');
-  } else {
-    console.log('❌ Static files directory not found - web app will not be served');
-    console.log('🔍 Tried path:', distPath);
-  }
-} else {
-  console.log('🚫 Static file serving disabled (development mode)');
-  console.log('💡 Set SERVE_STATIC=true environment variable to enable static file serving');
-}
-
 // Trust proxy for Render.com deployment
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
-
-// Security middleware
-app.use(helmet());
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
 
 // CORS configuration
 app.use(cors({
@@ -108,6 +41,19 @@ app.use(cors({
   credentials: true
 }));
 
+// Security middleware
+app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -116,22 +62,20 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   console.log(`📝 [${timestamp}] ${req.method} ${req.url}`);
-  console.log(`📝 Headers:`, JSON.stringify(req.headers, null, 2));
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log(`📝 Body:`, JSON.stringify(req.body, null, 2));
-  }
   next();
 });
 
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/calendar', calendarRoutes);
+app.use('/api/actors', actorsRoutes);
+app.use('/api/timeslots', timeslotsRoutes);
+app.use('/api/scenes', scenesRoutes);
+app.use('/api/rehearsals', rehearsalsRoutes);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    database: 'MongoDB',
-    version: '1.0.0'
-  });
+  res.json({ status: 'OK' });
 });
 
 // Version endpoint to verify deployment
@@ -144,14 +88,6 @@ app.get('/version', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
-
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/calendar', calendarRoutes);
-app.use('/api/actors', actorsRoutes);
-app.use('/api/timeslots', timeslotsRoutes);
-app.use('/api/scenes', scenesRoutes);
-app.use('/api/rehearsals', rehearsalsRoutes);
 
 // Root endpoint - provide API information
 app.get('/', (req, res) => {
@@ -285,40 +221,20 @@ app.use('/api/*', (req, res) => {
   });
 });
 
-// Catch all handler for web app - serve index.html for all non-API routes
-app.get('*', (req, res) => {
-  // Don't serve the web app for API or health routes
-  if (req.url.startsWith('/api') || req.url.startsWith('/health')) {
-    return res.status(404).json({ error: 'Endpoint not found' });
-  }
-  
-  // Check if we have static files available
-  if (!distPath || !fs.existsSync(distPath)) {
-    return res.status(404).json({ 
-      error: 'Web app not available',
-      message: 'Static files not found. This is an API-only deployment.',
-      api: {
-        base: '/api',
-        health: '/health'
-      }
-    });
-  }
-  
-  // Serve the web app's index.html for all other routes
-  const indexPath = path.resolve(distPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).json({ 
-      error: 'Web app not available',
-      message: 'index.html not found. This is an API-only deployment.',
-      api: {
-        base: '/api',
-        health: '/health'
-      }
-    });
-  }
-});
+// Serve static files from the dist directory (web app)
+let distPath;
+if (process.env.NODE_ENV === 'production') {
+  distPath = path.resolve(process.cwd(), 'dist');
+} else {
+  distPath = path.resolve(process.cwd(), '../dist');
+}
+
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(distPath, 'index.html'));
+  });
+}
 
 // Global error handler
 app.use((err, req, res, next) => {

@@ -169,6 +169,7 @@ export const commonStyles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     width: '90%',
+    maxWidth: 500,
     maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 20 },

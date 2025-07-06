@@ -19,7 +19,7 @@ interface AuthContextType {
   isLoggingIn: boolean; // Add this line
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
-  googleLogin: (idToken: string) => Promise<boolean>;
+  googleLogin: (tokenOrCode: string, isCode?: boolean) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
@@ -181,10 +181,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const googleLogin = useCallback(async (idToken: string) => {
+  const googleLogin = useCallback(async (tokenOrCode: string, isCode: boolean = false) => {
     setIsLoggingIn(true); // Set loading state to true
     try {
-      const { token, user } = await ApiService.googleLogin(idToken);
+      const { token, user } = await ApiService.googleLogin(tokenOrCode, isCode);
       await StorageService.setItem('auth_token', token);
       setUser(user);
       return true;

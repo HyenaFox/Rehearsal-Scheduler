@@ -7,7 +7,11 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 // Initialize Google OAuth client
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  'http://localhost:8082/auth/google/callback' // Frontend callback URL
+);
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -336,6 +340,11 @@ router.post('/google', async (req, res) => {
     } else if (code) {
       // Handle authorization code (web flow)
       console.log('🔐 Processing Google authorization code...');
+      
+      // Set the redirect URI dynamically based on the request origin
+      const origin = req.headers.origin || 'http://localhost:8082';
+      googleClient.redirectUri = `${origin}/auth/google/callback`;
+      
       const { tokens } = await googleClient.getToken(code);
       const ticket = await googleClient.verifyIdToken({
         idToken: tokens.id_token,

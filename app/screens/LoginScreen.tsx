@@ -2,6 +2,7 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { signInWithGoogle } from '../services/googleAuth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -22,13 +23,17 @@ export default function LoginScreen() {
 
   const handleGoogleSignIn = async () => {
     if (Platform.OS === 'web') {
-      const nonce = Math.random().toString(36).substring(2, 15);
-      sessionStorage.setItem('google_nonce', nonce);
-
-      const redirectUri = `${window.location.origin}/auth/google/callback`;
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=id_token&scope=openid%20email%20profile&nonce=${nonce}`;
-      
-      window.open(googleAuthUrl, '_self');
+      try {
+        // Use the consistent authorization code flow for web
+        const code = await signInWithGoogle();
+        const success = await googleLogin(code, true); // true indicates it's a code, not token
+        if (!success) {
+          Alert.alert('Google Sign-In Failed', 'Could not sign in with Google. Please try again.');
+        }
+      } catch (error: any) {
+        console.error('Google Sign-In Error:', error);
+        Alert.alert('Google Sign-In Failed', error.message || 'Could not sign in with Google. Please try again.');
+      }
     } else {
       try {
         await GoogleSignin.hasPlayServices();

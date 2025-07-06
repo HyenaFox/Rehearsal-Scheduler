@@ -7,8 +7,8 @@ export default function GoogleCallback() {
   const { googleLogin } = useAuth();
 
   useEffect(() => {
-    const handleLogin = async (idToken: string) => {
-      const success = await googleLogin(idToken);
+    const handleLogin = async (tokenOrCode: string, isCode: boolean = false) => {
+      const success = await googleLogin(tokenOrCode, isCode);
       // Redirect immediately based on success, don't wait for other state changes
       if (success) {
         router.replace('/(tabs)/profile');
@@ -18,16 +18,26 @@ export default function GoogleCallback() {
       }
     };
 
+    // Check for authorization code (from query params)
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    
+    if (code) {
+      handleLogin(code, true);
+      return;
+    }
+
+    // Fallback: Check for ID token (from hash - legacy flow)
     const hash = window.location.hash.substring(1);
-    const urlParams = new URLSearchParams(hash);
-    const idToken = urlParams.get('id_token');
+    const hashParams = new URLSearchParams(hash);
+    const idToken = hashParams.get('id_token');
 
     if (idToken) {
-      handleLogin(idToken);
+      handleLogin(idToken, false);
     } else {
       // Use a timeout to ensure any initial rendering is complete before alerting
       setTimeout(() => {
-        alert('Login Error: No token received from Google.');
+        alert('Login Error: No authorization code or token received from Google.');
         router.replace('/');
       }, 100);
     };

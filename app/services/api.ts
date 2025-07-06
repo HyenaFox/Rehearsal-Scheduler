@@ -1,5 +1,5 @@
-import { StorageService } from './storage';
 import { User } from '../contexts/AuthContext';
+import { StorageService } from './storage';
 
 // Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
@@ -150,10 +150,14 @@ class ApiService {
     return response;
   }
 
-  static async googleLogin(idToken: string): Promise<{ token: string; user: any }> {
+  static async googleLogin(tokenOrCode: string, isCode: boolean = false): Promise<{ token: string; user: any }> {
+    const body = isCode 
+      ? JSON.stringify({ code: tokenOrCode })
+      : JSON.stringify({ token: tokenOrCode });
+      
     return this.makeRequest('/auth/google', {
       method: 'POST',
-      body: JSON.stringify({ token: idToken }),
+      body,
     });
   }
 

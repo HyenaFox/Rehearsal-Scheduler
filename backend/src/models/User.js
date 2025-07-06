@@ -53,6 +53,10 @@ const userSchema = new mongoose.Schema({
   googleEmail: {
     type: String,
     default: null
+  },
+  googleId: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true // This adds createdAt and updatedAt automatically
@@ -88,7 +92,7 @@ userSchema.statics.findByEmail = function(email) {
 
 // Static method to create user
 userSchema.statics.createUser = async function(userData) {
-  const { email, password, name, phone, isActor } = userData;
+  const { email, password, name, phone, isActor, googleId } = userData;
   
   // Check if user already exists
   const existingUser = await this.findByEmail(email);
@@ -96,16 +100,27 @@ userSchema.statics.createUser = async function(userData) {
     throw new Error('User with this email already exists');
   }
   
-  const user = new this({
+  const userDoc = {
     email,
-    password_hash: password, // Will be hashed by pre-save hook
     name,
     phone: phone || '',
     isActor: isActor || false,
     availableTimeslots: [],
     scenes: []
-  });
+  };
+
+  // Add password hash for regular users
+  if (password) {
+    userDoc.password_hash = password; // Will be hashed by pre-save hook
+  } else if (googleId) {
+    // For Google users, create a random password hash to satisfy schema requirements
+    userDoc.password_hash = Math.random().toString(36).substring(2);
+    userDoc.googleId = googleId;
+  } else {
+    throw new Error('Either password or googleId must be provided');
+  }
   
+  const user = new this(userDoc);
   return user.save();
 };
 

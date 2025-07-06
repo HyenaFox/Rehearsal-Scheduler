@@ -1,9 +1,13 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -304,6 +308,99 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+// Google authentication endpoint
+router.post('/google', async (req, res) => {
+  try {
+    const { token, code } = req.body;
+    
+    console.log('🔐 Google auth request received:', { 
+      hasToken: !!token, 
+      hasCode: !!code,
+      tokenLength: token?.length,
+      codeLength: code?.length 
+    });
+
+    let payload;
+    
+    if (token) {
+      // Handle ID token (mobile flow)
+      console.log('🔐 Processing Google ID token...');
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID
+      });
+      payload = ticket.getPayload();
+    } else if (code) {
+      // Handle authorization code (web flow)
+      console.log('🔐 Processing Google authorization code...');
+      const { tokens } = await googleClient.getToken(code);
+      const ticket = await googleClient.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: process.env.GOOGLE_CLIENT_ID
+      });
+      payload = ticket.getPayload();
+    } else {
+      return res.status(400).json({ error: 'No token or code provided' });
+    }
+
+    if (!payload || !payload.email) {
+      return res.status(400).json({ error: 'Invalid Google token/code' });
+    }
+
+    console.log('🔐 Google payload received for:', payload.email);
+
+    // Check if user exists
+    let user = await User.findByEmail(payload.email.toLowerCase());
+    
+    if (!user) {
+      // Create new user from Google profile
+      console.log('🔐 Creating new user from Google profile...');
+      user = await User.createUser({
+        email: payload.email.toLowerCase(),
+        name: payload.name || 'Google User',
+        googleId: payload.sub,
+        isActor: false
+      });
+      console.log('✅ New user created from Google:', user.email);
+    } else {
+      // Update existing user's Google ID if not set
+      if (!user.googleId) {
+        user.googleId = payload.sub;
+        await user.save();
+      }
+      console.log('✅ Existing user logged in via Google:', user.email);
+    }
+
+    // Generate JWT token
+    const jwtToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      message: 'Google login successful',
+      token: jwtToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        isActor: user.isActor,
+        isAdmin: user.isAdmin,
+        availableTimeslots: user.availableTimeslots,
+        scenes: user.scenes
+      }
+    });
+
+  } catch (error) {
+    console.error('Google authentication error:', error);
+    res.status(500).json({ 
+      error: 'Google authentication failed. Please try again.' 
+    });
   }
 });
 

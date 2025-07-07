@@ -114,7 +114,17 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
 
     } catch (error) {
       console.error('Google Calendar connection error:', error);
-      Alert.alert('Error', 'Failed to connect to Google Calendar');
+      
+      // Check if it's a configuration error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.indexOf('not configured') !== -1) {
+        Alert.alert(
+          'Configuration Error', 
+          'Google Calendar integration is not set up yet. Please contact the administrator to configure Google OAuth credentials.'
+        );
+      } else {
+        Alert.alert('Error', 'Failed to connect to Google Calendar');
+      }
       setIsLoading(false);
     }
   };

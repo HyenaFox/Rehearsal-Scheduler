@@ -13,15 +13,31 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/calendar/auth/google/callback'
 );
 
+// Validate Google OAuth configuration on startup
+if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID') {
+  console.warn('⚠️  Google Calendar integration not configured. Please set GOOGLE_CLIENT_ID in .env file');
+}
+if (!process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET === 'REPLACE_WITH_YOUR_GOOGLE_CLIENT_SECRET') {
+  console.warn('⚠️  Google Calendar integration not configured. Please set GOOGLE_CLIENT_SECRET in .env file');
+}
+
 // Generate Google OAuth URL
 router.get('/auth/google', authenticateToken, async (req, res) => {
   try {
+    // Check if Google OAuth is properly configured
+    if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID') {
+      return res.status(500).json({ 
+        error: 'Google Calendar integration not configured. Please set up Google OAuth credentials in backend .env file.' 
+      });
+    }
+
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/calendar.readonly'],
       state: req.user.id // Pass user ID to identify user after callback
     });
 
+    console.log('✅ Generated Google OAuth URL for user:', req.user.id);
     res.json({ authUrl });
   } catch (error) {
     console.error('Error generating Google auth URL:', error);

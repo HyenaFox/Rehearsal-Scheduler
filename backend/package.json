@@ -10,7 +10,8 @@
     "build:web": "echo 'Using pre-built web app from committed dist directory'",
     "prebuild": "echo 'Starting build process...'",
     "postinstall": "echo 'Dependencies installed successfully'",
-    "test": "echo 'No tests specified'"
+    "test": "echo 'No tests specified'",
+    "test:google": "node test-google-config.js"
   },
   "dependencies": {
     "@react-native-google-signin/google-signin": "^15.0.0",

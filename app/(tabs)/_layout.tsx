@@ -12,22 +12,31 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#6366f1',
+          backgroundColor: '#ffffff',
           borderTopWidth: 0,
-          height: 80,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 85,
+          paddingBottom: 10,
+          paddingTop: 10,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+          elevation: 8,
+          position: 'absolute',
         },
-        tabBarActiveTintColor: '#ffffff',
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.7)',
+        tabBarActiveTintColor: '#6366f1',
+        tabBarInactiveTintColor: '#9ca3af',
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '600',
-          letterSpacing: 0.2,
+          fontWeight: '700',
+          letterSpacing: 0.3,
         },
         tabBarItemStyle: {
-          borderRadius: 12,
+          borderRadius: 16,
           marginHorizontal: 4,
+          backgroundColor: 'transparent',
         },
         tabBarIconStyle: {
           marginTop: 4,
@@ -40,7 +49,7 @@ export default function TabLayout() {
           title: '📅 Shows',
           tabBarLabel: 'Shows',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>📅</Text>
+            <Text style={{ fontSize: 24, color: focused ? '#6366f1' : '#9ca3af' }}>📅</Text>
           ),
         }}
         listeners={{
@@ -53,7 +62,7 @@ export default function TabLayout() {
           title: '🎭 Actors',
           tabBarLabel: 'Actors',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>🎭</Text>
+            <Text style={{ fontSize: 24, color: focused ? '#6366f1' : '#9ca3af' }}>🎭</Text>
           ),
         }}
         listeners={{
@@ -66,7 +75,7 @@ export default function TabLayout() {
           title: '🎬 Scenes',
           tabBarLabel: 'Scenes',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>🎬</Text>
+            <Text style={{ fontSize: 24, color: focused ? '#6366f1' : '#9ca3af' }}>🎬</Text>
           ),
         }}
         listeners={{
@@ -79,7 +88,7 @@ export default function TabLayout() {
           title: '⏰ Times',
           tabBarLabel: 'Times',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>⏰</Text>
+            <Text style={{ fontSize: 24, color: focused ? '#6366f1' : '#9ca3af' }}>⏰</Text>
           ),
         }}
         listeners={{
@@ -92,7 +101,7 @@ export default function TabLayout() {
           title: '👤 Profile',
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 22, color: focused ? '#ffffff' : 'rgba(255, 255, 255, 0.7)' }}>👤</Text>
+            <Text style={{ fontSize: 24, color: focused ? '#6366f1' : '#9ca3af' }}>👤</Text>
           ),
         }}
         listeners={{

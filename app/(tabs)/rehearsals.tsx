@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import ActorEditModal from '../components/ActorEditModal';
 import Card from '../components/Card';
@@ -67,14 +67,16 @@ export default function ActorsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.container}>
-        <View style={styles.content}>
-          <Text style={styles.screenTitle}>🎭 Actors</Text>
+    <SafeAreaView style={commonStyles.screenContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+      <View style={commonStyles.contentContainer}>
+        <View style={commonStyles.headerSection}>
+          <View style={commonStyles.screenTitleContainer}>
+            <Text style={commonStyles.screenTitle}>🎭 Actors</Text>
+          </View>
           {isAdmin && (
             <ActionButton 
-              title="Add Actor" 
+              title="➕ Add New Actor" 
               onPress={() => {
                 if (!isAdmin) {
                   Alert.alert('Access Denied', 'Only administrators can add actors.');
@@ -85,8 +87,20 @@ export default function ActorsScreen() {
               style={undefined} 
             />
           )}
-          <ScrollView style={styles.scrollView}>
-            {actors.map(actor => (
+        </View>
+        
+        <ScrollView 
+          style={commonStyles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          {actors.length === 0 ? (
+            <View style={commonStyles.emptyState}>
+              <Text style={commonStyles.emptyStateText}>
+                No actors added yet.{isAdmin ? ' Tap "Add New Actor" to get started!' : ''}
+              </Text>
+            </View>
+          ) : (
+            actors.map(actor => (
               <Card
                 key={actor.id}
                 title={actor.name}
@@ -109,14 +123,9 @@ export default function ActorsScreen() {
                   handleDeleteActor(actor);
                 } : undefined}
               />
-            ))}
-            {actors.length === 0 && (
-              <View style={commonStyles.emptyState}>
-                <Text style={commonStyles.emptyStateText}>No actors available</Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
+            ))
+          )}
+        </ScrollView>
       </View>
 
       {/* Modals */}
@@ -129,27 +138,3 @@ export default function ActorsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  screenTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 20,
-    letterSpacing: 0.3,
-  },
-});

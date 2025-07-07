@@ -7,6 +7,11 @@ export default function GoogleCallback() {
   const { googleLogin } = useAuth();
 
   useEffect(() => {
+    console.log('🔗 Google callback page loaded');
+    console.log('🔗 Current URL:', window.location.href);
+    console.log('🔗 Search params:', window.location.search);
+    console.log('🔗 Hash:', window.location.hash);
+    
     const handleLogin = async (tokenOrCode: string, isCode: boolean = false) => {
       const success = await googleLogin(tokenOrCode, isCode);
       // Redirect immediately based on success, don't wait for other state changes

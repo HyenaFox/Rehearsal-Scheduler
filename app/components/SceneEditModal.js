@@ -33,8 +33,11 @@ const SceneEditModal = ({ scene, visible, onSave, onCancel, allActors }) => {
 
   return (
     <View style={commonStyles.modalOverlay}>
-      <View style={commonStyles.modalContent}>
-        <ScrollView>
+      <View style={[commonStyles.modalContent, { maxHeight: '90%' }]}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1 }}
+        >
           <Text style={commonStyles.modalTitle}>Edit Scene</Text>
           
           <Text style={styles.inputLabel}>Scene Title:</Text>
@@ -56,13 +59,15 @@ const SceneEditModal = ({ scene, visible, onSave, onCancel, allActors }) => {
           />
 
           <Text style={styles.inputLabel}>Actors in this Scene:</Text>
-          <MultiSelect
-            items={allActors.map(actor => ({ id: actor.id, name: actor.name }))}
-            selectedItems={selectedActorIds}
-            onSelectedItemsChange={setSelectedActorIds}
-            selectText="Select actors"
-            searchInputPlaceholderText="Search actors..."
-          />
+          <View style={styles.multiSelectContainer}>
+            <MultiSelect
+              items={allActors.map(actor => ({ id: actor.id, name: actor.name }))}
+              selectedItems={selectedActorIds}
+              onSelectedItemsChange={setSelectedActorIds}
+              selectText="Select actors"
+              searchInputPlaceholderText="Search actors..."
+            />
+          </View>
 
           <View style={commonStyles.modalButtons}>
             <TouchableOpacity style={commonStyles.cancelButton} onPress={onCancel}>
@@ -80,10 +85,15 @@ const SceneEditModal = ({ scene, visible, onSave, onCancel, allActors }) => {
 
 const styles = {
   inputLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+  multiSelectContainer: {
+    marginBottom: 20,
+    maxHeight: 200, // Prevent MultiSelect from taking too much space
   },
 };
 

@@ -9,93 +9,40 @@ GoogleSignin.configure({
   forceCodeForRefreshToken: true,
 });
 
-// Simplified web Google Sign-In using popup
-const signInWithGoogleWeb = async (): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-    
-    if (!CLIENT_ID) {
-      reject(new Error('Google Client ID not configured'));
-      return;
-    }
+// Simplified web Google Sign-In using proper redirect flow
+const signInWithGoogleWeb = (): void => {
+  const CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  
+  if (!CLIENT_ID) {
+    throw new Error('Google Client ID not configured');
+  }
 
-    // Create OAuth URL
-    const redirectUri = `${window.location.origin}/auth/google/callback`;
-    const scope = 'openid email profile';
-    const responseType = 'code';
-    
-    const authUrl = `https://accounts.google.com/oauth/authorize?` +
-      `client_id=${CLIENT_ID}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `response_type=${responseType}&` +
-      `scope=${encodeURIComponent(scope)}&` +
-      `access_type=offline&` +
-      `prompt=consent`;
+  // Use proper redirect URI that matches our app
+  const redirectUri = `${window.location.origin}/auth/google/callback`;
+  console.log('🔗 Google OAuth redirect URI:', redirectUri);
+  
+  const scope = 'openid email profile';
+  const responseType = 'id_token';
+  const nonce = Math.random().toString(36).substring(2, 15);
+  
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${CLIENT_ID}&` +
+    `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+    `response_type=${responseType}&` +
+    `scope=${encodeURIComponent(scope)}&` +
+    `nonce=${nonce}`;
 
-    // Open popup window
-    const popup = window.open(
-      authUrl,
-      'google-signin',
-      'width=500,height=600,scrollbars=yes,resizable=yes'
-    );
-
-    if (!popup) {
-      reject(new Error('Failed to open Google Sign-In popup. Please allow popups for this site.'));
-      return;
-    }
-
-    // Listen for popup to close or message
-    const checkClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosed);
-        reject(new Error('Google Sign-In was cancelled'));
-      }
-    }, 1000);
-
-    // Listen for messages from popup
-    const messageListener = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      
-      if (event.data.type === 'GOOGLE_AUTH_SUCCESS') {
-        clearInterval(checkClosed);
-        window.removeEventListener('message', messageListener);
-        popup.close();
-        resolve(event.data.code);
-      } else if (event.data.type === 'GOOGLE_AUTH_ERROR') {
-        clearInterval(checkClosed);
-        window.removeEventListener('message', messageListener);
-        popup.close();
-        reject(new Error(event.data.error || 'Google Sign-In failed'));
-      }
-    };
-
-    window.addEventListener('message', messageListener);
-
-    // Fallback: If we can't get the message, try to detect success by URL change
-    setTimeout(() => {
-      try {
-        const popupUrl = popup.location?.href;
-        if (popupUrl && popupUrl.includes('code=')) {
-          const urlParams = new URLSearchParams(popupUrl.split('?')[1]);
-          const code = urlParams.get('code');
-          if (code) {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', messageListener);
-            popup.close();
-            resolve(code);
-          }
-        }
-      } catch {
-        // Cross-origin error expected, ignore
-      }
-    }, 2000);
-  });
+  console.log('🔗 Redirecting to Google OAuth:', authUrl);
+  
+  // Redirect to Google OAuth (this will redirect back to our callback)
+  window.location.href = authUrl;
 };
 
 export const signInWithGoogle = async () => {
   try {
     if (Platform.OS === 'web') {
-      return await signInWithGoogleWeb();
+      signInWithGoogleWeb(); // This redirects to Google, callback will handle the token
+      return; // Function doesn't return a value for web, redirect handles it
     }
     
     // Mobile implementation

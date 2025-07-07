@@ -26,11 +26,11 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
     }
   };
 
-  const toggleScene = (sceneTitle) => {
-    if (selectedScenes.includes(sceneTitle)) {
-      setSelectedScenes(selectedScenes.filter(title => title !== sceneTitle));
+  const toggleScene = (sceneId) => {
+    if (selectedScenes.includes(sceneId)) {
+      setSelectedScenes(selectedScenes.filter(id => id !== sceneId));
     } else {
-      setSelectedScenes([...selectedScenes, sceneTitle]);
+      setSelectedScenes([...selectedScenes, sceneId]);
     }
   };
 
@@ -88,23 +88,27 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
             ))}
 
             <Text style={styles.sectionTitle}>Scenes:</Text>
-            {scenes.map(scene => (
-              <TouchableOpacity
-                key={scene.id || scene._id}
-                style={[
-                  styles.checkboxItem,
-                  selectedScenes.includes(scene.title) && styles.checkboxItemSelected
-                ]}
-                onPress={() => toggleScene(scene.title)}
-              >
-                <Text style={[
-                  styles.checkboxText,
-                  selectedScenes.includes(scene.title) && styles.checkboxTextSelected
-                ]}>
-                  {selectedScenes.includes(scene.title) ? '✓' : '○'} {scene.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {scenes.map(scene => {
+              const sceneId = scene.id || scene._id;
+              const isSelected = selectedScenes.includes(sceneId);
+              return (
+                <TouchableOpacity
+                  key={sceneId}
+                  style={[
+                    styles.checkboxItem,
+                    isSelected && styles.checkboxItemSelected
+                  ]}
+                  onPress={() => toggleScene(sceneId)}
+                >
+                  <Text style={[
+                    styles.checkboxText,
+                    isSelected && styles.checkboxTextSelected
+                  ]}>
+                    {isSelected ? '✓' : '○'} {scene.title}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           <View style={commonStyles.modalButtons}>

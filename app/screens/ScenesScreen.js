@@ -30,9 +30,10 @@ const ScenesScreen = ({ onBack }) => {
       setScenes(updatedScenes);
       
       // Remove scene from all actors who were assigned to it
+      const sceneIdToDelete = sceneToDelete.id || sceneToDelete._id;
       const updatedActors = actors.map(actor => ({
         ...actor,
-        scenes: actor.scenes.filter(sceneName => sceneName !== sceneToDelete.title)
+        scenes: actor.scenes.filter(sceneId => sceneId !== sceneIdToDelete)
       }));
       setActors(updatedActors);
       
@@ -119,9 +120,12 @@ const ScenesScreen = ({ onBack }) => {
                   },
                   {
                     title: 'Actors in this Scene',
-                    content: actors.filter(actor => 
-                      actor.scenes && actor.scenes.includes(scene.title)
-                    ).map(actor => actor.name).join(', ') || 'No actors assigned'
+                    content: actors.filter(actor => {
+                      // Use the same logic as the actors screen: check if scene ID is in actor's scenes array
+                      const actorScenes = actor.scenes || [];
+                      const sceneId = scene.id || scene._id;
+                      return actorScenes.includes(sceneId);
+                    }).map(actor => actor.name).join(', ') || 'No actors assigned'
                   }
                 ]}
                 onEdit={isAdmin ? () => {

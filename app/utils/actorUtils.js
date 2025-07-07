@@ -73,9 +73,20 @@ export const getActorsAvailableForTimeslot = (actors, timeslotId) => {
   return actors.filter(actor => isAvailable(actor, timeslotId));
 };
 
-// Get actors in a specific scene
-export const getActorsInScene = (actors, sceneName) => {
-  return actors.filter(actor => actor.scenes.includes(sceneName));
+// Get actors in a specific scene (by scene ID)
+export const getActorsInScene = (actors, sceneId) => {
+  return actors.filter(actor => {
+    const actorScenes = actor.scenes || [];
+    return actorScenes.includes(sceneId);
+  });
+};
+
+// DEPRECATED: Get actors in a specific scene by scene title (for legacy support)
+export const getActorsInSceneByTitle = (actors, sceneName) => {
+  return actors.filter(actor => {
+    const actorScenes = actor.scenes || [];
+    return actorScenes.includes(sceneName);
+  });
 };
 
 // Get timeslot by ID

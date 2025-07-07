@@ -203,7 +203,7 @@ router.get('/auth/google/callback', async (req, res) => {
 router.post('/auth/google/callback', authenticateToken, async (req, res) => {
   try {
     const { code } = req.body;
-    const { tokens } = await oauth2Client.getAccessToken(code);
+    const { tokens } = await oauth2Client.getToken(code);
     
     // Store tokens in user record
     await User.findByIdAndUpdate(req.user.id, {

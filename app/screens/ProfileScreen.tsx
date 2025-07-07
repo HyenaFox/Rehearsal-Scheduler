@@ -16,6 +16,7 @@ export default function ProfileScreen() {
   const [selectedTimeslots, setSelectedTimeslots] = useState<string[]>([]);
   const [selectedScenes, setSelectedScenes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
   const [showLogin, setShowLogin] = useState(false);
   
   // Track the last user ID to prevent resetting form state on every render
@@ -90,7 +91,13 @@ export default function ProfileScreen() {
       return;
     }
 
+    if (!user) {
+      Alert.alert('Error', 'User not found. Please log in again.');
+      return;
+    }
+
     setIsLoading(true);
+    setSaveStatus('Updating profile...');
     
     try {
       const updates = {
@@ -101,30 +108,152 @@ export default function ProfileScreen() {
         scenes: isActor ? selectedScenes : [],
       };
 
-      console.log(`🎭 Updating profile with isActor: ${isActor}`, updates);
+      console.log(`🎭 Starting profile update with isActor: ${isActor}`, updates);
       console.log('🎭 Selected timeslots:', selectedTimeslots);
       console.log('🎭 Selected scenes:', selectedScenes);
       console.log('🎭 Available timeslots data:', timeslots.map(t => ({ id: t.id || t._id, day: t.day })));
       console.log('🎭 Available scenes data:', scenes.map(s => ({ id: s.id || s._id, name: s.name })));
       
-      await updateProfile(updates);
+      // STEP 1: Update the user profile
+      console.log('🔄 STEP 1: Updating user profile...');
+      setSaveStatus('Updating profile...');
+      const updatedUser = await updateProfile(updates);
+      console.log('✅ STEP 1: Profile updated successfully', updatedUser);
 
-      console.log('✅ Profile updated successfully, refreshing actor list...');
-      
-      try {
-        const updatedActors = await ApiService.getAllActors();
-        setActors(updatedActors);
-        console.log('✅ Actors list refreshed');
-      } catch (error) {
-        console.error('❌ Error refreshing actors list:', error);
+      // STEP 2: Triple verification for actors list (if user is becoming/staying an actor)
+      if (isActor) {
+        console.log('🔄 STEP 2: Starting triple verification for actors list...');
+        setSaveStatus('Verifying actor status...');
+        
+        let verificationsPassed = 0;
+        const maxVerifications = 3;
+        const maxRetries = 5; // Increased retries for better reliability
+        let finalActorsList = null;
+        
+        for (let verification = 1; verification <= maxVerifications; verification++) {
+          console.log(`🔍 Verification ${verification}/${maxVerifications}: Checking actors list...`);
+          setSaveStatus(`Verification ${verification}/${maxVerifications}: Checking actors list...`);
+          
+          let userFoundInActors = false;
+          let retryCount = 0;
+          
+          while (!userFoundInActors && retryCount < maxRetries) {
+            try {
+              // Add delay before each check to allow backend sync
+              if (retryCount > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+              }
+              
+              const actors = await ApiService.getAllActors();
+              console.log(`🔍 Verification ${verification}, Attempt ${retryCount + 1}: Retrieved ${actors.length} actors`);
+              
+              // Multiple matching criteria for robust verification
+              userFoundInActors = actors.some(actor => {
+                const emailMatch = actor.email === user.email;
+                const idMatch = actor.id === user.id || actor._id === user.id;
+                const nameMatch = actor.name === updates.name;
+                
+                if (emailMatch || idMatch || nameMatch) {
+                  console.log('✅ User found in actors list:', {
+                    actorId: actor.id || actor._id,
+                    actorName: actor.name,
+                    actorEmail: actor.email,
+                    matchedBy: emailMatch ? 'email' : idMatch ? 'id' : 'name'
+                  });
+                  return true;
+                }
+                return false;
+              });
+              
+              if (userFoundInActors) {
+                verificationsPassed++;
+                finalActorsList = actors;
+                console.log(`✅ Verification ${verification} PASSED: User confirmed in actors list`);
+                break;
+              } else {
+                console.log(`⚠️ Verification ${verification}, Attempt ${retryCount + 1}: User not found in actors list, retrying...`);
+                retryCount++;
+              }
+            } catch (error) {
+              console.error(`❌ Verification ${verification}, Attempt ${retryCount + 1} failed:`, error);
+              retryCount++;
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            }
+          }
+          
+          if (!userFoundInActors) {
+            console.log(`❌ Verification ${verification} FAILED: User not found in actors list after ${maxRetries} attempts`);
+          }
+          
+          // Short delay between verifications
+          if (verification < maxVerifications) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+
+        // STEP 3: Update local actors state with the most recent data
+        if (finalActorsList) {
+          console.log('🔄 STEP 3: Updating local actors state...');
+          setSaveStatus('Updating local data...');
+          setActors(finalActorsList);
+          console.log('✅ STEP 3: Local actors list updated with latest data');
+        }
+
+        // STEP 4: Provide detailed feedback based on verification results
+        console.log(`🎯 Verification Summary: ${verificationsPassed}/${maxVerifications} verifications passed`);
+        
+        if (verificationsPassed === maxVerifications) {
+          Alert.alert(
+            'Profile Updated Successfully! ✅',
+            `Excellent! Your profile has been updated and you are confirmed to be listed as an actor. All ${maxVerifications} verification checks passed successfully.\n\nYou can now be scheduled for rehearsals based on your availability.`,
+            [{ text: 'Great!' }]
+          );
+          console.log('🎉 COMPLETE SUCCESS: All verifications passed');
+        } else if (verificationsPassed >= 2) {
+          Alert.alert(
+            'Profile Updated Successfully ✅',
+            `Your profile has been updated and you should be listed as an actor. ${verificationsPassed} out of ${maxVerifications} verification checks passed.\n\nIf you don't see yourself in the Actors tab immediately, please refresh the app.`,
+            [{ text: 'OK' }]
+          );
+          console.log('✅ MOSTLY SUCCESSFUL: Most verifications passed');
+        } else if (verificationsPassed >= 1) {
+          Alert.alert(
+            'Profile Updated with Minor Issues ⚠️',
+            `Your profile has been updated, but there may be a short delay in appearing in the actors list. ${verificationsPassed} verification check(s) passed.\n\nPlease check the Actors tab in a few moments, or try refreshing the app.`,
+            [{ text: 'OK' }]
+          );
+          console.log('⚠️ PARTIAL SUCCESS: Some verifications passed');
+        } else {
+          Alert.alert(
+            'Profile Updated - Verification Pending ⚠️',
+            'Your profile has been updated on the server, but we could not immediately verify your addition to the actors list. This may be due to network delays.\n\nPlease:\n1. Check the Actors tab in a few moments\n2. Try refreshing the app\n3. Contact support if the issue persists',
+            [{ text: 'Understood' }]
+          );
+          console.log('❌ VERIFICATION FAILED: User may not be properly added to actors list');
+        }
+      } else {
+        // User is not an actor - simple success message
+        console.log('✅ User is not an actor, profile update complete');
+        Alert.alert(
+          'Profile Updated Successfully ✅',
+          'Your profile has been updated successfully.',
+          [{ text: 'OK' }]
+        );
       }
 
-      Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update profile');
-      console.error('Profile update error:', error);
+      console.error('❌ Profile update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert(
+        'Update Failed ❌', 
+        `Failed to update profile: ${errorMessage}\n\nPlease check your internet connection and try again.`,
+        [{ text: 'OK' }]
+      );
     } finally {
       setIsLoading(false);
+      setSaveStatus('');
     }
   };
 
@@ -323,13 +452,21 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Save Status Indicator */}
+        {isLoading && saveStatus && (
+          <View style={styles.statusIndicator}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>{saveStatus}</Text>
+          </View>
+        )}
+
         <TouchableOpacity 
           style={[commonStyles.actionButton, isLoading && styles.disabledButton]}
           onPress={handleSave}
           disabled={isLoading}
         >
           <Text style={commonStyles.actionButtonText}>
-            {isLoading ? 'Saving...' : 'Save Changes'}
+            {isLoading ? (saveStatus || 'Saving...') : `Save Changes${isActor ? ' & Verify Actor Status' : ''}`}
           </Text>
         </TouchableOpacity>
 
@@ -569,5 +706,36 @@ const styles = StyleSheet.create({
   },
   unavailableButtonText: {
     color: '#ffffff',
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginHorizontal: 16,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#6366f1',
+    marginRight: 12,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });

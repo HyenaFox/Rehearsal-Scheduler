@@ -45,9 +45,14 @@ sceneSchema.index({ title: 1 });
 sceneSchema.index({ createdBy: 1 });
 sceneSchema.index({ priority: -1 }); // Higher priority first
 
-// Static method to get all scenes for a user
+// Static method to get all scenes for a user (legacy - keep for compatibility)
 sceneSchema.statics.getAllForUser = async function(userId) {
   return this.find({ createdBy: userId }).sort({ priority: -1, title: 1 });
+};
+
+// Static method to get all global scenes (available to everyone)
+sceneSchema.statics.getAllGlobal = async function() {
+  return this.find({}).sort({ priority: -1, title: 1 });
 };
 
 // Static method to create scene

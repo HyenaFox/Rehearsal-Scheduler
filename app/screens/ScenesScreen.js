@@ -78,8 +78,19 @@ const ScenesScreen = ({ onBack }) => {
             <Text style={commonStyles.screenTitle}>🎬 Scenes</Text>
           </View>
           <Text style={commonStyles.subtitle}>
-            Manage and organize your production scenes
+            Global production scenes available to all cast members
           </Text>
+          
+          {!isAdmin && (
+            <View style={[commonStyles.card, { marginTop: 16, marginBottom: 16 }]}>
+              <Text style={[commonStyles.cardTitle, { fontSize: 16, marginBottom: 8 }]}>
+                ℹ️ About Scenes
+              </Text>
+              <Text style={[commonStyles.text, { fontSize: 14, color: '#6b7280', lineHeight: 20 }]}>
+                These are global scenes created by administrators. You can select which scenes you&apos;re involved in through your Profile → Actor Settings.
+              </Text>
+            </View>
+          )}
           
           {isAdmin && (
             <ActionButton title="➕ Add New Scene" onPress={handleAddScene} />
@@ -93,7 +104,7 @@ const ScenesScreen = ({ onBack }) => {
           {scenes.length === 0 ? (
             <View style={commonStyles.emptyState}>
               <Text style={commonStyles.emptyStateText}>
-                No scenes added yet.{isAdmin ? ' Tap "Add New Scene" to get started!' : ''}
+                No global scenes defined yet.{isAdmin ? ' Tap "Add New Scene" to get started!' : ' Ask an admin to create scenes for the production.'}
               </Text>
             </View>
           ) : (

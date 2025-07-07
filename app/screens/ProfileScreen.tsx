@@ -414,13 +414,13 @@ export default function ProfileScreen() {
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Scenes</Text>
                 <Text style={styles.subsectionDescription}>
-                  Select the scenes you are involved in.
+                  Select from the global scenes that you are involved in. These scenes are created by administrators and available to all cast members.
                 </Text>
                 
                 {scenes.length === 0 ? (
                   <View style={styles.emptyTimeslots}>
                     <Text style={styles.emptyTimeslotsText}>
-                      No scenes have been created yet. Contact an admin to set up scenes.
+                      No global scenes have been created yet. Contact an admin to set up scenes that will be available to all cast members.
                     </Text>
                   </View>
                 ) : (

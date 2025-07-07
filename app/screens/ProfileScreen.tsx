@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
-import LoginScreen from './LoginScreen';
 import { commonStyles } from '../styles/common';
+import LoginScreen from './LoginScreen';
 
 export default function ProfileScreen() {
   const { user, updateProfile, forceLogout, isLoading: authLoading } = useAuth();

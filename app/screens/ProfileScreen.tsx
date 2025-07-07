@@ -5,6 +5,7 @@ import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 import LoginScreen from './LoginScreen';
+import { commonStyles } from '../styles/common';
 
 export default function ProfileScreen() {
   const { user, updateProfile, forceLogout, isLoading: authLoading } = useAuth();
@@ -47,17 +48,22 @@ export default function ProfileScreen() {
   // If no user, show login option
   if (!user && !authLoading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loginPrompt}>
-          <Text style={styles.title}>👤 Profile</Text>
+      <View style={commonStyles.screenContainer}>
+        <View style={styles.headerSection}>
+          <Text style={commonStyles.screenTitle}>👤 Profile</Text>
+          <Text style={commonStyles.subtitle}>
+            Manage your personal information and preferences
+          </Text>
+        </View>
+        <View style={[commonStyles.card, styles.loginPromptCard]}>
           <Text style={styles.loginPromptText}>
             Login to manage your profile, set your availability, and participate in rehearsals.
           </Text>
           <TouchableOpacity 
-            style={styles.loginButton} 
+            style={commonStyles.actionButton} 
             onPress={() => setShowLogin(true)}
           >
-            <Text style={styles.loginButtonText}>Login / Register</Text>
+            <Text style={commonStyles.actionButtonText}>Login / Register</Text>
           </TouchableOpacity>
           <Text style={styles.loginNote}>
             You can still view rehearsals and other content without logging in.
@@ -70,8 +76,10 @@ export default function ProfileScreen() {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={commonStyles.screenContainer}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
       </View>
     );
   }
@@ -156,7 +164,7 @@ export default function ProfileScreen() {
   // Ensure user exists for the profile form
   if (!user) {
     return (
-      <View style={styles.container}>
+      <View style={commonStyles.screenContainer}>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading user data...</Text>
         </View>
@@ -165,25 +173,30 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Profile</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={() => {
-          forceLogout();
-          Alert.alert('Logged Out', 'You have been logged out successfully');
-        }}>
-          <Text style={styles.logoutButtonText}>Log Out</Text>
-        </TouchableOpacity>
+    <View style={commonStyles.screenContainer}>
+      <View style={styles.headerSection}>
+        <View style={styles.headerTop}>
+          <Text style={commonStyles.screenTitle}>👤 Profile</Text>
+          <TouchableOpacity style={styles.logoutButton} onPress={() => {
+            forceLogout();
+            Alert.alert('Logged Out', 'You have been logged out successfully');
+          }}>
+            <Text style={styles.logoutButtonText}>Log Out</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={commonStyles.subtitle}>
+          Manage your personal information and preferences
+        </Text>
       </View>
 
-      <View style={styles.form}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+      <ScrollView style={commonStyles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={commonStyles.card}>
+          <Text style={commonStyles.cardTitle}>Personal Information</Text>
           
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Full Name</Text>
             <TextInput
-              style={styles.input}
+              style={commonStyles.textInput}
               value={name}
               onChangeText={setName}
               placeholder="Enter your full name"
@@ -199,7 +212,7 @@ export default function ProfileScreen() {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Phone (Optional)</Text>
             <TextInput
-              style={styles.input}
+              style={commonStyles.textInput}
               value={phone}
               onChangeText={setPhone}
               placeholder="Enter your phone number"
@@ -208,9 +221,9 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
+        <View style={commonStyles.card}>
           <View style={styles.switchContainer}>
-            <Text style={styles.sectionTitle}>Actor Settings</Text>
+            <Text style={commonStyles.cardTitle}>Actor Settings</Text>
             <Switch
               value={isActor}
               onValueChange={setIsActor}
@@ -227,7 +240,7 @@ export default function ProfileScreen() {
             <>
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Available Time Slots</Text>
-                <Text style={styles.description}>
+                <Text style={styles.subsectionDescription}>
                   Select the time slots when you are available for rehearsals.
                 </Text>
                 
@@ -256,7 +269,7 @@ export default function ProfileScreen() {
 
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Scenes</Text>
-                <Text style={styles.description}>
+                <Text style={styles.subsectionDescription}>
                   Select the scenes you are involved in.
                 </Text>
                 
@@ -287,89 +300,64 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity 
-          style={[styles.saveButton, isLoading && styles.disabledButton]}
+          style={[commonStyles.actionButton, isLoading && styles.disabledButton]}
           onPress={handleSave}
           disabled={isLoading}
         >
-          <Text style={styles.saveButtonText}>
+          <Text style={commonStyles.actionButtonText}>
             {isLoading ? 'Saving...' : 'Save Changes'}
           </Text>
         </TouchableOpacity>
-      </View>
 
-      {user.isAdmin && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Admin Tools</Text>
-          <GoogleCalendarIntegration />
-        </View>
-      )}
-    </ScrollView>
+        {user.isAdmin && (
+          <View style={commonStyles.card}>
+            <Text style={commonStyles.cardTitle}>Admin Tools</Text>
+            <GoogleCalendarIntegration />
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
   },
   loadingText: {
     fontSize: 16,
     color: '#64748b',
     fontWeight: '500',
   },
-  header: {
+  headerSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 8,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingBottom: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1e293b',
-    letterSpacing: 0.3,
+    marginBottom: 8,
   },
   logoutButton: {
     backgroundColor: '#ef4444',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   logoutButtonText: {
     color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  form: {
-    padding: 20,
-    paddingTop: 10,
-  },
-  section: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  sectionTitle: {
-    fontSize: 20,
     fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 16,
-    letterSpacing: 0.2,
+    fontSize: 14,
+    letterSpacing: 0.3,
   },
   inputContainer: {
     marginBottom: 16,
@@ -381,24 +369,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: 0.1,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#ffffff',
-    color: '#1e293b',
-  },
   emailText: {
     fontSize: 16,
     color: '#6b7280',
     fontStyle: 'italic',
-    padding: 12,
+    padding: 18,
     backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 2,
     borderColor: '#e2e8f0',
+    fontWeight: '500',
   },
   switchContainer: {
     flexDirection: 'row',
@@ -411,31 +391,46 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     lineHeight: 20,
     marginBottom: 16,
+    fontWeight: '500',
   },
   subsection: {
     marginTop: 20,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: '#e2e8f0',
   },
   subsectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#374151',
     marginBottom: 8,
+    letterSpacing: 0.2,
+  },
+  subsectionDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
+    marginBottom: 16,
+    fontWeight: '500',
   },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginVertical: 4,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   checkbox: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     borderWidth: 2,
     borderColor: '#d1d5db',
-    borderRadius: 4,
-    marginRight: 12,
+    borderRadius: 6,
+    marginRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -445,7 +440,7 @@ const styles = StyleSheet.create({
   },
   checkboxText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
   },
   checkboxLabel: {
@@ -453,29 +448,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     lineHeight: 20,
-  },
-  saveButton: {
-    backgroundColor: '#6366f1',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
+    fontWeight: '500',
   },
   disabledButton: {
     backgroundColor: '#9ca3af',
+    shadowOpacity: 0.1,
   },
-  saveButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  loginPrompt: {
-    flex: 1,
-    justifyContent: 'center',
+  loginPromptCard: {
     alignItems: 'center',
-    padding: 40,
+    textAlign: 'center',
   },
   loginPromptText: {
     fontSize: 16,
@@ -483,24 +464,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 24,
-  },
-  loginButton: {
-    backgroundColor: '#6366f1',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  loginButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: '500',
   },
   loginNote: {
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
     fontStyle: 'italic',
+    marginTop: 16,
+    fontWeight: '500',
   },
 });

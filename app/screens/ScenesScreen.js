@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import Card from '../components/Card';
 import SceneEditModal from '../components/SceneEditModal';
@@ -70,30 +70,41 @@ const ScenesScreen = ({ onBack }) => {
   };
 
   return (
-    <SafeAreaView style={commonStyles.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={commonStyles.container}>
-        <View style={commonStyles.header}>
-          <TouchableOpacity style={commonStyles.backButton} onPress={onBack}>
-            <Text style={commonStyles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={commonStyles.headerTitle}>Manage Scenes</Text>
+    <SafeAreaView style={commonStyles.screenContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+      <View style={commonStyles.contentContainer}>
+        <View style={commonStyles.headerSection}>
+          <View style={commonStyles.screenTitleContainer}>
+            <Text style={commonStyles.screenTitle}>🎬 Scenes</Text>
+          </View>
+          <Text style={commonStyles.subtitle}>
+            Manage and organize your production scenes
+          </Text>
+          
+          {isAdmin && (
+            <ActionButton title="➕ Add New Scene" onPress={handleAddScene} />
+          )}
         </View>
 
-        <View style={commonStyles.scrollView}>
-          {isAdmin && (
-            <ActionButton title="Add New Scene" onPress={handleAddScene} />
-          )}
-
-          <ScrollView style={{ flex: 1 }}>
-            {scenes.map(scene => (
+        <ScrollView 
+          style={commonStyles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          {scenes.length === 0 ? (
+            <View style={commonStyles.emptyState}>
+              <Text style={commonStyles.emptyStateText}>
+                No scenes added yet.{isAdmin ? ' Tap "Add New Scene" to get started!' : ''}
+              </Text>
+            </View>
+          ) : (
+            scenes.map(scene => (
               <Card
                 key={scene.id}
                 title={scene.title}
                 sections={[
                   {
                     title: 'Description',
-                    content: scene.description
+                    content: scene.description || 'No description provided'
                   },
                   {
                     title: 'Actors in this Scene',
@@ -108,57 +119,52 @@ const ScenesScreen = ({ onBack }) => {
                 } : undefined}
                 onDelete={isAdmin ? () => handleDeleteScene(scene) : undefined}
               />
-            ))}
-            {scenes.length === 0 && (
-              <View style={commonStyles.emptyState}>
-                <Text style={commonStyles.emptyStateText}>No scenes available</Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
 
-        {/* Scene Edit Modal */}
-        <SceneEditModal
-          scene={editingScene}
-          visible={showEditModal}
-          onSave={async (updatedScene) => {
-            try {
-              const savedScene = await ApiService.updateScene(updatedScene.id || updatedScene._id, updatedScene);
-              const updatedScenes = scenes.map(s => 
-                (s.id || s._id) === (updatedScene.id || updatedScene._id) ? savedScene : s
-              );
-              
-              setScenes(updatedScenes);
-              
-              // Update actors if scene title changed
-              if (editingScene.title !== updatedScene.title) {
-                const updatedActors = actors.map(actor => {
-                  if (actor.scenes && actor.scenes.includes(editingScene.title)) {
-                    const newScenes = actor.scenes.map(sceneName => 
-                      sceneName === editingScene.title ? updatedScene.title : sceneName
-                    );
-                    return { ...actor, scenes: newScenes };
-                  }
-                  return actor;
-                });
-                setActors(updatedActors);
-              }
-
-              setShowEditModal(false);
-              setEditingScene(null);
-              console.log('✅ Scene updated successfully');
-            } catch (error) {
-              console.error('❌ Error updating scene:', error);
-              Alert.alert('Error', 'Failed to update scene');
+      {/* Scene Edit Modal */}
+      <SceneEditModal
+        scene={editingScene}
+        visible={showEditModal}
+        onSave={async (updatedScene) => {
+          try {
+            const savedScene = await ApiService.updateScene(updatedScene.id || updatedScene._id, updatedScene);
+            const updatedScenes = scenes.map(s => 
+              (s.id || s._id) === (updatedScene.id || updatedScene._id) ? savedScene : s
+            );
+            
+            setScenes(updatedScenes);
+            
+            // Update actors if scene title changed
+            if (editingScene.title !== updatedScene.title) {
+              const updatedActors = actors.map(actor => {
+                if (actor.scenes && actor.scenes.includes(editingScene.title)) {
+                  const newScenes = actor.scenes.map(sceneName => 
+                    sceneName === editingScene.title ? updatedScene.title : sceneName
+                  );
+                  return { ...actor, scenes: newScenes };
+                }
+                return actor;
+              });
+              setActors(updatedActors);
             }
-          }}
-          onCancel={() => {
+
             setShowEditModal(false);
             setEditingScene(null);
-          }}
-          allActors={actors}
-        />
-      </View>
+            console.log('✅ Scene updated successfully');
+          } catch (error) {
+            console.error('❌ Error updating scene:', error);
+            Alert.alert('Error', 'Failed to update scene');
+          }
+        }}
+        onCancel={() => {
+          setShowEditModal(false);
+          setEditingScene(null);
+        }}
+        allActors={actors}
+      />
     </SafeAreaView>
   );
 };

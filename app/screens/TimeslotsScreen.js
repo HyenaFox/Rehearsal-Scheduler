@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import AutoPopulateModal from '../components/AutoPopulateModal';
 import Card from '../components/Card';
@@ -123,26 +123,45 @@ const TimeslotsScreen = ({ onBack }) => {
   };
 
   return (
-    <SafeAreaView style={commonStyles.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={commonStyles.container}>
-        <View style={commonStyles.header}>
-          <TouchableOpacity style={commonStyles.backButton} onPress={onBack}>
-            <Text style={commonStyles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={commonStyles.headerTitle}>Manage Timeslots</Text>
+    <SafeAreaView style={commonStyles.screenContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+      <View style={commonStyles.contentContainer}>
+        <View style={commonStyles.headerSection}>
+          <View style={commonStyles.screenTitleContainer}>
+            <Text style={commonStyles.screenTitle}>⏰ Time Slots</Text>
+          </View>
+          <Text style={commonStyles.subtitle}>
+            Define available rehearsal time periods
+          </Text>
+          
+          {isAdmin && (
+            <View style={timeslotStyles.buttonContainer}>
+              <ActionButton 
+                title="➕ Add Time Slot" 
+                onPress={handleAddTimeslot} 
+                style={timeslotStyles.actionButton}
+              />
+              <ActionButton 
+                title="🤖 Auto-populate" 
+                onPress={() => setIsAutoPopulateModalVisible(true)} 
+                style={timeslotStyles.actionButton}
+              />
+            </View>
+          )}
         </View>
 
-        <View style={commonStyles.scrollView}>
-          {isAdmin && (
-            <>
-              <ActionButton title="Add New Timeslot" onPress={handleAddTimeslot} />
-              <ActionButton title="Auto-populate Timeslots" onPress={() => setIsAutoPopulateModalVisible(true)} />
-            </>
-          )}
-
-          <ScrollView style={{ flex: 1 }}>
-            {timeslots.map(timeslot => (
+        <ScrollView 
+          style={commonStyles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          {timeslots.length === 0 ? (
+            <View style={commonStyles.emptyState}>
+              <Text style={commonStyles.emptyStateText}>
+                No time slots defined yet.{isAdmin ? ' Tap "Add Time Slot" to get started!' : ''}
+              </Text>
+            </View>
+          ) : (
+            timeslots.map(timeslot => (
               <Card
                 key={timeslot.id}
                 title={`${timeslot.startTime} - ${timeslot.endTime}`}
@@ -153,60 +172,65 @@ const TimeslotsScreen = ({ onBack }) => {
                   },
                   {
                     title: 'Description',
-                    content: timeslot.description
+                    content: timeslot.description || 'No description provided'
                   }
                 ]}
-                onDelete={() => handleDeleteTimeslot(timeslot)}
-                onEdit={() => {
+                onEdit={isAdmin ? () => {
                   setEditingTimeslot(timeslot);
                   setShowEditModal(true);
-                }}
-                showAdminActions={isAdmin}
+                } : undefined}
+                onDelete={isAdmin ? () => handleDeleteTimeslot(timeslot) : undefined}
               />
-            ))}
-            {timeslots.length === 0 && (
-              <View style={commonStyles.emptyState}>
-                <Text style={commonStyles.emptyStateText}>No timeslots available</Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
 
-        {/* Timeslot Edit Modal */}
-        <TimeslotEditModal
-          timeslot={editingTimeslot}
-          visible={showEditModal}
-          onSave={async (updatedTimeslot) => {
-            try {
-              const savedTimeslot = await ApiService.updateTimeslot(updatedTimeslot.id || updatedTimeslot._id, updatedTimeslot);
-              const updatedTimeslots = timeslots.map(t => 
-                (t.id || t._id) === (updatedTimeslot.id || updatedTimeslot._id) ? savedTimeslot : t
-              );
-              
-              setTimeslots(updatedTimeslots);
-              setShowEditModal(false);
-              setEditingTimeslot(null);
-              console.log('✅ Timeslot updated successfully');
-            } catch (error) {
-              console.error('❌ Error updating timeslot:', error);
-              Alert.alert('Error', 'Failed to update timeslot');
-            }
-          }}
-          onCancel={() => {
+      {/* Timeslot Edit Modal */}
+      <TimeslotEditModal
+        timeslot={editingTimeslot}
+        visible={showEditModal}
+        onSave={async (updatedTimeslot) => {
+          try {
+            const savedTimeslot = await ApiService.updateTimeslot(updatedTimeslot.id || updatedTimeslot._id, updatedTimeslot);
+            const updatedTimeslots = timeslots.map(t => 
+              (t.id || t._id) === (updatedTimeslot.id || updatedTimeslot._id) ? savedTimeslot : t
+            );
+            
+            setTimeslots(updatedTimeslots);
             setShowEditModal(false);
             setEditingTimeslot(null);
-          }}
-        />
+            console.log('✅ Timeslot updated successfully');
+          } catch (error) {
+            console.error('❌ Error updating timeslot:', error);
+            Alert.alert('Error', 'Failed to update timeslot');
+          }
+        }}
+        onCancel={() => {
+          setShowEditModal(false);
+          setEditingTimeslot(null);
+        }}
+      />
 
-        {/* Auto-populate Modal */}
-        <AutoPopulateModal
-          visible={isAutoPopulateModalVisible}
-          onClose={() => setIsAutoPopulateModalVisible(false)}
-          onPopulate={handleAutoPopulate}
-        />
-      </View>
+      {/* Auto-populate Modal */}
+      <AutoPopulateModal
+        visible={isAutoPopulateModalVisible}
+        onClose={() => setIsAutoPopulateModalVisible(false)}
+        onPopulate={handleAutoPopulate}
+      />
     </SafeAreaView>
   );
+};
+
+const timeslotStyles = {
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+  actionButton: {
+    flex: 1,
+  },
 };
 
 export default TimeslotsScreen;

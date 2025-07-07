@@ -33,9 +33,14 @@ const timeslotSchema = new mongoose.Schema({
 timeslotSchema.index({ day: 1, startTime: 1 });
 timeslotSchema.index({ createdBy: 1 });
 
-// Static method to get all timeslots for a user
+// Static method to get all timeslots for a user (legacy - keep for compatibility)
 timeslotSchema.statics.getAllForUser = async function(userId) {
   return this.find({ createdBy: userId }).sort({ day: 1, startTime: 1 });
+};
+
+// Static method to get all global timeslots (available to everyone)
+timeslotSchema.statics.getAllGlobal = async function() {
+  return this.find({}).sort({ day: 1, startTime: 1 });
 };
 
 // Static method to create timeslot

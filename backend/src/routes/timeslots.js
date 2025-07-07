@@ -4,10 +4,12 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all timeslots
+// Get all timeslots (global - available to everyone)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const timeslots = await Timeslot.getAllForUser(req.userId);
+    // Get all timeslots, not user-specific ones, as timeslots should be global
+    const timeslots = await Timeslot.getAllGlobal();
+    console.log(`📅 Returning ${timeslots.length} global timeslots to user: ${req.user?.email || req.userId}`);
     res.json(timeslots);
   } catch (error) {
     console.error('Error fetching timeslots:', error);
@@ -55,7 +57,21 @@ router.post('/bulk', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// Update timeslot
+// Get all timeslots with creator info (admin only)
+router.get('/admin/with-creators', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const timeslots = await Timeslot.find({})
+      .populate('createdBy', 'name email')
+      .sort({ day: 1, startTime: 1 });
+    console.log(`📅 Admin: Returning ${timeslots.length} timeslots with creator info`);
+    res.json(timeslots);
+  } catch (error) {
+    console.error('Error fetching timeslots with creators:', error);
+    res.status(500).json({ error: 'Failed to fetch timeslots' });
+  }
+});
+
+// Update timeslot (admin can update any, users can update their own)
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -65,8 +81,11 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Label, day, start time, and end time are required' });
     }
 
+    // Check if user is admin or creator of the timeslot
+    const query = req.user.isAdmin ? { _id: id } : { _id: id, createdBy: req.userId };
+    
     const timeslot = await Timeslot.findOneAndUpdate(
-      { _id: id, createdBy: req.userId },
+      query,
       {
         label,
         day,
@@ -79,9 +98,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     );
     
     if (!timeslot) {
-      return res.status(404).json({ error: 'Timeslot not found' });
+      return res.status(404).json({ error: 'Timeslot not found or access denied' });
     }
     
+    console.log(`📅 Updated timeslot ${id} by ${req.user.isAdmin ? 'admin' : 'user'}: ${req.user.email}`);
     res.json(timeslot);
   } catch (error) {
     console.error('Error updating timeslot:', error);
@@ -89,17 +109,21 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete timeslot
+// Delete timeslot (admin can delete any, users can delete their own)
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     
-    const timeslot = await Timeslot.findOneAndDelete({ _id: id, createdBy: req.userId });
+    // Check if user is admin or creator of the timeslot
+    const query = req.user.isAdmin ? { _id: id } : { _id: id, createdBy: req.userId };
+    
+    const timeslot = await Timeslot.findOneAndDelete(query);
     
     if (!timeslot) {
-      return res.status(404).json({ error: 'Timeslot not found' });
+      return res.status(404).json({ error: 'Timeslot not found or access denied' });
     }
     
+    console.log(`📅 Deleted timeslot ${id} by ${req.user.isAdmin ? 'admin' : 'user'}: ${req.user.email}`);
     res.json({ message: 'Timeslot deleted successfully' });
   } catch (error) {
     console.error('Error deleting timeslot:', error);

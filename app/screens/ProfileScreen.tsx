@@ -370,13 +370,13 @@ export default function ProfileScreen() {
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Available Time Slots</Text>
                 <Text style={styles.subsectionDescription}>
-                  Select the time slots when you are available for rehearsals.
+                  Select from the global time slots when you are available for rehearsals. These time slots are created by administrators and available to all cast members.
                 </Text>
                 
                 {timeslots.length === 0 ? (
                   <View style={styles.emptyTimeslots}>
                     <Text style={styles.emptyTimeslotsText}>
-                      No time slots have been created yet. Contact an admin to set up rehearsal times.
+                      No global time slots have been created yet. Contact an admin to set up rehearsal times that will be available to all cast members.
                     </Text>
                   </View>
                 ) : (

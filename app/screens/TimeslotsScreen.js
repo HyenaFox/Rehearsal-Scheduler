@@ -131,7 +131,7 @@ const TimeslotsScreen = ({ onBack }) => {
             <Text style={commonStyles.screenTitle}>⏰ Time Slots</Text>
           </View>
           <Text style={commonStyles.subtitle}>
-            Define available rehearsal time periods
+            Global rehearsal time periods available to all cast members
           </Text>
           
           {isAdmin && (
@@ -150,6 +150,17 @@ const TimeslotsScreen = ({ onBack }) => {
           )}
         </View>
 
+        {!isAdmin && (
+          <View style={[commonStyles.card, { marginBottom: 16, marginHorizontal: 16 }]}>
+            <Text style={[commonStyles.cardTitle, { fontSize: 16, marginBottom: 8 }]}>
+              ℹ️ About Time Slots
+            </Text>
+            <Text style={[commonStyles.text, { fontSize: 14, color: '#6b7280', lineHeight: 20 }]}>
+              These are global time slots created by administrators. You can select your availability for these time slots in your Profile → Actor Settings.
+            </Text>
+          </View>
+        )}
+
         <ScrollView 
           style={commonStyles.scrollView}
           showsVerticalScrollIndicator={false}
@@ -157,7 +168,7 @@ const TimeslotsScreen = ({ onBack }) => {
           {timeslots.length === 0 ? (
             <View style={commonStyles.emptyState}>
               <Text style={commonStyles.emptyStateText}>
-                No time slots defined yet.{isAdmin ? ' Tap "Add Time Slot" to get started!' : ''}
+                No global time slots defined yet.{isAdmin ? ' Tap "Add Time Slot" to get started!' : ' Ask an admin to create time slots for rehearsal scheduling.'}
               </Text>
             </View>
           ) : (

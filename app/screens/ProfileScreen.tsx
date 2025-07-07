@@ -244,27 +244,42 @@ export default function ProfileScreen() {
                   Select the time slots when you are available for rehearsals.
                 </Text>
                 
-                {timeslots.map((timeslot) => {
-                  const timeslotId = timeslot.id || timeslot._id;
-                  return (
-                  <View key={timeslotId} style={styles.checkboxContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.checkbox,
-                        selectedTimeslots.includes(timeslotId) && styles.checkboxSelected
-                      ]}
-                      onPress={() => toggleTimeslot(timeslotId)}
-                    >
-                      {selectedTimeslots.includes(timeslotId) && (
-                        <Text style={styles.checkboxText}>✓</Text>
-                      )}
-                    </TouchableOpacity>
-                    <Text style={styles.checkboxLabel}>
-                      {timeslot.day} - {timeslot.startTime} to {timeslot.endTime}
+                {timeslots.length === 0 ? (
+                  <View style={styles.emptyTimeslots}>
+                    <Text style={styles.emptyTimeslotsText}>
+                      No time slots have been created yet. Contact an admin to set up rehearsal times.
                     </Text>
                   </View>
-                  );
-                })}
+                ) : (
+                  timeslots.map((timeslot) => {
+                    const timeslotId = timeslot.id || timeslot._id;
+                    const isSelected = selectedTimeslots.includes(timeslotId);
+                    return (
+                      <View key={timeslotId} style={styles.timeslotRow}>
+                        <View style={styles.timeslotInfo}>
+                          <Text style={styles.timeslotDay}>{timeslot.day}</Text>
+                          <Text style={styles.timeslotTime}>
+                            {timeslot.startTime} - {timeslot.endTime}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[
+                            styles.availabilityButton,
+                            isSelected ? styles.availableButton : styles.unavailableButton
+                          ]}
+                          onPress={() => toggleTimeslot(timeslotId)}
+                        >
+                          <Text style={[
+                            styles.availabilityButtonText,
+                            isSelected ? styles.availableButtonText : styles.unavailableButtonText
+                          ]}>
+                            {isSelected ? '✅ Available' : '❌ Unavailable'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })
+                )}
               </View>
 
               <View style={styles.subsection}>
@@ -273,27 +288,36 @@ export default function ProfileScreen() {
                   Select the scenes you are involved in.
                 </Text>
                 
-                {scenes.map((scene) => {
-                  const sceneId = scene.id || scene._id;
-                  return (
-                  <View key={sceneId} style={styles.checkboxContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.checkbox,
-                        selectedScenes.includes(sceneId) && styles.checkboxSelected
-                      ]}
-                      onPress={() => toggleScene(sceneId)}
-                    >
-                      {selectedScenes.includes(sceneId) && (
-                        <Text style={styles.checkboxText}>✓</Text>
-                      )}
-                    </TouchableOpacity>
-                    <Text style={styles.checkboxLabel}>
-                      {scene.name}
+                {scenes.length === 0 ? (
+                  <View style={styles.emptyTimeslots}>
+                    <Text style={styles.emptyTimeslotsText}>
+                      No scenes have been created yet. Contact an admin to set up scenes.
                     </Text>
                   </View>
-                  );
-                })}
+                ) : (
+                  scenes.map((scene) => {
+                    const sceneId = scene.id || scene._id;
+                    const isSelected = selectedScenes.includes(sceneId);
+                    return (
+                      <View key={sceneId} style={styles.checkboxContainer}>
+                        <TouchableOpacity
+                          style={[
+                            styles.checkbox,
+                            isSelected && styles.checkboxSelected
+                          ]}
+                          onPress={() => toggleScene(sceneId)}
+                        >
+                          {isSelected && (
+                            <Text style={styles.checkboxText}>✓</Text>
+                          )}
+                        </TouchableOpacity>
+                        <Text style={styles.checkboxLabel}>
+                          {scene.name}
+                        </Text>
+                      </View>
+                    );
+                  })
+                )}
               </View>
             </>
           )}
@@ -473,5 +497,77 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 16,
     fontWeight: '500',
+  },
+  emptyTimeslots: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  emptyTimeslotsText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  timeslotRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginVertical: 4,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  timeslotInfo: {
+    flex: 1,
+  },
+  timeslotDay: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 4,
+    letterSpacing: 0.2,
+  },
+  timeslotTime: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  availabilityButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    minWidth: 120,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  availableButton: {
+    backgroundColor: '#10b981',
+  },
+  unavailableButton: {
+    backgroundColor: '#ef4444',
+  },
+  availabilityButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  availableButtonText: {
+    color: '#ffffff',
+  },
+  unavailableButtonText: {
+    color: '#ffffff',
   },
 });

@@ -31,7 +31,9 @@ const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal, isAdmin = false }) =
               )}
             </View>
             <View style={styles.rehearsalDetails}>
-              <Text style={styles.rehearsalTime}>⏰ {rehearsal.timeslot.label}</Text>
+              <Text style={styles.rehearsalTime}>
+                ⏰ {rehearsal.timeslot.day} - {rehearsal.timeslot.startTime} to {rehearsal.timeslot.endTime}
+              </Text>
               <Text style={styles.rehearsalActors}>
                 🎭 {rehearsal.actors.map(actor => actor.name).join(', ')}
               </Text>

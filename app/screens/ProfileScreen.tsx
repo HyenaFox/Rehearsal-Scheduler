@@ -112,7 +112,7 @@ export default function ProfileScreen() {
       console.log('🎭 Selected timeslots:', selectedTimeslots);
       console.log('🎭 Selected scenes:', selectedScenes);
       console.log('🎭 Available timeslots data:', timeslots.map(t => ({ id: t.id || t._id, day: t.day })));
-      console.log('🎭 Available scenes data:', scenes.map(s => ({ id: s.id || s._id, name: s.name })));
+      console.log('🎭 Available scenes data:', scenes.map(s => ({ id: s.id || s._id, title: s.title })));
       
       // STEP 1: Update the user profile
       console.log('🔄 STEP 1: Updating user profile...');
@@ -441,7 +441,7 @@ export default function ProfileScreen() {
                           )}
                         </TouchableOpacity>
                         <Text style={styles.checkboxLabel}>
-                          {scene.name}
+                          {scene.title}
                         </Text>
                       </View>
                     );

@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const timeslotSchema = new mongoose.Schema({
+  label: {
+    type: String,
+    required: true,
+    trim: true
+  },
   day: {
     type: String,
     required: true,
@@ -33,24 +38,15 @@ const timeslotSchema = new mongoose.Schema({
 timeslotSchema.index({ day: 1, startTime: 1 });
 timeslotSchema.index({ createdBy: 1 });
 
-// Static method to get all timeslots for a user (legacy - keep for compatibility)
+// Static method to get all timeslots for a user
 timeslotSchema.statics.getAllForUser = async function(userId) {
   return this.find({ createdBy: userId }).sort({ day: 1, startTime: 1 });
 };
 
-// Static method to get all global timeslots (available to everyone)
-timeslotSchema.statics.getAllGlobal = async function() {
-  return this.find({}).sort({ day: 1, startTime: 1 });
-};
-
 // Static method to create timeslot
 timeslotSchema.statics.createTimeslot = async function(timeslotData, userId) {
-  const { day, startTime, endTime, description } = timeslotData;
   const timeslot = new this({
-    day,
-    startTime,
-    endTime,
-    description: description || '',
+    ...timeslotData,
     createdBy: userId
   });
   return timeslot.save();

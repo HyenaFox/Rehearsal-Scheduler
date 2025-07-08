@@ -47,18 +47,14 @@ export const isAvailable = (actor, timeslotId) => {
 };
 
 // Helper function to get available timeslots for an actor
-export const getAvailableTimeslots = (actor, allTimeslots = []) => {
-  if (!actor || !actor.availableTimeslots) return [];
-  return allTimeslots.filter(timeslot => 
+export const getAvailableTimeslots = (actor, timeslots = []) => {
+  return timeslots.filter(timeslot => 
     actor.availableTimeslots.includes(timeslot.id || timeslot._id)
   );
 };
 
-export const getScenes = (actor, allScenes = []) => {
-  if (!actor || !actor.scenes) return [];
-  return allScenes.filter(scene =>
-    actor.scenes.includes(scene.id || scene._id)
-  );
+export const getScenes = (actor) => {
+  return actor.scenes;
 };
 
 // Create multiple actors from array data
@@ -73,20 +69,9 @@ export const getActorsAvailableForTimeslot = (actors, timeslotId) => {
   return actors.filter(actor => isAvailable(actor, timeslotId));
 };
 
-// Get actors in a specific scene (by scene ID)
-export const getActorsInScene = (actors, sceneId) => {
-  return actors.filter(actor => {
-    const actorScenes = actor.scenes || [];
-    return actorScenes.includes(sceneId);
-  });
-};
-
-// DEPRECATED: Get actors in a specific scene by scene title (for legacy support)
-export const getActorsInSceneByTitle = (actors, sceneName) => {
-  return actors.filter(actor => {
-    const actorScenes = actor.scenes || [];
-    return actorScenes.includes(sceneName);
-  });
+// Get actors in a specific scene
+export const getActorsInScene = (actors, sceneName) => {
+  return actors.filter(actor => actor.scenes.includes(sceneName));
 };
 
 // Get timeslot by ID

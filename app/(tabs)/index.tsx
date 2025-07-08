@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import AddRehearsalModal from '../components/AddRehearsalModal';
 import AutoSchedulerModal from '../components/AutoSchedulerModal';
 import RehearsalsDisplay from '../components/RehearsalsDisplay';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
-import { commonStyles } from '../styles/common';
 
 export default function RehearsalsScreen() {
   const { actors, rehearsals, handleDeleteRehearsal, handleAddRehearsal, handleAddMultipleRehearsals } = useApp();
@@ -57,44 +56,34 @@ export default function RehearsalsScreen() {
   };
 
   return (
-    <SafeAreaView style={commonStyles.screenContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      <View style={commonStyles.contentContainer}>
-        <View style={commonStyles.headerSection}>
-          <View style={commonStyles.screenTitleContainer}>
-            <Text style={commonStyles.screenTitle}>📅 Shows</Text>
-          </View>
-          <Text style={commonStyles.subtitle}>
-            Manage rehearsals and schedule your production
-          </Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" />
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <Text style={styles.screenTitle}>📅 Rehearsals</Text>
           
           {/* Action Buttons */}
           {isAdmin && (
-            <View style={showStyles.buttonRow}>
+            <View style={styles.buttonRow}>
               <ActionButton 
-                title="➕ Add Show" 
+                title="Add Rehearsal" 
                 onPress={handleAddRehearsalButton} 
-                style={[showStyles.actionButton, { backgroundColor: '#10b981' }]} 
+                style={[styles.actionButton, { backgroundColor: '#10b981' }]} 
               />
               <ActionButton 
                 title="🤖 Auto Schedule" 
                 onPress={handleAutoScheduler} 
-                style={[showStyles.actionButton, { backgroundColor: '#6366f1' }]} 
+                style={[styles.actionButton, { backgroundColor: '#6366f1' }]} 
               />
             </View>
           )}
-        </View>
           
-        <ScrollView 
-          style={commonStyles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
           <RehearsalsDisplay
             rehearsals={rehearsals}
             onDeleteRehearsal={handleDeleteRehearsal}
             isAdmin={isAdmin}
           />
-        </ScrollView>
+        </View>
       </View>
 
       {/* Modals */}
@@ -116,12 +105,30 @@ export default function RehearsalsScreen() {
   );
 }
 
-const showStyles = StyleSheet.create({
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 20,
+    letterSpacing: 0.3,
+  },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
-    gap: 16,
+    marginBottom: 20,
+    gap: 12,
   },
   actionButton: {
     flex: 1,

@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
+import { Alert, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
-import AutoPopulateModal from '../components/AutoPopulateModal';
-import Card from '../components/Card';
+import TimeslotCalendar from '../components/TimeslotCalendar';
 import TimeslotEditModal from '../components/TimeslotEditModal';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,8 +17,93 @@ const TimeslotsScreen = ({ onBack }) => {
   
   const [editingTimeslot, setEditingTimeslot] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [isAutoPopulateModalVisible, setIsAutoPopulateModalVisible] = useState(false);
   
+  const handleTimeslotMove = async (timeslot, newDay, newStartTime) => {
+    if (!isAdmin) return;
+    
+    try {
+      const updatedTimeslot = {
+        ...timeslot,
+        day: newDay,
+        startTime: newStartTime,
+        // Keep the same duration
+        endTime: calculateEndTime(newStartTime, timeslot.startTime, timeslot.endTime)
+      };
+      
+      const savedTimeslot = await ApiService.updateTimeslot(timeslot.id || timeslot._id, updatedTimeslot);
+      const updatedTimeslots = timeslots.map(t => 
+        (t.id || t._id) === (timeslot.id || timeslot._id) ? savedTimeslot : t
+      );
+      
+      setTimeslots(updatedTimeslots);
+      console.log('✅ Timeslot moved successfully');
+    } catch (error) {
+      console.error('❌ Error moving timeslot:', error);
+      Alert.alert('Error', 'Failed to move timeslot');
+    }
+  };
+
+  const handleTimeslotResize = async (timeslot, direction, timeChangeMinutes) => {
+    if (!isAdmin) return;
+    
+    try {
+      const updatedTimeslot = { ...timeslot };
+      
+      if (direction === 'start') {
+        updatedTimeslot.startTime = adjustTime(timeslot.startTime, timeChangeMinutes);
+      } else {
+        updatedTimeslot.endTime = adjustTime(timeslot.endTime, timeChangeMinutes);
+      }
+      
+      const savedTimeslot = await ApiService.updateTimeslot(timeslot.id || timeslot._id, updatedTimeslot);
+      const updatedTimeslots = timeslots.map(t => 
+        (t.id || t._id) === (timeslot.id || timeslot._id) ? savedTimeslot : t
+      );
+      
+      setTimeslots(updatedTimeslots);
+      console.log('✅ Timeslot resized successfully');
+    } catch (error) {
+      console.error('❌ Error resizing timeslot:', error);
+      Alert.alert('Error', 'Failed to resize timeslot');
+    }
+  };
+
+  // Helper function to calculate end time when moving
+  const calculateEndTime = (newStartTime, oldStartTime, oldEndTime) => {
+    // Calculate duration and apply to new start time
+    const oldStartMinutes = timeToMinutes(oldStartTime);
+    const oldEndMinutes = timeToMinutes(oldEndTime);
+    const duration = oldEndMinutes - oldStartMinutes;
+    const newStartMinutes = timeToMinutes(newStartTime);
+    return minutesToTime(newStartMinutes + duration);
+  };
+
+  // Helper function to adjust time by minutes
+  const adjustTime = (timeStr, minutesChange) => {
+    const minutes = timeToMinutes(timeStr);
+    return minutesToTime(Math.max(0, minutes + minutesChange));
+  };
+
+  // Helper functions for time conversion
+  const timeToMinutes = (timeStr) => {
+    const [time, period] = timeStr.split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    let hour24 = hours;
+    
+    if (period === 'PM' && hours !== 12) hour24 += 12;
+    if (period === 'AM' && hours === 12) hour24 = 0;
+    
+    return hour24 * 60 + (minutes || 0);
+  };
+
+  const minutesToTime = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${displayHour}:${mins.toString().padStart(2, '0')} ${period}`;
+  };
+
   const handleDeleteTimeslot = async (timeslotToDelete) => {
     if (!isAdmin) {
       Alert.alert('Access Denied', 'Only administrators can delete timeslots.');
@@ -54,6 +138,7 @@ const TimeslotsScreen = ({ onBack }) => {
     
     try {
       const newTimeslot = {
+        label: 'New Timeslot',
         day: 'Monday',
         startTime: '9:00 AM',
         endTime: '11:00 AM',
@@ -70,178 +155,69 @@ const TimeslotsScreen = ({ onBack }) => {
     }
   };
 
-  const formatTime12Hour = (date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const handleAutoPopulate = async (startTime, endTime) => {
-    if (!isAdmin) {
-      Alert.alert('Access Denied', 'Only administrators can auto-populate timeslots.');
-      return;
-    }
-
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const newTimeslots = [];
-
-    // Basic time parsing (assumes HH:mm format)
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-
-    days.forEach(day => {
-      let current = new Date();
-      current.setHours(startHour, startMinute, 0, 0);
-      
-      const end = new Date();
-      end.setHours(endHour, endMinute, 0, 0);
-
-      while (current < end) {
-        const next = new Date(current.getTime() + 30 * 60000);
-        if (next > end) break;
-
-        newTimeslots.push({
-          day,
-          startTime: formatTime12Hour(current),
-          endTime: formatTime12Hour(next),
-          description: 'Auto-populated',
-        });
-        current = next;
-      }
-    });
-
-    try {
-      const createdTimeslots = await ApiService.createTimeslotsBulk(newTimeslots);
-      setTimeslots(prev => [...prev, ...createdTimeslots]);
-      console.log('✅ Timeslots auto-populated successfully');
-    } catch (error) {
-      console.error('❌ Error auto-populating timeslots:', error);
-      Alert.alert('Error', 'Failed to auto-populate timeslots');
-    }
-  };
-
   return (
-    <SafeAreaView style={commonStyles.screenContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      <View style={commonStyles.contentContainer}>
-        <View style={commonStyles.headerSection}>
-          <View style={commonStyles.screenTitleContainer}>
-            <Text style={commonStyles.screenTitle}>⏰ Time Slots</Text>
-          </View>
-          <Text style={commonStyles.subtitle}>
-            Global rehearsal time periods available to all cast members
-          </Text>
-          
+    <SafeAreaView style={commonStyles.container}>
+      <StatusBar barStyle="light-content" />
+      <View style={commonStyles.container}>
+        <View style={commonStyles.header}>
+          <TouchableOpacity style={commonStyles.backButton} onPress={onBack}>
+            <Text style={commonStyles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={commonStyles.headerTitle}>Manage Timeslots</Text>
+        </View>
+
+        <View style={commonStyles.scrollView}>
           {isAdmin && (
-            <View style={timeslotStyles.buttonContainer}>
-              <ActionButton 
-                title="➕ Add Time Slot" 
-                onPress={handleAddTimeslot} 
-                style={timeslotStyles.actionButton}
-              />
-              <ActionButton 
-                title="🤖 Auto-populate" 
-                onPress={() => setIsAutoPopulateModalVisible(true)} 
-                style={timeslotStyles.actionButton}
-              />
+            <ActionButton title="Add New Timeslot" onPress={handleAddTimeslot} />
+          )}
+
+          <TimeslotCalendar 
+            timeslots={timeslots} 
+            isAdmin={isAdmin}
+            isDraggable={isAdmin}
+            onTimeslotUpdate={(updatedTimeslot) => {
+              setEditingTimeslot(updatedTimeslot);
+              setShowEditModal(true);
+            }}
+            onTimeslotDelete={handleDeleteTimeslot}
+            onTimeslotMove={handleTimeslotMove}
+            onTimeslotResize={handleTimeslotResize}
+          />
+          {timeslots.length === 0 && (
+            <View style={commonStyles.emptyState}>
+              <Text style={commonStyles.emptyStateText}>No timeslots available</Text>
             </View>
           )}
         </View>
 
-        {!isAdmin && (
-          <View style={[commonStyles.card, { marginBottom: 16, marginHorizontal: 16 }]}>
-            <Text style={[commonStyles.cardTitle, { fontSize: 16, marginBottom: 8 }]}>
-              ℹ️ About Time Slots
-            </Text>
-            <Text style={[commonStyles.text, { fontSize: 14, color: '#6b7280', lineHeight: 20 }]}>
-              These are global time slots created by administrators. You can select your availability for these time slots in your Profile → Actor Settings.
-            </Text>
-          </View>
-        )}
-
-        <ScrollView 
-          style={commonStyles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
-          {timeslots.length === 0 ? (
-            <View style={commonStyles.emptyState}>
-              <Text style={commonStyles.emptyStateText}>
-                No global time slots defined yet.{isAdmin ? ' Tap "Add Time Slot" to get started!' : ' Ask an admin to create time slots for rehearsal scheduling.'}
-              </Text>
-            </View>
-          ) : (
-            timeslots.map(timeslot => (
-              <Card
-                key={timeslot.id}
-                title={`${timeslot.startTime} - ${timeslot.endTime}`}
-                sections={[
-                  {
-                    title: 'Day',
-                    content: timeslot.day
-                  },
-                  {
-                    title: 'Description',
-                    content: timeslot.description || 'No description provided'
-                  }
-                ]}
-                onEdit={isAdmin ? () => {
-                  setEditingTimeslot(timeslot);
-                  setShowEditModal(true);
-                } : undefined}
-                onDelete={isAdmin ? () => handleDeleteTimeslot(timeslot) : undefined}
-              />
-            ))
-          )}
-        </ScrollView>
-      </View>
-
-      {/* Timeslot Edit Modal */}
-      <TimeslotEditModal
-        timeslot={editingTimeslot}
-        visible={showEditModal}
-        onSave={async (updatedTimeslot) => {
-          try {
-            const savedTimeslot = await ApiService.updateTimeslot(updatedTimeslot.id || updatedTimeslot._id, updatedTimeslot);
-            const updatedTimeslots = timeslots.map(t => 
-              (t.id || t._id) === (updatedTimeslot.id || updatedTimeslot._id) ? savedTimeslot : t
-            );
-            
-            setTimeslots(updatedTimeslots);
+        {/* Timeslot Edit Modal */}
+        <TimeslotEditModal
+          timeslot={editingTimeslot}
+          visible={showEditModal}
+          onSave={async (updatedTimeslot) => {
+            try {
+              const savedTimeslot = await ApiService.updateTimeslot(updatedTimeslot.id || updatedTimeslot._id, updatedTimeslot);
+              const updatedTimeslots = timeslots.map(t => 
+                (t.id || t._id) === (updatedTimeslot.id || updatedTimeslot._id) ? savedTimeslot : t
+              );
+              
+              setTimeslots(updatedTimeslots);
+              setShowEditModal(false);
+              setEditingTimeslot(null);
+              console.log('✅ Timeslot updated successfully');
+            } catch (error) {
+              console.error('❌ Error updating timeslot:', error);
+              Alert.alert('Error', 'Failed to update timeslot');
+            }
+          }}
+          onCancel={() => {
             setShowEditModal(false);
             setEditingTimeslot(null);
-            console.log('✅ Timeslot updated successfully');
-          } catch (error) {
-            console.error('❌ Error updating timeslot:', error);
-            Alert.alert('Error', 'Failed to update timeslot');
-          }
-        }}
-        onCancel={() => {
-          setShowEditModal(false);
-          setEditingTimeslot(null);
-        }}
-      />
-
-      {/* Auto-populate Modal */}
-      <AutoPopulateModal
-        visible={isAutoPopulateModalVisible}
-        onClose={() => setIsAutoPopulateModalVisible(false)}
-        onPopulate={handleAutoPopulate}
-      />
+          }}
+        />
+      </View>
     </SafeAreaView>
   );
-};
-
-const timeslotStyles = {
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 8,
-  },
-  actionButton: {
-    flex: 1,
-  },
 };
 
 export default TimeslotsScreen;

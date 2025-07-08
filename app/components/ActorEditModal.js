@@ -1,8 +1,7 @@
-import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useApp } from '../contexts/AppContext';
 import { commonStyles } from '../styles/common';
+import { useApp } from '../contexts/AppContext';
 
 const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
   const { timeslots, scenes } = useApp();
@@ -36,7 +35,6 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
 
   const handleSave = () => {
     if (editedName.trim()) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onSave({
         ...actor,
         name: editedName.trim(),
@@ -88,27 +86,23 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
             ))}
 
             <Text style={styles.sectionTitle}>Scenes:</Text>
-            {scenes.map(scene => {
-              const sceneId = scene.id || scene._id;
-              const isSelected = selectedScenes.includes(sceneId);
-              return (
-                <TouchableOpacity
-                  key={sceneId}
-                  style={[
-                    styles.checkboxItem,
-                    isSelected && styles.checkboxItemSelected
-                  ]}
-                  onPress={() => toggleScene(sceneId)}
-                >
-                  <Text style={[
-                    styles.checkboxText,
-                    isSelected && styles.checkboxTextSelected
-                  ]}>
-                    {isSelected ? '✓' : '○'} {scene.title}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            {scenes.map(scene => (
+              <TouchableOpacity
+                key={scene.id || scene._id}
+                style={[
+                  styles.checkboxItem,
+                  selectedScenes.includes(scene.id || scene._id) && styles.checkboxItemSelected
+                ]}
+                onPress={() => toggleScene(scene.id || scene._id)}
+              >
+                <Text style={[
+                  styles.checkboxText,
+                  selectedScenes.includes(scene.id || scene._id) && styles.checkboxTextSelected
+                ]}>
+                  {selectedScenes.includes(scene.id || scene._id) ? '✓' : '○'} {scene.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
 
           <View style={commonStyles.modalButtons}>

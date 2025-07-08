@@ -1,8 +1,6 @@
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { signInWithGoogle } from '../services/googleAuth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -11,49 +9,7 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login, register, skipLogin, googleLogin } = useAuth();
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      GoogleSignin.configure({
-        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-      });
-    }
-  }, []);
-
-  const handleGoogleSignIn = async () => {
-    if (Platform.OS === 'web') {
-      try {
-        // For web, this will redirect to Google OAuth and then to our callback
-        signInWithGoogle(); // This redirects, callback page handles the rest
-      } catch (error: any) {
-        console.error('Google Sign-In Error:', error);
-        Alert.alert('Google Sign-In Failed', error.message || 'Could not sign in with Google. Please try again.');
-      }
-    } else {
-      try {
-        await GoogleSignin.hasPlayServices();
-        const response = await GoogleSignin.signIn();
-        if ((response as any).idToken) {
-          const success = await googleLogin((response as any).idToken);
-          if (!success) {
-            Alert.alert('Google Sign-In Failed', 'Could not sign in with Google. Please try again.');
-          }
-        }
-      } catch (error: any) {
-        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-          // user cancelled the login flow
-        } else if (error.code === statusCodes.IN_PROGRESS) {
-          // operation (e.g. sign in) is in progress already
-        } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-          // play services not available or outdated
-        } else {
-          // some other error happened
-          Alert.alert('Google Sign-In Error', 'An unexpected error occurred.');
-        }
-      }
-    }
-  };
+  const { login, register, skipLogin } = useAuth();
 
   const handleSubmit = async () => {
     if (!email || !password || (isRegisterMode && !name)) {
@@ -150,10 +106,6 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn}>
-            <Text style={styles.googleButtonText}>Sign in with Google</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.toggleButton} onPress={toggleMode}>
             <Text style={styles.toggleButtonText}>
               {isRegisterMode 
@@ -176,7 +128,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#f5f5f5',
   },
   content: {
     flex: 1,
@@ -184,118 +136,85 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   title: {
-    fontSize: 36,
-    fontWeight: '900',
+    fontSize: 32,
+    fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
-    color: '#fff',
-    letterSpacing: 1,
+    color: '#333',
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 40,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
+    marginBottom: 32,
+    color: '#666',
   },
   form: {
     backgroundColor: 'white',
-    borderRadius: 32,
-    padding: 32,
+    borderRadius: 12,
+    padding: 24,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 12,
+      height: 2,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: '#374151',
-    letterSpacing: 0.5,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
   },
   input: {
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: '#f9fafb',
-    fontWeight: '500',
+    backgroundColor: '#f9f9f9',
   },
   submitButton: {
-    backgroundColor: '#6366f1',
-    borderRadius: 20,
-    paddingVertical: 18,
-    marginTop: 12,
-    marginBottom: 20,
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 16,
   },
   disabledButton: {
-    backgroundColor: '#d1d5db',
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: '#ccc',
   },
   submitButtonText: {
     color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
-    letterSpacing: 0.5,
   },
   toggleButton: {
-    paddingVertical: 12,
-    marginTop: 8,
+    paddingVertical: 8,
   },
   toggleButtonText: {
-    color: '#6366f1',
-    fontSize: 15,
+    color: '#007AFF',
+    fontSize: 14,
     textAlign: 'center',
-    fontWeight: '600',
   },
   skipButton: {
-    paddingVertical: 16,
-    marginTop: 20,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderRadius: 16,
-    backgroundColor: '#f9fafb',
+    paddingVertical: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#f8f8f8',
   },
   skipButtonText: {
-    color: '#6b7280',
-    fontSize: 15,
+    color: '#666',
+    fontSize: 14,
     textAlign: 'center',
-    fontWeight: '600',
-  },
-  googleButton: {
-    backgroundColor: '#4285F4',
-    borderRadius: 20,
-    paddingVertical: 18,
-    marginTop: 12,
-    marginBottom: 20,
-    shadowColor: '#4285F4',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  googleButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-    letterSpacing: 0.5,
+    fontWeight: '500',
   },
 });

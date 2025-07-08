@@ -16,10 +16,8 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  isLoggingIn: boolean; // Add this line
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
-  googleLogin: (tokenOrCode: string, isCode?: boolean) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
@@ -39,40 +37,100 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with true - we need to check for existing auth
+  const [initializationAttempted, setInitializationAttempted] = useState(false);
 
   // Initialize authentication state - check for existing tokens
   useEffect(() => {
-    let isMounted = true;
+    // Prevent multiple initialization attempts
+    if (initializationAttempted) {
+      console.log('🚀 AuthProvider - Initialization already attempted, skipping...');
+      return;
+    }
 
+    let isMounted = true;
+    
+    // Add a timeout fallback to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.log('⏰ AuthProvider - Initialization timeout, forcing completion');
+        setIsLoading(false);
+      }
+    }, 10000); // 10 second timeout
+    
     const initializeAuth = async () => {
+      console.log('🚀 AuthProvider - Starting initialization...');
+      setInitializationAttempted(true);
+      
       try {
+        // Check if we have a stored token
         const token = await StorageService.getItem('auth_token');
+        
         if (token) {
-          const currentUser = await ApiService.getCurrentUser();
-          if (currentUser && isMounted) {
-            setUser(currentUser);
-          } else {
-            await StorageService.removeItem('auth_token');
+          console.log('🔑 Found existing auth token, validating user...');
+          
+          try {
+            // Validate the token by getting current user with timeout
+            const currentUser = await Promise.race([
+              ApiService.getCurrentUser(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('getCurrentUser timeout')), 5000)
+              )
+            ]) as any;
+            
+            if (currentUser && isMounted) {
+              console.log('✅ Token valid, restoring user session:', currentUser.email);
+              setUser({
+                id: currentUser.id,
+                email: currentUser.email,
+                name: currentUser.name,
+                phone: currentUser.phone || '',
+                isActor: currentUser.isActor,
+                isAdmin: currentUser.isAdmin || false,
+                availableTimeslots: currentUser.availableTimeslots || [],
+                scenes: currentUser.scenes || []
+              });
+            } else if (isMounted) {
+              console.log('❌ Token invalid or no user returned, removing token...');
+              await StorageService.removeItem('auth_token');
+            }
+          } catch (error) {
+            console.log('❌ Token validation failed:', error);
+            if (isMounted) {
+              console.log('🧹 Cleaning up invalid token...');
+              await StorageService.removeItem('auth_token');
+            }
           }
+        } else {
+          console.log('🔍 No existing auth token found');
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
-        await StorageService.removeItem('auth_token');
-      } finally {
+        console.error('❌ Auth initialization error:', error);
+        // Clear any potentially corrupted auth data
         if (isMounted) {
+          try {
+            await StorageService.clearAuthData();
+          } catch (clearError) {
+            console.error('❌ Failed to clear auth data:', clearError);
+          }
+        }
+      } finally {
+        clearTimeout(timeoutId);
+        if (isMounted) {
+          console.log('✅ Auth initialization complete');
           setIsLoading(false);
         }
       }
     };
 
     initializeAuth();
-
+    
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount
 
   useEffect(() => {
     console.log('AuthProvider - user state changed:', user ? `logged in as ${user.email}` : 'logged out');
@@ -181,21 +239,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const googleLogin = useCallback(async (tokenOrCode: string, isCode: boolean = false) => {
-    setIsLoggingIn(true); // Set loading state to true
-    try {
-      const { token, user } = await ApiService.googleLogin(tokenOrCode, isCode);
-      await StorageService.setItem('auth_token', token);
-      setUser(user);
-      return true;
-    } catch (error) {
-      console.error('Google login error in AuthContext:', error);
-      return false;
-    } finally {
-      setIsLoggingIn(false); // Set loading state to false
-    }
-  }, []);
-
   const logout = useCallback(() => {
     console.log('Logout called');
     ApiService.logout();
@@ -208,17 +251,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }, []);
 
-  const updateProfile = useCallback(async (updates: Partial<User>): Promise<void> => {
-    if (!user) return;
+  const updateProfile = async (updates: Partial<User>): Promise<void> => {
+    if (!user) throw new Error('No user logged in');
 
     try {
-      const updatedUser = await ApiService.updateProfile(updates);
-      setUser(prevUser => ({ ...prevUser, ...updatedUser }));
+      const updatedUser = await ApiService.updateProfile({
+        name: updates.name || user.name,
+        phone: updates.phone || user.phone,
+        isActor: updates.isActor !== undefined ? updates.isActor : user.isActor,
+        availableTimeslots: updates.availableTimeslots || user.availableTimeslots,
+        scenes: updates.scenes || user.scenes
+      });
+
+      setUser({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        phone: updatedUser.phone || '',
+        isActor: updatedUser.isActor,
+        isAdmin: updatedUser.isAdmin || false,
+        availableTimeslots: updatedUser.availableTimeslots || [],
+        scenes: updatedUser.scenes || []
+      });
     } catch (error) {
-      console.error('Error updating profile in AuthContext:', error);
+      console.error('Update profile error:', error);
       throw error;
     }
-  }, [user]);
+  };
 
   const setUserAsActor = async (availableTimeslots: string[], scenes: string[]): Promise<void> => {
     await updateProfile({
@@ -248,7 +307,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value: AuthContextType = {
     user,
     isLoading,
-    isLoggingIn, // Add this line
     login,
     register,
     logout,
@@ -256,7 +314,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserAsActor,
     forceLogout,
     skipLogin,
-    googleLogin // Add this line
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

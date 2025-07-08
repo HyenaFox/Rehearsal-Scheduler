@@ -1,23 +1,13 @@
-import { User } from '../contexts/AuthContext';
 import { StorageService } from './storage';
 
 // Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
-  // For local development, always use localhost:3000
-  if (__DEV__) {
-    const localApiUrl = 'http://localhost:3000/api';
-    console.log(`⚠️ Development mode, forcing API URL to: ${localApiUrl}`);
-    return localApiUrl;
-  }
-
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  const envUrl = process.env.EXPO_PUBLIC_API_URL || (typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_API_URL);
   if (envUrl) {
     console.log('🌐 Using EXPO_PUBLIC_API_URL from environment:', envUrl);
     return envUrl;
   }
-
-  // Fallback for production if the env var isn't set for some reason
-  return 'https://rehearsal-scheduler-backend.onrender.com/api';
+  throw new Error('EXPO_PUBLIC_API_URL environment variable is not set. Please set it in your environment.');
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -150,17 +140,6 @@ class ApiService {
     return response;
   }
 
-  static async googleLogin(tokenOrCode: string, isCode: boolean = false): Promise<{ token: string; user: any }> {
-    const body = isCode 
-      ? JSON.stringify({ code: tokenOrCode })
-      : JSON.stringify({ token: tokenOrCode });
-      
-    return this.makeRequest('/auth/google', {
-      method: 'POST',
-      body,
-    });
-  }
-
   static async logout() {
     await this.removeAuthToken();
   }
@@ -177,10 +156,16 @@ class ApiService {
     }
   }
 
-  static async updateProfile(updates: Partial<User>): Promise<any> {
+  static async updateProfile(profileData: {
+    name: string;
+    phone?: string;
+    isActor: boolean;
+    availableTimeslots?: string[];
+    scenes?: string[];
+  }) {
     return await this.makeRequest('/auth/profile', {
       method: 'PUT',
-      body: JSON.stringify(updates),
+      body: JSON.stringify(profileData),
     });
   }
 
@@ -218,24 +203,17 @@ class ApiService {
     return this.makeRequest('/timeslots');
   }
 
-  static async createTimeslot(timeslotData: any): Promise<any> {
+  static async createTimeslot(timeslot: any): Promise<any> {
     return this.makeRequest('/timeslots', {
       method: 'POST',
-      body: JSON.stringify(timeslotData),
+      body: JSON.stringify(timeslot),
     });
   }
 
-  static async createTimeslotsBulk(timeslots: any[]): Promise<any[]> {
-    return this.makeRequest('/timeslots/bulk', {
-      method: 'POST',
-      body: JSON.stringify({ timeslots }),
-    });
-  }
-
-  static async updateTimeslot(id: string, updates: any): Promise<any> {
+  static async updateTimeslot(id: string, timeslot: any): Promise<any> {
     return this.makeRequest(`/timeslots/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(updates),
+      body: JSON.stringify(timeslot),
     });
   }
 
@@ -419,15 +397,9 @@ class ApiService {
     return this.makeRequest('/calendar/available-slots');
   }
 
-  static async importGoogleCalendarAvailability(): Promise<{
-    availableSlots: any[];
-    unavailableSlots?: any[];
-    totalTimeslots: number;
-    busyEventsCount: number;
-    dateRange: { from: string; to: string };
-  }> {
+  static async importGoogleCalendarAvailability(): Promise<any[]> {
     const response = await this.makeRequest('/calendar/import-availability');
-    return response;
+    return response.availableSlots || [];
   }
 
   static async importSelectedSlots(selectedSlots: any[]): Promise<any> {

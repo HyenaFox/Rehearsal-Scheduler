@@ -53,14 +53,13 @@ const userSchema = new mongoose.Schema({
   googleEmail: {
     type: String,
     default: null
-  },
-  googleId: {
-    type: String,
-    default: null
   }
 }, {
   timestamps: true // This adds createdAt and updatedAt automatically
 });
+
+// Index for faster email lookups
+userSchema.index({ email: 1 });
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
@@ -89,7 +88,7 @@ userSchema.statics.findByEmail = function(email) {
 
 // Static method to create user
 userSchema.statics.createUser = async function(userData) {
-  const { email, password, name, phone, isActor, googleId } = userData;
+  const { email, password, name, phone, isActor } = userData;
   
   // Check if user already exists
   const existingUser = await this.findByEmail(email);
@@ -97,27 +96,16 @@ userSchema.statics.createUser = async function(userData) {
     throw new Error('User with this email already exists');
   }
   
-  const userDoc = {
+  const user = new this({
     email,
+    password_hash: password, // Will be hashed by pre-save hook
     name,
     phone: phone || '',
     isActor: isActor || false,
     availableTimeslots: [],
     scenes: []
-  };
-
-  // Add password hash for regular users
-  if (password) {
-    userDoc.password_hash = password; // Will be hashed by pre-save hook
-  } else if (googleId) {
-    // For Google users, create a random password hash to satisfy schema requirements
-    userDoc.password_hash = Math.random().toString(36).substring(2);
-    userDoc.googleId = googleId;
-  } else {
-    throw new Error('Either password or googleId must be provided');
-  }
+  });
   
-  const user = new this(userDoc);
   return user.save();
 };
 
@@ -136,20 +124,11 @@ userSchema.statics.updateUser = async function(id, updates) {
   );
 };
 
-// Static method to update an actor
-userSchema.statics.updateActor = async function(actorId, actorData) {
-  // Ensure that any user being updated as an actor has the isActor flag set
-  const updateData = {
-    ...actorData,
-    isActor: true,
-  };
-  
-  return this.findByIdAndUpdate(actorId, updateData, { new: true });
-};
-
 // Static method to get all actors
-userSchema.statics.getAllActors = function() {
-  return this.find({ isActor: true });
+userSchema.statics.getAllActors = async function() {
+  return this.find({ isActor: true })
+    .select('name email phone availableTimeslots scenes createdAt updatedAt')
+    .sort({ name: 1 });
 };
 
 // Static method to create actor
@@ -173,6 +152,36 @@ userSchema.statics.createActor = async function(actorData) {
 // Static method to validate ObjectId
 userSchema.statics.isValidObjectId = function(id) {
   return mongoose.Types.ObjectId.isValid(id);
+};
+
+// Static method to update actor
+userSchema.statics.updateActor = async function(id, actorData) {
+  // Validate ID
+  if (!id || id === 'undefined' || id === 'null') {
+    throw new Error('Invalid actor ID provided');
+  }
+  
+  // Validate ObjectId format
+  if (!this.isValidObjectId(id)) {
+    throw new Error('Invalid ObjectId format');
+  }
+  
+  const { name, availableTimeslots, scenes } = actorData;
+  
+  return this.findByIdAndUpdate(
+    id,
+    {
+      name,
+      availableTimeslots: availableTimeslots || [],
+      scenes: scenes || [],
+      isActor: true,
+      updatedAt: new Date()
+    },
+    {
+      new: true, // Return the updated document
+      runValidators: true // Run schema validations
+    }
+  );
 };
 
 // Static method to delete actor

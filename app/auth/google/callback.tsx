@@ -1,59 +1,49 @@
-import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
-import { useAuth } from '../../contexts/AuthContext';
+import { Text, View } from 'react-native';
 
 export default function GoogleCallback() {
-  const { googleLogin } = useAuth();
-
   useEffect(() => {
-    console.log('🔗 Google callback page loaded');
-    console.log('🔗 Current URL:', window.location.href);
-    console.log('🔗 Search params:', window.location.search);
-    console.log('🔗 Hash:', window.location.hash);
-    
-    const handleLogin = async (tokenOrCode: string, isCode: boolean = false) => {
-      const success = await googleLogin(tokenOrCode, isCode);
-      // Redirect immediately based on success, don't wait for other state changes
-      if (success) {
-        router.replace('/(tabs)/profile');
-      } else {
-        alert('Google login failed. Please try again.');
-        router.replace('/');
-      }
-    };
-
-    // Check for authorization code (from query params)
+    // Extract the authorization code from URL
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
-    
-    if (code) {
-      handleLogin(code, true);
+    const error = urlParams.get('error');
+
+    if (error) {
+      // Send error message to parent window
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'GOOGLE_AUTH_ERROR',
+          error: error
+        }, window.location.origin);
+      }
+      window.close();
       return;
     }
 
-    // Fallback: Check for ID token (from hash - legacy flow)
-    const hash = window.location.hash.substring(1);
-    const hashParams = new URLSearchParams(hash);
-    const idToken = hashParams.get('id_token');
-
-    if (idToken) {
-      handleLogin(idToken, false);
+    if (code) {
+      // Send the authorization code to parent window
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'GOOGLE_AUTH_SUCCESS',
+          code: code
+        }, window.location.origin);
+      }
+      window.close();
     } else {
-      // Use a timeout to ensure any initial rendering is complete before alerting
-      setTimeout(() => {
-        alert('Login Error: No authorization code or token received from Google.');
-        router.replace('/');
-      }, 100);
-    };
-    // The dependency array is intentionally empty to ensure this runs only once.
-     
-  }, [googleLogin]);
+      // No code or error - something went wrong
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'GOOGLE_AUTH_ERROR',
+          error: 'No authorization code received'
+        }, window.location.origin);
+      }
+      window.close();
+    }
+  }, []);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <ActivityIndicator size="large" />
-      <Text style={{ marginTop: 20 }}>Finalizing login...</Text>
+      <Text>Processing Google Sign-In...</Text>
     </View>
   );
 }

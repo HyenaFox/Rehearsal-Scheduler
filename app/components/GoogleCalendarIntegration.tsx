@@ -145,25 +145,13 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
       const importResponse = await ApiService.importGoogleCalendarAvailability();
       console.log('Import response:', importResponse);
       
-      // The response should have availableSlots array and potentially unavailableSlots
-      if (!importResponse || !importResponse.availableSlots || !Array.isArray(importResponse.availableSlots)) {
+      // The response should have availableSlots array
+      if (!importResponse || !Array.isArray(importResponse)) {
         Alert.alert('Error', 'Invalid response from Google Calendar import');
         return;
       }
 
-      const availableSlots = importResponse.availableSlots || [];
-      const unavailableSlots = importResponse.unavailableSlots || [];
-      const totalTimeslots = importResponse.totalTimeslots || 0;
-      const busyEventsCount = importResponse.busyEventsCount || 0;
-
-      console.log('Import response details:', {
-        availableSlots: availableSlots.length,
-        unavailableSlots: unavailableSlots.length,
-        totalTimeslots,
-        busyEventsCount
-      });
-
-      const validSlots = availableSlots.filter((slot: any) => {
+      const validSlots = importResponse.filter((slot: any) => {
         // Check if this slot corresponds to an existing timeslot
         const matchingTimeslot = timeslots.find(timeslot => 
           timeslot.id === slot.timeslotId || 
@@ -174,16 +162,12 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
         return !!matchingTimeslot;
       });
 
-      console.log('Valid slots found:', validSlots.length, 'out of', availableSlots.length);
+      console.log('Valid slots found:', validSlots.length, 'out of', importResponse.length);
 
       if (validSlots.length === 0) {
-        const conflictMessage = unavailableSlots.length > 0 
-          ? `\n\n${unavailableSlots.length} timeslots have conflicts with your Google Calendar events.`
-          : '';
-        
         Alert.alert(
-          'No Available Timeslots', 
-          `No timeslots are available based on your Google Calendar.${conflictMessage}\n\nFound ${busyEventsCount} events in your calendar that conflict with rehearsal times.`
+          'No Matching Timeslots', 
+          `No available times from your Google Calendar match the rehearsal timeslots. Found ${importResponse.length} potential slots but none matched existing timeslots.`
         );
         return;
       }
@@ -192,13 +176,9 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
       const availableTimeslotIds = validSlots.map((slot: any) => slot.timeslotId);
       console.log('Available timeslot IDs:', availableTimeslotIds);
       
-      const conflictInfo = unavailableSlots.length > 0 
-        ? `\n\n${unavailableSlots.length} other timeslots have conflicts with your calendar.`
-        : '';
-      
       Alert.alert(
         'Import Successful',
-        `Found ${validSlots.length} available timeslots from your Google Calendar analysis.${conflictInfo}\n\nAnalyzed ${busyEventsCount} calendar events. These available timeslots will be added to your profile.`,
+        `Found ${validSlots.length} available timeslots from your Google Calendar. These will be added to your availability.`,
         [
           {
             text: 'Cancel',
@@ -233,7 +213,7 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
     <View style={styles.container}>
       <Text style={styles.title}>📅 Google Calendar Integration</Text>
       <Text style={styles.description}>
-        Connect your Google Calendar to automatically identify which rehearsal timeslots are available based on your existing calendar events. Timeslots will be marked as available only if you have no conflicting events.
+        Connect your Google Calendar to automatically import your availability
       </Text>
 
       {!isConnected ? (
@@ -258,7 +238,7 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
             disabled={isLoading}
           >
             <Text style={styles.buttonText}>
-              {isLoading ? 'Analyzing Calendar...' : 'Check Availability'}
+              {isLoading ? 'Importing...' : 'Import Availability'}
             </Text>
           </TouchableOpacity>
         </View>

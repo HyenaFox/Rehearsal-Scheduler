@@ -470,10 +470,21 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* Google Calendar Integration - available to all users */}
+        <View style={commonStyles.card}>
+          <Text style={commonStyles.cardTitle}>Google Calendar Integration</Text>
+          <Text style={commonStyles.sectionText}>
+            Connect your Google Calendar to automatically sync your availability with rehearsal time slots.
+          </Text>
+          <GoogleCalendarIntegration />
+        </View>
+
         {user.isAdmin && (
           <View style={commonStyles.card}>
             <Text style={commonStyles.cardTitle}>Admin Tools</Text>
-            <GoogleCalendarIntegration />
+            <Text style={commonStyles.sectionText}>
+              Administrative functions and system management tools.
+            </Text>
           </View>
         )}
       </ScrollView>

@@ -419,9 +419,15 @@ class ApiService {
     return this.makeRequest('/calendar/available-slots');
   }
 
-  static async importGoogleCalendarAvailability(): Promise<any[]> {
+  static async importGoogleCalendarAvailability(): Promise<{
+    availableSlots: any[];
+    unavailableSlots?: any[];
+    totalTimeslots: number;
+    busyEventsCount: number;
+    dateRange: { from: string; to: string };
+  }> {
     const response = await this.makeRequest('/calendar/import-availability');
-    return response.availableSlots || [];
+    return response;
   }
 
   static async importSelectedSlots(selectedSlots: any[]): Promise<any> {

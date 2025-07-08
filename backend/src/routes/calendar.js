@@ -282,32 +282,113 @@ router.get('/import-availability', authenticateToken, async (req, res) => {
     
     const busyTimes = events.map(event => ({
       start: new Date(event.start.dateTime || event.start.date),
-      end: new Date(event.end.dateTime || event.end.date)
+      end: new Date(event.end.dateTime || event.end.date),
+      summary: event.summary || 'Busy'
     }));
+
+    // Helper function to check if a timeslot conflicts with busy times
+    const isTimeslotAvailable = (timeslot, busyTimes) => {
+      // Convert day name to day number (0 = Sunday, 1 = Monday, etc.)
+      const dayMap = {
+        'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+        'Thursday': 4, 'Friday': 5, 'Saturday': 6
+      };
+      
+      const timeslotDayNum = dayMap[timeslot.day];
+      if (timeslotDayNum === undefined) {
+        console.warn(`Unknown day: ${timeslot.day}`);
+        return false;
+      }
+
+      // Parse timeslot times (assuming format like "10:00 AM")
+      const parseTime = (timeStr) => {
+        const [time, period] = timeStr.split(' ');
+        const [hours, minutes] = time.split(':').map(Number);
+        let hour24 = hours;
+        
+        if (period === 'PM' && hours !== 12) hour24 += 12;
+        if (period === 'AM' && hours === 12) hour24 = 0;
+        
+        return { hours: hour24, minutes };
+      };
+
+      const startTime = parseTime(timeslot.startTime);
+      const endTime = parseTime(timeslot.endTime);
+
+      // Check each week in the date range
+      const startDate = new Date(now);
+      const endDate = new Date(thirtyDaysFromNow);
+      
+      for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+        if (date.getDay() === timeslotDayNum) {
+          // Create timeslot instances for this week
+          const timeslotStart = new Date(date);
+          timeslotStart.setHours(startTime.hours, startTime.minutes, 0, 0);
+          
+          const timeslotEnd = new Date(date);
+          timeslotEnd.setHours(endTime.hours, endTime.minutes, 0, 0);
+          
+          // Check if this timeslot instance conflicts with any busy time
+          const hasConflict = busyTimes.some(busyTime => {
+            const busyStart = new Date(busyTime.start);
+            const busyEnd = new Date(busyTime.end);
+            
+            // Check for overlap: timeslot and busy time overlap if one starts before the other ends
+            const overlaps = (timeslotStart < busyEnd && timeslotEnd > busyStart);
+            
+            if (overlaps) {
+              console.log(`Conflict found for ${timeslot.label} on ${date.toDateString()}: overlaps with event "${busyTime.summary}" (${busyStart.toLocaleString()} - ${busyEnd.toLocaleString()})`);
+            }
+            
+            return overlaps;
+          });
+          
+          if (hasConflict) {
+            return false; // If any instance conflicts, timeslot is not available
+          }
+        }
+      }
+      
+      return true; // No conflicts found
+    };
 
     // Check which timeslots are available (not conflicting with busy times)
     const availableSlots = [];
+    const unavailableSlots = [];
     
     console.log('Checking timeslots for availability...');
     for (const timeslot of timeslots) {
       console.log(`Checking timeslot: ${timeslot.label} (${timeslot.day} ${timeslot.startTime}-${timeslot.endTime})`);
       
-      // For now, we'll consider all timeslots as potentially available
-      // A more sophisticated implementation would check recurring weekly patterns
-      // against actual calendar events, but this requires complex date/time logic
-      availableSlots.push({
-        timeslotId: timeslot._id.toString(),
-        title: timeslot.label,
-        startTime: timeslot.startTime,
-        endTime: timeslot.endTime,
-        dayOfWeek: timeslot.day
-      });
+      const isAvailable = isTimeslotAvailable(timeslot, busyTimes);
+      
+      if (isAvailable) {
+        availableSlots.push({
+          timeslotId: timeslot._id.toString(),
+          title: timeslot.label,
+          startTime: timeslot.startTime,
+          endTime: timeslot.endTime,
+          dayOfWeek: timeslot.day
+        });
+        console.log(`✅ Timeslot ${timeslot.label} is available`);
+      } else {
+        unavailableSlots.push({
+          timeslotId: timeslot._id.toString(),
+          title: timeslot.label,
+          startTime: timeslot.startTime,
+          endTime: timeslot.endTime,
+          dayOfWeek: timeslot.day
+        });
+        console.log(`❌ Timeslot ${timeslot.label} has conflicts`);
+      }
     }
     
-    console.log(`Found ${availableSlots.length} available slots`);
+    console.log(`Found ${availableSlots.length} available slots out of ${timeslots.length} total timeslots`);
+    console.log(`${unavailableSlots.length} timeslots have conflicts with Google Calendar events`);
 
     res.json({
       availableSlots,
+      unavailableSlots,
       totalTimeslots: timeslots.length,
       busyEventsCount: events.length,
       dateRange: {

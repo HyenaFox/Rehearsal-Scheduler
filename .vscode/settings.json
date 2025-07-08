@@ -3,5 +3,8 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  "jest.jestCommandLine": "npm test",
+  "jest.rootPath": ".",
+  "jest.runMode": "on-demand"
 }

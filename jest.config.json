@@ -1,0 +1,19 @@
+{
+  "testEnvironment": "node",
+  "testMatch": [
+    "**/__tests__/**/*.test.js",
+    "**/?(*.)+(spec|test).js"
+  ],
+  "collectCoverageFrom": [
+    "app/**/*.{js,ts,tsx}",
+    "!app/**/*.test.{js,ts,tsx}",
+    "!app/expo-env.d.ts"
+  ],
+  "setupFilesAfterEnv": ["<rootDir>/jest.setup.js"],
+  "moduleNameMapping": {
+    "^@/(.*)$": "<rootDir>/app/$1"
+  },
+  "testTimeout": 15000,
+  "verbose": true,
+  "displayName": "Rehearsal Scheduler API Tests"
+}

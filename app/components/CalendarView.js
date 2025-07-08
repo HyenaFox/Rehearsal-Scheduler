@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { useRef, useState } from 'react';
+import { Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const HOUR_HEIGHT = 60;

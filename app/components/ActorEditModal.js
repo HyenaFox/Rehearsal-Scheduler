@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { commonStyles } from '../styles/common';
 import { useApp } from '../contexts/AppContext';
+import { commonStyles } from '../styles/common';
 
 const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
   const { timeslots, scenes } = useApp();

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import AvailabilityCalendar from '../components/AvailabilityCalendar';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';

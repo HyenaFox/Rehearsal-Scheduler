@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, PanResponder } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { PanResponder, StyleSheet, Text, View } from 'react-native';
 
 // Helper to get all days of the week
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

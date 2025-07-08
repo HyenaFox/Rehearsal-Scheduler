@@ -53,7 +53,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Rehearsal Scheduler</Text>
+        <Text style={styles.title}>🎭 Rehearsal Scheduler</Text>
         <Text style={styles.subtitle}>
           {isRegisterMode ? 'Create your account' : 'Welcome back'}
         </Text>

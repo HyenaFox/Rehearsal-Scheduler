@@ -259,6 +259,15 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Google Calendar Integration - Available to All Users */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📅 Google Calendar Integration</Text>
+          <Text style={styles.description}>
+            Connect your Google Calendar to automatically check for conflicts when scheduling rehearsals.
+          </Text>
+          <GoogleCalendarIntegration />
+        </View>
+
         <TouchableOpacity 
           style={[styles.saveButton, isLoading && styles.disabledButton]}
           onPress={handleSave}
@@ -269,13 +278,6 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-
-      {user.isAdmin && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Admin Tools</Text>
-          <GoogleCalendarIntegration />
-        </View>
-      )}
     </ScrollView>
   );
 }

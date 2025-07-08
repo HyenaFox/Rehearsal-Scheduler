@@ -77,7 +77,7 @@ const ScenesScreen = ({ onBack }) => {
           <TouchableOpacity style={commonStyles.backButton} onPress={onBack}>
             <Text style={commonStyles.backButtonText}>← Back</Text>
           </TouchableOpacity>
-          <Text style={commonStyles.headerTitle}>Manage Scenes</Text>
+          <Text style={commonStyles.headerTitle}>🎬 Manage Scenes</Text>
         </View>
 
         <View style={commonStyles.scrollView}>

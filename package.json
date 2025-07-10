@@ -15,9 +15,12 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "lint": "expo lint",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test": "jest --testPathPattern=__tests__/",
+    "test:watch": "jest --watch --testPathPattern=__tests__/",
+    "test:coverage": "jest --coverage --testPathPattern=__tests__/",
+    "test:backend": "node __tests__/backend/test-backend-api.cjs",
+    "test:mongo": "node __tests__/integration/test-direct-mongo-fixed.cjs",
+    "test:all": "npm run test:backend && npm run test:mongo"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

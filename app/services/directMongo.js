@@ -3,14 +3,14 @@
 
 class DirectMongoService {
   constructor() {
-    this.baseUrl = process.env.EXPO_PUBLIC_API_URL || 'https://rehearsal-scheduler-backend.onrender.com';
+    this.baseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
     this.isConnected = false;
   }
 
   async connect() {
     try {
-      // Test connection to backend
-      const response = await fetch(`${this.baseUrl}/api`, {
+      // Test connection to backend - use root endpoint
+      const response = await fetch(`${this.baseUrl}/`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

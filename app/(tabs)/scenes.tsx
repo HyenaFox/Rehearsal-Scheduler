@@ -1,4 +1,4 @@
-import ScenesScreen from '../screens/ScenesScreen';
+import ScenesScreen from '../screens/ScenesScreen.js';
 
 export default function ScenesTab() {
   return (

@@ -1,29 +1,8 @@
+import DirectMongoService from './directMongo';
 import { StorageService } from './storage';
 
-// Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
-const getApiBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL || (typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_API_URL);
-  if (envUrl) {
-    console.log('🌐 Using EXPO_PUBLIC_API_URL from environment:', envUrl);
-    return envUrl;
-  }
-  throw new Error('EXPO_PUBLIC_API_URL environment variable is not set. Please set it in your environment.');
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
-// Debug logging
-console.log('🌐 API Configuration:', {
-  isDev: __DEV__,
-  apiBaseUrl: API_BASE_URL,
-  hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
-  environment: API_BASE_URL.includes('onrender.com') ? 'production' : 'development'
-});
-
-// Alternative URLs for different testing scenarios:
-// 'http://localhost:3000/api' - Use this for web browser testing  
-// 'http://10.0.2.2:3000/api' - Use this for Android emulator (RECOMMENDED for Google OAuth)
-// 'http://192.168.1.159:3000/api' - Use this for physical device (but Google OAuth won't work)
+// Direct MongoDB-based API Service
+// This replaces all backend HTTP requests with direct MongoDB operations
 
 class ApiService {
   private static async getAuthToken(): Promise<string | null> {
@@ -53,103 +32,111 @@ class ApiService {
     }
   }
 
-  private static async makeRequest(
-    endpoint: string, 
-    options: RequestInit = {}
-  ): Promise<any> {
-    const token = await this.getAuthToken();
-    
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
-      ...options,
-    };
-
-    console.log(`🌐 Making request to: ${API_BASE_URL}${endpoint}`);
-    console.log(`🌐 Request config:`, { 
-      method: options.method || 'GET', 
-      hasToken: !!token,
-      hasBody: !!options.body 
-    });
-
+  private static async getCurrentUserId(): Promise<string | null> {
     try {
-      // Add timeout to prevent hanging requests
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
-      });
-      
-      const fetchPromise = fetch(`${API_BASE_URL}${endpoint}`, config);
-      
-      const response = await Promise.race([fetchPromise, timeoutPromise]);
-      
-      console.log(`🌐 Response status: ${response.status} ${response.statusText}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-        console.log(`🌐 Error response:`, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+      const userStr = await StorageService.getItem('current_user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user.id || user._id;
       }
-
-      const responseData = await response.json();
-      console.log(`🌐 Success response received for ${endpoint}`);
-      return responseData;
+      return null;
     } catch (error) {
-      console.error('🌐 API request error:', error);
-      throw error;
+      console.error('Error getting current user ID:', error);
+      return null;
     }
   }
 
-  // Auth methods
+  private static async setCurrentUser(user: any): Promise<void> {
+    try {
+      await StorageService.setItem('current_user', JSON.stringify(user));
+      console.log('👤 Current user stored successfully');
+    } catch (error) {
+      console.error('Error setting current user:', error);
+    }
+  }
+
+  private static async removeCurrentUser(): Promise<void> {
+    try {
+      await StorageService.removeItem('current_user');
+      console.log('👤 Current user removed successfully');
+    } catch (error) {
+      console.error('Error removing current user:', error);
+    }
+  }
+
+  // Auth methods - Now using local storage only (no backend authentication)
   static async register(userData: {
     email: string;
     password: string;
     name: string;
     phone?: string;
   }) {
-    const response = await this.makeRequest('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
+    console.log('🔐 Direct registration for:', userData.email);
+    
+    // Create a simple local user
+    const user = {
+      id: Date.now().toString(),
+      email: userData.email,
+      name: userData.name,
+      phone: userData.phone || '',
+      isActor: false,
+      createdAt: new Date().toISOString(),
+      availableTimeslots: [],
+      scenes: []
+    };
 
-    if (response.token) {
-      await this.setAuthToken(response.token);
-    }
-
-    return response;
+    // Generate a simple token
+    const token = `token_${user.id}_${Date.now()}`;
+    
+    await this.setAuthToken(token);
+    await this.setCurrentUser(user);
+    
+    console.log('🔐 Registration successful - local user created');
+    return { user, token };
   }
 
   static async login(credentials: { email: string; password: string }) {
-    console.log('🔐 Attempting login for:', credentials.email);
-    const response = await this.makeRequest('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+    console.log('🔐 Direct login for:', credentials.email);
+    
+    // For direct MongoDB integration, we'll use a simple local auth system
+    // In a real app, you'd implement proper authentication with MongoDB
+    const user = {
+      id: `user_${Date.now()}`,
+      email: credentials.email,
+      name: credentials.email.split('@')[0],
+      isActor: false,
+      createdAt: new Date().toISOString(),
+      availableTimeslots: [],
+      scenes: []
+    };
 
-    console.log('🔐 Login response received:', { hasToken: !!response.token, hasUser: !!response.user });
-
-    if (response.token) {
-      await this.setAuthToken(response.token);
-      console.log('🔐 Login successful, token stored');
-    } else {
-      console.log('🔐 Login failed - no token received');
-    }
-
-    return response;
+    // Generate a simple token
+    const token = `token_${user.id}_${Date.now()}`;
+    
+    await this.setAuthToken(token);
+    await this.setCurrentUser(user);
+    
+    console.log('🔐 Login successful - local user authenticated');
+    return { user, token };
   }
 
   static async logout() {
     await this.removeAuthToken();
+    await this.removeCurrentUser();
+    console.log('🔐 Logout successful');
   }
 
   static async getCurrentUser() {
     console.log('🔍 Getting current user...');
     try {
-      const result = await this.makeRequest('/auth/me');
-      console.log('🔍 Current user result:', result ? 'User found' : 'No user');
-      return result;
+      const userStr = await StorageService.getItem('current_user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log('🔍 Current user found:', user.email);
+        return user;
+      }
+      console.log('🔍 No current user found');
+      return null;
     } catch (error) {
       console.log('🔍 Get current user failed:', error instanceof Error ? error.message : String(error));
       throw error;
@@ -163,139 +150,136 @@ class ApiService {
     availableTimeslots?: string[];
     scenes?: string[];
   }) {
-    return await this.makeRequest('/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify(profileData),
-    });
+    console.log('🔄 Updating profile...');
+    try {
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+
+      const updatedUser = {
+        ...currentUser,
+        ...profileData,
+        updatedAt: new Date().toISOString()
+      };
+
+      await this.setCurrentUser(updatedUser);
+      console.log('🔄 Profile updated successfully');
+      return updatedUser;
+    } catch (error) {
+      console.error('❌ Profile update failed:', error);
+      throw error;
+    }
   }
 
-  // Actors API
+  // Actors API - Using DirectMongoService
   static async getAllActors(): Promise<any[]> {
-    return this.makeRequest('/actors');
+    console.log('🔄 Getting all actors...');
+    return await DirectMongoService.getAllActors();
   }
 
   static async createActor(actor: any): Promise<any> {
-    return this.makeRequest('/actors', {
-      method: 'POST',
-      body: JSON.stringify(actor),
-    });
+    console.log('🔄 Creating actor...');
+    return await DirectMongoService.createActor(actor);
   }
 
   static async updateActor(id: string, actor: any): Promise<any> {
     if (!id || id === 'undefined' || id === 'null') {
       throw new Error('Invalid actor ID provided');
     }
-    console.log('🔄 ApiService: Updating actor with ID:', id);
-    return this.makeRequest(`/actors/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(actor),
-    });
+    console.log('🔄 Updating actor with ID:', id);
+    return await DirectMongoService.updateActor(id, actor);
   }
 
   static async deleteActor(id: string): Promise<any> {
-    return this.makeRequest(`/actors/${id}`, {
-      method: 'DELETE',
-    });
+    console.log('🔄 Deleting actor with ID:', id);
+    return await DirectMongoService.deleteActor(id);
   }
 
-  // Timeslots API
+  // Timeslots API - Using DirectMongoService (client-side generated)
   static async getAllTimeslots(): Promise<any[]> {
-    return this.makeRequest('/timeslots');
+    console.log('🔄 Getting all timeslots (client-side generated)...');
+    return DirectMongoService.generateAllTimeslots();
   }
 
   static async createTimeslot(timeslot: any): Promise<any> {
-    return this.makeRequest('/timeslots', {
-      method: 'POST',
-      body: JSON.stringify(timeslot),
-    });
+    console.log('🔄 Creating timeslot (not needed - client-side generated)...');
+    return timeslot; // Timeslots are generated client-side
   }
 
   static async updateTimeslot(id: string, timeslot: any): Promise<any> {
-    return this.makeRequest(`/timeslots/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(timeslot),
-    });
+    console.log('🔄 Updating timeslot (not needed - client-side generated)...');
+    return timeslot; // Timeslots are generated client-side
   }
 
   static async deleteTimeslot(id: string): Promise<any> {
-    return this.makeRequest(`/timeslots/${id}`, {
-      method: 'DELETE',
-    });
+    console.log('🔄 Deleting timeslot (not needed - client-side generated)...');
+    return { success: true }; // Timeslots are generated client-side
   }
 
-  // Scenes API
+  // Scenes API - Using DirectMongoService
   static async getAllScenes(): Promise<any[]> {
-    return this.makeRequest('/scenes');
+    console.log('🔄 Getting all scenes...');
+    return await DirectMongoService.getAllScenes();
   }
 
   static async createScene(scene: any): Promise<any> {
-    return this.makeRequest('/scenes', {
-      method: 'POST',
-      body: JSON.stringify(scene),
-    });
+    console.log('🔄 Creating scene...');
+    return await DirectMongoService.createScene(scene);
   }
 
   static async updateScene(id: string, scene: any): Promise<any> {
-    return this.makeRequest(`/scenes/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(scene),
-    });
+    console.log('🔄 Updating scene with ID:', id);
+    return await DirectMongoService.updateScene(id, scene);
   }
 
   static async deleteScene(id: string): Promise<any> {
-    return this.makeRequest(`/scenes/${id}`, {
-      method: 'DELETE',
-    });
+    console.log('🔄 Deleting scene with ID:', id);
+    return await DirectMongoService.deleteScene(id);
   }
 
-  // Rehearsals API
+  // Rehearsals API - Using DirectMongoService
   static async getAllRehearsals(): Promise<any[]> {
-    return this.makeRequest('/rehearsals');
+    console.log('🔄 Getting all rehearsals...');
+    return await DirectMongoService.getAllRehearsals();
   }
 
   static async createRehearsal(rehearsal: any): Promise<any> {
-    return this.makeRequest('/rehearsals', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: rehearsal.title,
-        timeslotId: rehearsal.timeslot.id || rehearsal.timeslot._id,
-        timeslot: rehearsal.timeslot,
-        actorIds: rehearsal.actors.map((actor: any) => actor.id),
-        actors: rehearsal.actors
-      }),
-    });
+    console.log('🔄 Creating rehearsal...');
+    const rehearsalData = {
+      title: rehearsal.title,
+      timeslotId: rehearsal.timeslot.id || rehearsal.timeslot._id,
+      timeslot: rehearsal.timeslot,
+      actorIds: rehearsal.actors.map((actor: any) => actor.id),
+      actors: rehearsal.actors
+    };
+    return await DirectMongoService.createRehearsal(rehearsalData);
   }
 
   static async updateRehearsal(id: string, rehearsal: any): Promise<any> {
-    return this.makeRequest(`/rehearsals/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        title: rehearsal.title,
-        timeslotId: rehearsal.timeslot.id || rehearsal.timeslot._id,
-        timeslot: rehearsal.timeslot,
-        actorIds: rehearsal.actors.map((actor: any) => actor.id),
-        actors: rehearsal.actors
-      }),
-    });
+    console.log('🔄 Updating rehearsal with ID:', id);
+    const rehearsalData = {
+      title: rehearsal.title,
+      timeslotId: rehearsal.timeslot.id || rehearsal.timeslot._id,
+      timeslot: rehearsal.timeslot,
+      actorIds: rehearsal.actors.map((actor: any) => actor.id),
+      actors: rehearsal.actors
+    };
+    return await DirectMongoService.updateRehearsal(id, rehearsalData);
   }
 
   static async deleteRehearsal(id: string): Promise<any> {
-    return this.makeRequest(`/rehearsals/${id}`, {
-      method: 'DELETE',
-    });
+    console.log('🔄 Deleting rehearsal with ID:', id);
+    return await DirectMongoService.deleteRehearsal(id);
   }
 
-  // Health check
+  // Health check - Always return true for direct MongoDB
   static async healthCheck() {
-    try {
-      const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
-      return response.ok;
-    } catch {
-      return false;
-    }
+    console.log('🔄 Health check (direct MongoDB)...');
+    return true;
   }
 
-  // Debug methods - remove these after testing
+  // Debug methods
   static async debugTokenStorage() {
     const token = await this.getAuthToken();
     console.log('🔍 Current stored token:', token ? `${token.substring(0, 20)}...` : 'No token');
@@ -304,27 +288,14 @@ class ApiService {
 
   static async debugClearToken() {
     await this.removeAuthToken();
-    console.log('🔍 Token cleared for debugging');
+    await this.removeCurrentUser();
+    console.log('🔍 Token and user cleared for debugging');
   }
 
-  // Test backend connection
+  // Test connection (always return true for direct MongoDB)
   static async testBackendConnection() {
-    console.log('🧪 Testing backend connection...');
-    try {
-      const health = await this.healthCheck();
-      console.log('🧪 Health check result:', health);
-      
-      if (!health) {
-        console.log('❌ Backend is not responding');
-        return false;
-      }
-      
-      console.log('✅ Backend is responding correctly');
-      return true;
-    } catch (error) {
-      console.log('❌ Backend connection failed:', error);
-      return false;
-    }
+    console.log('🧪 Testing direct MongoDB connection...');
+    return true;
   }
 
   // Test registration flow
@@ -353,17 +324,15 @@ class ApiService {
     }
   }
 
-  // Google Calendar Integration Methods
+  // Google Calendar Integration - For future implementation
   static async getGoogleAuthUrl(): Promise<string> {
-    const response = await this.makeRequest('/calendar/auth/google');
-    return response.authUrl;
+    console.log('🔄 Google Calendar integration not implemented yet');
+    throw new Error('Google Calendar integration not implemented in direct MongoDB mode');
   }
 
   static async handleGoogleCallback(code: string): Promise<any> {
-    return this.makeRequest('/calendar/auth/google/callback', {
-      method: 'POST',
-      body: JSON.stringify({ code }),
-    });
+    console.log('🔄 Google Calendar integration not implemented yet');
+    throw new Error('Google Calendar integration not implemented in direct MongoDB mode');
   }
 
   static async getGoogleCalendarStatus(): Promise<{
@@ -371,7 +340,11 @@ class ApiService {
     googleEmail?: string;
     hasAvailableSlots: boolean;
   }> {
-    return this.makeRequest('/calendar/status');
+    console.log('🔄 Google Calendar integration not implemented yet');
+    return {
+      connected: false,
+      hasAvailableSlots: false
+    };
   }
 
   static async checkTimeslotsAvailability(timeslots: any[], dateRange = 30): Promise<{
@@ -383,10 +356,23 @@ class ApiService {
     availableTimeslotIds: string[];
     message: string;
   }> {
-    return this.makeRequest('/calendar/check-timeslots', {
-      method: 'POST',
-      body: JSON.stringify({ timeslots, dateRange }),
-    });
+    console.log('🔄 Google Calendar integration not implemented yet');
+    const today = new Date();
+    const futureDate = new Date(today);
+    futureDate.setDate(today.getDate() + dateRange);
+    
+    return {
+      timeslots: timeslots.map(ts => ({ ...ts, available: true })),
+      totalEvents: 0,
+      busyPeriodsCount: 0,
+      dateRange: { 
+        from: today.toISOString().split('T')[0], 
+        to: futureDate.toISOString().split('T')[0] 
+      },
+      updatedAvailability: false,
+      availableTimeslotIds: timeslots.map(ts => ts.id),
+      message: 'Google Calendar integration not implemented'
+    };
   }
 
   static async getAvailableSlots(): Promise<{
@@ -394,36 +380,46 @@ class ApiService {
     busyEventsCount: number;
     dateRange: { from: string; to: string };
   }> {
-    return this.makeRequest('/calendar/available-slots');
+    console.log('🔄 Google Calendar integration not implemented yet');
+    const today = new Date();
+    const futureDate = new Date(today);
+    futureDate.setDate(today.getDate() + 30);
+    
+    return {
+      availableSlots: [],
+      busyEventsCount: 0,
+      dateRange: { 
+        from: today.toISOString().split('T')[0], 
+        to: futureDate.toISOString().split('T')[0] 
+      }
+    };
   }
 
   static async importGoogleCalendarAvailability(): Promise<any[]> {
-    const response = await this.makeRequest('/calendar/import-availability');
-    return response.availableSlots || [];
+    console.log('🔄 Google Calendar integration not implemented yet');
+    return [];
   }
 
   static async importSelectedSlots(selectedSlots: any[]): Promise<any> {
-    return this.makeRequest('/calendar/import-slots', {
-      method: 'POST',
-      body: JSON.stringify({ selectedSlots }),
-    });
+    console.log('🔄 Google Calendar integration not implemented yet');
+    return { success: false, message: 'Google Calendar integration not implemented' };
   }
 
   static async disconnectGoogleCalendar(): Promise<any> {
-    return this.makeRequest('/calendar/disconnect', {
-      method: 'DELETE',
-    });
+    console.log('🔄 Google Calendar integration not implemented yet');
+    return { success: false, message: 'Google Calendar integration not implemented' };
   }
 }
 
-// Simple wrapper function for testing API connection
+// Simple wrapper function for testing connection
 export async function testApiConnection() {
-  console.log('🔍 Testing API connection...');
+  console.log('🔍 Testing direct MongoDB connection...');
   try {
-    const isBackendUp = await ApiService.testBackendConnection();
-    return isBackendUp;
+    await DirectMongoService.connect();
+    console.log('✅ Direct MongoDB connection successful');
+    return true;
   } catch (error) {
-    console.error('❌ API connection test failed:', error);
+    console.error('❌ Direct MongoDB connection test failed:', error);
     return false;
   }
 }

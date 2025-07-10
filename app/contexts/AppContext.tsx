@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import ApiService from '../services/api';
+import { generateAllPossibleTimeslots } from '../utils/timeslotSystem';
 import { useAuth } from './AuthContext';
 
 interface AppContextType {
@@ -48,14 +49,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTimeout(() => reject(new Error('API call timeout')), ms)
       );
       
-      // Always load public data (rehearsals, timeslots, scenes) for all users
+      // Always load public data (rehearsals, scenes) and use pre-populated timeslots
       const [timeslotsData, scenesData, rehearsalsData] = await Promise.all([
         Promise.race([
           ApiService.getAllTimeslots(),
           timeoutPromise(5000)
         ]).catch(err => {
-          console.warn('Failed to load timeslots:', err);
-          return [];
+          console.warn('Failed to load timeslots, using pre-populated:', err);
+          return generateAllPossibleTimeslots();
         }) as Promise<any[]>,
         Promise.race([
           ApiService.getAllScenes(),

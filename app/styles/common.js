@@ -322,4 +322,28 @@ export const commonStyles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.2,
   },
+  infoCard: {
+    backgroundColor: colors.neutral[100],
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 8,
+    marginHorizontal: 16,
+    shadowColor: colors.neutral[400],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.neutral[700],
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.neutral[600],
+    lineHeight: 20,
+    marginBottom: 4,
+  },
 });

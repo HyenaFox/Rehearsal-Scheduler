@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, SafeAreaView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import TimeslotCalendar from '../components/TimeslotCalendar';
 import TimeslotEditModal from '../components/TimeslotEditModal';
@@ -7,6 +7,7 @@ import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
+import { generateAllPossibleTimeslots } from '../utils/timeslotSystem';
 
 const TimeslotsScreen = ({ onBack }) => {
   const { timeslots, setTimeslots, actors, setActors } = useApp();
@@ -17,6 +18,9 @@ const TimeslotsScreen = ({ onBack }) => {
   
   const [editingTimeslot, setEditingTimeslot] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  
+  // Use pre-populated timeslots if none exist from backend
+  const displayTimeslots = timeslots.length > 0 ? timeslots : generateAllPossibleTimeslots();
   
   const handleTimeslotMove = async (timeslot, newDay, newStartTime) => {
     if (!isAdmin) return;
@@ -166,13 +170,22 @@ const TimeslotsScreen = ({ onBack }) => {
           <Text style={commonStyles.headerTitle}>⏰ Manage Timeslots</Text>
         </View>
 
-        <View style={commonStyles.scrollView}>
+        <ScrollView style={commonStyles.scrollView}>
+          {/* Information about the new timeslot system */}
+          <View style={commonStyles.infoCard}>
+            <Text style={commonStyles.infoTitle}>🎭 Rehearsal Schedule</Text>
+            <Text style={commonStyles.infoText}>
+              Rehearsals are held from 5:00 PM to 11:00 PM in 30-minute segments. 
+              No rehearsals on Fridays. All timeslots are pre-populated and available for scheduling.
+            </Text>
+          </View>
+
           {isAdmin && (
             <ActionButton title="Add New Timeslot" onPress={handleAddTimeslot} />
           )}
 
           <TimeslotCalendar 
-            timeslots={timeslots} 
+            timeslots={displayTimeslots} 
             isAdmin={isAdmin}
             isDraggable={isAdmin}
             onTimeslotUpdate={(updatedTimeslot) => {
@@ -183,12 +196,20 @@ const TimeslotsScreen = ({ onBack }) => {
             onTimeslotMove={handleTimeslotMove}
             onTimeslotResize={handleTimeslotResize}
           />
-          {timeslots.length === 0 && (
-            <View style={commonStyles.emptyState}>
-              <Text style={commonStyles.emptyStateText}>No timeslots available</Text>
-            </View>
-          )}
-        </View>
+          
+          <View style={commonStyles.infoCard}>
+            <Text style={commonStyles.infoTitle}>📊 Timeslot Statistics</Text>
+            <Text style={commonStyles.infoText}>
+              Total available timeslots: {displayTimeslots.length}
+            </Text>
+            <Text style={commonStyles.infoText}>
+              Time slots per day: {displayTimeslots.length / 6} (6 rehearsal days × 12 slots each)
+            </Text>
+            <Text style={commonStyles.infoText}>
+              Schedule: Sunday-Thursday, Saturday (5:00 PM - 11:00 PM)
+            </Text>
+          </View>
+        </ScrollView>
 
         {/* Timeslot Edit Modal */}
         <TimeslotEditModal

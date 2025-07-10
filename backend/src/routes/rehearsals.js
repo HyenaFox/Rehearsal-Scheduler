@@ -4,8 +4,8 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all rehearsals
-router.get('/', authenticateToken, async (req, res) => {
+// Get all rehearsals - public access
+router.get('/', async (req, res) => {
   try {
     const rehearsals = await Rehearsal.getAllRehearsals();
     // Transform _id to id for frontend compatibility

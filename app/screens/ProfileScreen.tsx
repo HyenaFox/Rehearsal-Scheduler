@@ -235,6 +235,7 @@ export default function ProfileScreen() {
                 
                 {scenes.map((scene) => {
                   const sceneId = scene.id || scene._id;
+                  console.log('🎭 Scene data:', { sceneId, name: scene.name, title: scene.title });
                   return (
                   <View key={sceneId} style={styles.checkboxContainer}>
                     <TouchableOpacity
@@ -249,7 +250,7 @@ export default function ProfileScreen() {
                       )}
                     </TouchableOpacity>
                     <Text style={styles.checkboxLabel}>
-                      {scene.name}
+                      {scene.title || scene.name || 'Untitled Scene'}
                     </Text>
                   </View>
                   );

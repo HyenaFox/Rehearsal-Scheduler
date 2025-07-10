@@ -30,11 +30,11 @@ const sceneSchema = new mongoose.Schema({
     max: 10,
     default: 5
   },
-  // Reference to the user who created this scene
+  // Reference to the user who created this scene (optional for global scenes)
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   }
 }, {
   timestamps: true
@@ -45,16 +45,16 @@ sceneSchema.index({ title: 1 });
 sceneSchema.index({ createdBy: 1 });
 sceneSchema.index({ priority: -1 }); // Higher priority first
 
-// Static method to get all scenes for a user
-sceneSchema.statics.getAllForUser = async function(userId) {
-  return this.find({ createdBy: userId }).sort({ priority: -1, title: 1 });
+// Static method to get all scenes (global access)
+sceneSchema.statics.getAllScenes = async function() {
+  return this.find({}).sort({ priority: -1, title: 1 });
 };
 
-// Static method to create scene
-sceneSchema.statics.createScene = async function(sceneData, userId) {
+// Static method to create scene (global scenes)
+sceneSchema.statics.createScene = async function(sceneData, userId = null) {
   const scene = new this({
     ...sceneData,
-    createdBy: userId
+    createdBy: userId // Optional - can be null for global scenes
   });
   return scene.save();
 };

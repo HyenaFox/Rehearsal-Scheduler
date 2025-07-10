@@ -1,29 +1,33 @@
-# Render.com deployment configuration for split frontend/backend
+# Render.com deployment configuration for frontend + backend
+# Deploys both React Native web app and Node.js backend
 version: "1"
 
 services:
   # Backend API service
   - type: web
     name: rehearsal-scheduler-backend
-    env: node
-    buildCommand: npm ci
+    runtime: node
+    buildCommand: npm install
     startCommand: npm start
+    rootDir: ./backend
     envVars:
       - key: MONGODB_URI
-        sync: false
+        value: "your_mongodb_connection_string_here"
       - key: JWT_SECRET
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
+        value: "your_jwt_secret_here"
       - key: NODE_ENV
-        value: production
+        value: "production"
+      - key: PORT
+        value: "10000"
 
   # Frontend static site service
   - type: web
     name: rehearsal-scheduler-frontend
+    runtime: static
     buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
     envVars:
       - key: EXPO_PUBLIC_API_URL
-        value: "https://rehearsal-scheduler-backend.onrender.com/api"
+        value: "https://rehearsal-scheduler-backend.onrender.com"
+      - key: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+        value: "857657662535-cd6capub87vghupi38g1fcar6hcch7ug.apps.googleusercontent.com"

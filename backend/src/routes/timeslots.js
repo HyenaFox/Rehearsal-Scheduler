@@ -4,10 +4,58 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all timeslots
-router.get('/', authenticateToken, async (req, res) => {
+// Get all timeslots - returns pre-populated timeslots
+router.get('/', async (req, res) => {
   try {
-    const timeslots = await Timeslot.getAllForUser(req.userId);
+    // Generate all possible timeslots (pre-populated system)
+    // Rehearsals: 5:00 PM - 11:00 PM, excluding Fridays
+    const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'];
+    
+    const generateTimeSlots = () => {
+      const slots = [];
+      for (let hour = 17; hour <= 22; hour++) { // 5 PM (17) to 10 PM (22)
+        for (let minute = 0; minute < 60; minute += 30) {
+          const hour12 = hour > 12 ? hour - 12 : hour;
+          const period = 'PM';
+          const minute12 = minute.toString().padStart(2, '0');
+          
+          // Skip 11:30 PM to end at 11:00 PM
+          if (hour === 22 && minute === 30) continue;
+          
+          slots.push(`${hour12}:${minute12} ${period}`);
+        }
+      }
+      return slots;
+    };
+    
+    const getNextTimeSlot = (currentTime) => {
+      const timeSlots = generateTimeSlots();
+      const currentIndex = timeSlots.indexOf(currentTime);
+      if (currentIndex === -1 || currentIndex === timeSlots.length - 1) {
+        return '11:30 PM'; // End of day
+      }
+      return timeSlots[currentIndex + 1];
+    };
+    
+    const timeSlots = generateTimeSlots();
+    const timeslots = [];
+    
+    DAYS.forEach(day => {
+      timeSlots.forEach(time => {
+        timeslots.push({
+          id: `${day}_${time}`,
+          _id: `${day}_${time}`,
+          label: `${day} ${time}`,
+          day,
+          startTime: time,
+          endTime: getNextTimeSlot(time),
+          description: `30-minute rehearsal slot on ${day} from ${time}`,
+          available: true,
+          isPrePopulated: true
+        });
+      });
+    });
+    
     res.json(timeslots);
   } catch (error) {
     console.error('Error fetching timeslots:', error);

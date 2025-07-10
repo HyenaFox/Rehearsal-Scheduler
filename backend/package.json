@@ -24,6 +24,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.0",
+    "node-fetch": "^2.7.0",
     "react-native-url-polyfill": "^2.0.0"
   },
   "devDependencies": {

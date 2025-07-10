@@ -7,62 +7,55 @@
 
 ## 🌟 Overview
 
-Rehearsal Scheduler is a full-stack web and mobile application designed to streamline theater production management. Built specifically for Brandeis University's Boris' Kitchen theater group, it helps directors, actors, and production staff coordinate rehearsals, manage actor availability, and organize scene assignments efficiently.
+Rehearsal Scheduler is a React Native application with direct MongoDB integration designed to streamline theater production management. Built specifically for Brandeis University's Boris' Kitchen theater group, it helps directors, actors, and production staff coordinate rehearsals, manage actor availability, and organize scene assignments efficiently.
 
-### 🎯 **Live Application**
-**Visit: [rehearsal-scheduler.onrender.com](https://rehearsal-scheduler.onrender.com)**
-
-The app is deployed and ready to use! No installation required for the web version.
+### 🎯 **Serverless Architecture**
+This app uses a modern serverless architecture with direct MongoDB integration, eliminating the need for a backend server while maintaining full functionality.
 
 ## ✨ Key Features
 
 ### 👥 **Actor Management**
 - **Profile Creation**: Actors can create detailed profiles with contact information
-- **Availability Tracking**: Set and update time slot availability for rehearsals
+- **Availability Tracking**: Set and update time slot availability for rehearsals (5:00 PM - 11:00 PM, excluding Fridays)
 - **Scene Assignment**: Manage which scenes each actor is involved in
-- **Role Management**: Distinguish between actors, directors, and administrators
+- **Role Management**: Local user management with actor/admin roles
 
 ### 📅 **Rehearsal Scheduling**
 - **Smart Scheduling**: Create rehearsals with automatic actor availability checking
+- **Segment-Based Selection**: 30-minute time segments for precise scheduling
 - **Conflict Detection**: Visual indicators for scheduling conflicts
 - **Multiple Scenes**: Schedule rehearsals with multiple scenes and actors
-- **Time Management**: Organize rehearsals by time slots and dates
+- **Drag & Drop**: Intuitive drag-and-drop interface for schedule management
 
 ### 🔐 **Authentication & Authorization**
-- **Google OAuth**: Secure login with Google accounts
+- **Local Authentication**: Simple email-based user registration and login
 - **Role-Based Access**: Different permissions for actors, directors, and admins
 - **Guest Mode**: Browse functionality without account creation
-- **Session Persistence**: Stay logged in across browser sessions
+- **Session Persistence**: Stay logged in across app sessions
 
 ### 🎨 **Modern User Interface**
 - **Cross-Platform**: Works on web browsers, tablets, and mobile devices
-- **Responsive Design**: Optimized for all screen sizes
+- **Responsive Design**: Optimized for all screen sizes with modern color palette
 - **Intuitive Navigation**: Tab-based navigation with clear visual hierarchy
-- **Real-Time Updates**: Live data synchronization across devices
+- **Real-Time Updates**: Direct database access for immediate data synchronization
 
 ### 🔧 **Administrative Tools**
-- **Scene Management**: Create, edit, and organize production scenes
-- **Time Slot Configuration**: Set up rehearsal time blocks
+- **Scene Management**: Create, edit, and organize production scenes (globally accessible)
+- **Time Slot Configuration**: Client-side generated time slots (5:00 PM - 11:00 PM, no Fridays)
 - **Actor Administration**: Manage actor profiles and assignments
 - **Production Overview**: Dashboard with scheduling insights
 
 ## 🚀 Getting Started
-
-### 🌐 **Use the Live App (Recommended)**
-1. **Visit**: [rehearsal-scheduler.onrender.com](https://rehearsal-scheduler.onrender.com)
-2. **Sign In**: Use Google OAuth or browse as a guest
-3. **Set Up Profile**: Complete your actor/director profile
-4. **Start Scheduling**: Begin creating and managing rehearsals!
 
 ### 💻 **Local Development Setup**
 
 #### Prerequisites
 - **Node.js** (≥18.0.0)
 - **npm** (≥8.0.0)
-- **MongoDB** (for backend database)
-- **Google OAuth Credentials** (for authentication)
+- **MongoDB Atlas Account** (for database)
+- **Expo CLI** (for development)
 
-#### Frontend Setup
+#### Setup Instructions
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -71,41 +64,32 @@ cd Rehearsal-Scheduler
 # Install dependencies
 npm install
 
-# Start the Expo development server
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your MongoDB connection string
+
+# Start the development server
 npm start
 ```
 
-#### Backend Setup
-```bash
-# Navigate to backend directory
-cd backend
-
-# Install backend dependencies
-npm install
-
-# Create .env file with required variables
-cp .env.example .env
-# Edit .env with your MongoDB URI and Google OAuth credentials
-
-# Start the backend server
-npm run dev
-```
-
 #### Environment Variables
-Create a `.env` file in the backend directory:
+Create a `.env` file in the root directory:
 ```env
-# Database
-MONGODB_URI=mongodb://localhost:27017/rehearsal-scheduler
+# MongoDB Configuration
+EXPO_PUBLIC_MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/rehearsal-scheduler?retryWrites=true&w=majority
 
-# Authentication
-JWT_SECRET=your-jwt-secret-key
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# API Configuration
-NODE_ENV=development
-PORT=3000
+# Google OAuth (optional, for future features)
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-google-client-id
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your-ios-client-id
 ```
+
+#### MongoDB Setup
+1. Create a [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) account
+2. Create a new cluster
+3. Get your connection string
+4. Replace the placeholder in your `.env` file
+5. The app will automatically create collections and fallback to local storage if needed
 
 ## 📱 Platform Support
 
@@ -113,8 +97,8 @@ PORT=3000
 |----------|--------|-------|
 | **Web Browser** | ✅ Full Support | Primary deployment target |
 | **Mobile Web** | ✅ Full Support | Responsive design optimized |
-| **Android App** | 🔄 Development | Expo build available |
-| **iOS App** | 🔄 Development | Expo build available |
+| **Android App** | ✅ Full Support | Expo build available |
+| **iOS App** | ✅ Full Support | Expo build available |
 | **Desktop** | ✅ Full Support | Works in all modern browsers |
 
 ## 🎭 How to Use
@@ -143,40 +127,39 @@ PORT=3000
 - **React Native** with Expo for cross-platform development
 - **TypeScript** for type safety and better development experience
 - **Expo Router** for navigation and routing
-- **AsyncStorage** for local data persistence
+- **AsyncStorage** for local data persistence and offline support
 
-### **Backend**
-- **Node.js** with Express.js framework
-- **MongoDB** with Mongoose ODM
-- **JWT** for secure authentication
-- **Google OAuth 2.0** for user authentication
-- **CORS** enabled for cross-origin requests
+### **Database**
+- **MongoDB** with direct client integration
+- **AsyncStorage** for local fallback and offline functionality
+- **Client-side data generation** for timeslots and system data
+
+### **Architecture**
+- **Serverless**: Direct MongoDB integration from React Native
+- **Offline Support**: AsyncStorage fallback for all operations
+- **No Backend Server**: Eliminated server complexity
+- **Cross-Platform**: Single codebase for web, iOS, and Android
 
 ### **Deployment**
-- **Frontend**: Deployed on Render with static web build
-- **Backend**: Node.js API deployed on Render
+- **Frontend**: Expo web build or native app stores
 - **Database**: MongoDB Atlas cloud database
-- **Domain**: Custom domain at rehearsal-scheduler.onrender.com
+- **No Server Required**: Direct client-to-database architecture
 
 ## 📂 Project Structure
 
 ```
 Rehearsal-Scheduler/
-├── app/                    # Frontend React Native app
+├── app/                    # React Native app with direct MongoDB
 │   ├── (tabs)/            # Tab-based navigation screens
 │   ├── components/        # Reusable UI components  
 │   ├── contexts/          # React Context providers
 │   ├── screens/           # Main application screens
-│   ├── services/          # API and utility services
-│   └── styles/            # Shared styling
-├── backend/               # Backend API server
-│   ├── src/
-│   │   ├── models/        # MongoDB data models
-│   │   ├── routes/        # Express API routes
-│   │   ├── middleware/    # Authentication & validation
-│   │   └── app.js         # Main server application
-│   └── package.json
-├── dist/                  # Built web application
+│   ├── services/          # Direct MongoDB and utility services
+│   │   ├── api.ts         # Refactored API service
+│   │   └── directMongo.js # Direct MongoDB integration
+│   └── styles/            # Shared styling and design system
+├── assets/                # Static assets (images, fonts)
+├── __tests__/             # Test files and configurations
 └── README.md
 ```
 

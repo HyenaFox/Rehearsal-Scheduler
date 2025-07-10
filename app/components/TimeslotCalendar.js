@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import { Alert, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Helper to get all days of the week
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// Helper to get all days of the week (excluding Friday)
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'];
 
 // Helper to convert time string to 24-hour format for calculations
 const timeToMinutes = (timeStr) => {
@@ -25,13 +25,19 @@ const minutesToTime = (minutes) => {
   return `${displayHour}:${mins.toString().padStart(2, '0')} ${period}`;
 };
 
-// Helper to get time slots (every 30 min from 7am to 10pm)
+// Helper to get time slots (every 30 min from 5pm to 11pm) - matches the new system
 const getTimeSlots = () => {
   const slots = [];
-  for (let h = 7; h <= 22; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      const minutes = h * 60 + m;
-      slots.push(minutesToTime(minutes));
+  for (let hour = 17; hour <= 22; hour++) { // 5 PM (17) to 10 PM (22)
+    for (let minute = 0; minute < 60; minute += 30) {
+      const hour12 = hour > 12 ? hour - 12 : hour;
+      const period = 'PM';
+      const minute12 = minute.toString().padStart(2, '0');
+      
+      // Skip 11:30 PM to end at 11:00 PM
+      if (hour === 22 && minute === 30) continue;
+      
+      slots.push(`${hour12}:${minute12} ${period}`);
     }
   }
   return slots;
@@ -214,37 +220,39 @@ export default function TimeslotCalendar({
         ))}
       </View>
       
-      {/* Calendar body with time grid */}
-      <View style={styles.calendarBody} ref={layoutRef}>
-        {/* Time labels column */}
-        <View style={styles.timeColumn}>
-          {TIME_SLOTS.map((time, idx) => (
-            <View key={time} style={[styles.timeSlot, { height: SLOT_HEIGHT }]}>
-              <Text style={styles.timeText}>{time}</Text>
+      {/* Calendar body with time grid - wrapped in ScrollView */}
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={true}>
+        <View style={styles.calendarBody} ref={layoutRef}>
+          {/* Time labels column */}
+          <View style={styles.timeColumn}>
+            {TIME_SLOTS.map((time, idx) => (
+              <View key={time} style={[styles.timeSlot, { height: SLOT_HEIGHT }]}>
+                <Text style={styles.timeText}>{time}</Text>
+              </View>
+            ))}
+          </View>
+          
+          {/* Day columns */}
+          {DAYS.map(day => (
+            <View key={day} style={styles.dayColumn}>
+              {/* Background grid */}
+              {TIME_SLOTS.map((time, idx) => (
+                <View key={time} style={[styles.gridCell, { height: SLOT_HEIGHT }]} />
+              ))}
+              
+              {/* Timeslot blocks */}
+              {slotsByDay[day].map(slot => {
+                const startMinutes = timeToMinutes(slot.startTime);
+                const startSlotIdx = TIME_SLOTS.findIndex(ts => timeToMinutes(ts) >= startMinutes);
+                if (startSlotIdx >= 0) {
+                  return renderTimeslotBlock(slot, day, startSlotIdx);
+                }
+                return null;
+              })}
             </View>
           ))}
         </View>
-        
-        {/* Day columns */}
-        {DAYS.map(day => (
-          <View key={day} style={styles.dayColumn}>
-            {/* Background grid */}
-            {TIME_SLOTS.map((time, idx) => (
-              <View key={time} style={[styles.gridCell, { height: SLOT_HEIGHT }]} />
-            ))}
-            
-            {/* Timeslot blocks */}
-            {slotsByDay[day].map(slot => {
-              const startMinutes = timeToMinutes(slot.startTime);
-              const startSlotIdx = TIME_SLOTS.findIndex(ts => timeToMinutes(ts) >= startMinutes);
-              if (startSlotIdx >= 0) {
-                return renderTimeslotBlock(slot, day, startSlotIdx);
-              }
-              return null;
-            })}
-          </View>
-        ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -275,9 +283,13 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontSize: 12,
   },
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
   calendarBody: {
     flexDirection: 'row',
-    flex: 1,
+    minHeight: TIME_SLOTS.length * SLOT_HEIGHT,
   },
   timeColumn: {
     width: 60,

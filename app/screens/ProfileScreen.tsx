@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import AvailabilityCalendar from '../components/AvailabilityCalendar';
+import AvailabilityCalendar from '../components/AvailabilityCalendarImproved';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -217,7 +217,7 @@ export default function ProfileScreen() {
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Available Time Slots</Text>
                 <Text style={styles.description}>
-                  Drag to select the time slots when you are available for rehearsals.
+                  Select your available time slots. Use the mode button to switch between single cell, row, column, or drag selection modes.
                 </Text>
                 
                 <AvailabilityCalendar

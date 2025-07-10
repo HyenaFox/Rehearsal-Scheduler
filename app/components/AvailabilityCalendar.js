@@ -20,6 +20,7 @@ export default function AvailabilityCalendar({
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState(null);
   const [selectionEnd, setSelectionEnd] = useState(null);
+  const [dragStartPoint, setDragStartPoint] = useState(null);
   
   // Store selected segments as a Set - parse from selected timeslots
   const [selectedSegments, setSelectedSegments] = useState(new Set());
@@ -99,7 +100,6 @@ export default function AvailabilityCalendar({
     
     console.log('🎯 Segment clicked:', segmentId);
     console.log('🎯 Current selection size:', selectedSegments.size);
-    console.log('🎯 Current selection:', Array.from(selectedSegments));
     
     if (newSelection.has(segmentId)) {
       console.log('🎯 Removing segment:', segmentId);
@@ -108,9 +108,6 @@ export default function AvailabilityCalendar({
       console.log('🎯 Adding segment:', segmentId);
       newSelection.add(segmentId);
     }
-    
-    console.log('🎯 New selection size:', newSelection.size);
-    console.log('🎯 New selection:', Array.from(newSelection));
     
     // Update the selected segments state immediately
     setSelectedSegments(newSelection);
@@ -126,52 +123,61 @@ export default function AvailabilityCalendar({
   };
 
   const layoutRef = useRef(null);
+  const scrollViewRef = useRef(null);
 
+  // Improved drag selection with better coordinate handling
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      // Only start drag if we've moved more than 10 pixels
+      return Math.abs(gestureState.dx) > 10 || Math.abs(gestureState.dy) > 10;
+    },
+    onPanResponderTerminationRequest: () => false,
+    onShouldBlockNativeResponder: () => false,
     
     onPanResponderGrant: (evt) => {
-      setIsSelecting(true);
-      const { pageX, pageY } = evt.nativeEvent;
+      if (!layoutRef.current) return;
       
-      // Calculate which cell was tapped
-      if (layoutRef.current) {
-        layoutRef.current.measure((x, y, width, height, pageXOffset, pageYOffset) => {
-          const relativeX = pageX - pageXOffset - 60; // Account for time column
-          const relativeY = pageY - pageYOffset - 40; // Account for header
-          
-          const dayWidth = (width - 60) / 7;
-          const dayIndex = Math.max(0, Math.min(6, Math.floor(relativeX / dayWidth)));
-          const timeIndex = Math.max(0, Math.min(TIME_SLOTS.length - 1, Math.floor(relativeY / SLOT_HEIGHT)));
-          
+      layoutRef.current.measure((x, y, width, height, pageX, pageY) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        setDragStartPoint({ x: locationX, y: locationY });
+        
+        // Calculate initial selection cell with dynamic width
+        const timeColumnWidth = 60;
+        const availableWidth = width - timeColumnWidth;
+        const dayWidth = availableWidth / DAYS.length;
+        
+        const dayIndex = Math.floor((locationX - timeColumnWidth) / dayWidth);
+        const timeIndex = Math.floor(locationY / SLOT_HEIGHT);
+        
+        if (dayIndex >= 0 && dayIndex < DAYS.length && timeIndex >= 0 && timeIndex < TIME_SLOTS.length) {
+          setIsSelecting(true);
           setSelectionStart({ dayIndex, timeIndex });
           setSelectionEnd({ dayIndex, timeIndex });
-        });
-      }
+        }
+      });
     },
     
     onPanResponderMove: (evt) => {
-      if (!isSelecting || !selectionStart) return;
+      if (!isSelecting || !dragStartPoint || !layoutRef.current) return;
       
-      const { pageX, pageY } = evt.nativeEvent;
-      
-      if (layoutRef.current) {
-        layoutRef.current.measure((x, y, width, height, pageXOffset, pageYOffset) => {
-          const relativeX = pageX - pageXOffset - 60;
-          const relativeY = pageY - pageYOffset - 40;
-          
-          const dayWidth = (width - 60) / 7;
-          const dayIndex = Math.max(0, Math.min(6, Math.floor(relativeX / dayWidth)));
-          const timeIndex = Math.max(0, Math.min(TIME_SLOTS.length - 1, Math.floor(relativeY / SLOT_HEIGHT)));
-          
-          setSelectionEnd({ dayIndex, timeIndex });
-        });
-      }
+      layoutRef.current.measure((x, y, width, height, pageX, pageY) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        
+        // Calculate end selection cell with dynamic width
+        const timeColumnWidth = 60;
+        const availableWidth = width - timeColumnWidth;
+        const dayWidth = availableWidth / DAYS.length;
+        
+        const dayIndex = Math.max(0, Math.min(DAYS.length - 1, Math.floor((locationX - timeColumnWidth) / dayWidth)));
+        const timeIndex = Math.max(0, Math.min(TIME_SLOTS.length - 1, Math.floor(locationY / SLOT_HEIGHT)));
+        
+        setSelectionEnd({ dayIndex, timeIndex });
+      });
     },
     
     onPanResponderRelease: () => {
-      if (selectionStart && selectionEnd) {
+      if (isSelecting && selectionStart && selectionEnd) {
         // Calculate selection rectangle
         const startDay = Math.min(selectionStart.dayIndex, selectionEnd.dayIndex);
         const endDay = Math.max(selectionStart.dayIndex, selectionEnd.dayIndex);
@@ -197,12 +203,16 @@ export default function AvailabilityCalendar({
         
         // Convert segments back to timeslots and notify parent
         const timeslotIds = convertSegmentsToTimeslotIds(newSelection);
-        onSelectionChange(timeslotIds);
+        if (onSelectionChange) {
+          onSelectionChange(timeslotIds);
+        }
       }
       
+      // Reset drag state
       setIsSelecting(false);
       setSelectionStart(null);
       setSelectionEnd(null);
+      setDragStartPoint(null);
     },
   });
 
@@ -219,7 +229,7 @@ export default function AvailabilityCalendar({
   };
 
   return (
-    <ScrollView style={styles.calendarContainer} showsVerticalScrollIndicator={false}>
+    <View style={styles.calendarContainer}>
       {/* Header row */}
       <View style={styles.headerRow}>
         <View style={styles.timeCol}><Text></Text></View>
@@ -231,76 +241,87 @@ export default function AvailabilityCalendar({
       </View>
       
       {/* Calendar body with time grid */}
-      <View style={styles.calendarBody} ref={layoutRef} {...panResponder.panHandlers}>
-        {/* Time labels column */}
-        <View style={styles.timeColumn}>
-          {TIME_SLOTS.map((time, idx) => (
-            <View key={time} style={[styles.timeSlot, { height: SLOT_HEIGHT }]}>
-              <Text style={styles.timeText}>{time}</Text>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
+      >
+        <View style={styles.calendarBody} ref={layoutRef} {...panResponder.panHandlers}>
+          {/* Time labels column */}
+          <View style={styles.timeColumn}>
+            {TIME_SLOTS.map((time, idx) => (
+              <View key={time} style={[styles.timeSlot, { height: SLOT_HEIGHT }]}>
+                <Text style={styles.timeText}>{time}</Text>
+              </View>
+            ))}
+          </View>
+          
+          {/* Day columns with improved touch handling */}
+          {DAYS.map((day, dayIndex) => (
+            <View key={day} style={styles.dayColumn}>
+              {/* Grid cells with segments */}
+              {TIME_SLOTS.map((time, timeIndex) => {
+                const segmentId = getSegmentId(dayIndex, timeIndex);
+                const isSelected = selectedSegments.has(segmentId);
+                const isInSelection = isInSelectionArea(dayIndex, timeIndex);
+                
+                return (
+                  <TouchableOpacity
+                    key={time} 
+                    style={[
+                      styles.gridCell, 
+                      { height: SLOT_HEIGHT },
+                      styles.hasTimeslot, // Always show as available
+                      isSelected && styles.selectedCell,
+                      isInSelection && styles.selectionPreview
+                    ]}
+                    onPress={() => handleSegmentClick(dayIndex, timeIndex)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.timeslotLabel, 
+                      isSelected && styles.selectedLabel
+                    ]}>
+                      {time}
+                    </Text>
+                    {isSelected && (
+                      <View style={styles.selectionIndicator}>
+                        <Text style={styles.selectionIndicatorText}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           ))}
+          
+          {/* Drag overlay for visual feedback */}
+          {isSelecting && selectionStart && selectionEnd && (
+            <View style={styles.dragOverlay}>
+              <View style={[
+                styles.selectionRectangle,
+                {
+                  left: 60 + (Math.min(selectionStart.dayIndex, selectionEnd.dayIndex) * ((styles.dayColumn.flex || 1) * 40)),
+                  top: Math.min(selectionStart.timeIndex, selectionEnd.timeIndex) * SLOT_HEIGHT,
+                  width: (Math.abs(selectionEnd.dayIndex - selectionStart.dayIndex) + 1) * ((styles.dayColumn.flex || 1) * 40),
+                  height: (Math.abs(selectionEnd.timeIndex - selectionStart.timeIndex) + 1) * SLOT_HEIGHT,
+                }
+              ]} />
+            </View>
+          )}
         </View>
-        
-        {/* Day columns */}
-        {DAYS.map((day, dayIndex) => (
-          <View key={day} style={styles.dayColumn}>
-            {/* Grid cells with segments */}
-            {TIME_SLOTS.map((time, timeIndex) => {
-              const segmentId = getSegmentId(dayIndex, timeIndex);
-              const isSelected = selectedSegments.has(segmentId);
-              const isInSelection = isInSelectionArea(dayIndex, timeIndex);
-              
-              // Enhanced debugging for selection state
-              if (dayIndex === 0 && timeIndex < 2) {
-                console.log('🎯 Render segment:', {
-                  segmentId,
-                  isSelected,
-                  selectedSegmentsSize: selectedSegments.size,
-                  selectedSegmentsArray: Array.from(selectedSegments),
-                  hasSegment: selectedSegments.has(segmentId)
-                });
-              }
-              
-              return (
-                <TouchableOpacity
-                  key={time} 
-                  style={[
-                    styles.gridCell, 
-                    { height: SLOT_HEIGHT },
-                    styles.hasTimeslot, // Always show as available
-                    isSelected && styles.selectedCell,
-                    isInSelection && styles.selectionPreview
-                  ]}
-                  onPress={() => handleSegmentClick(dayIndex, timeIndex)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.timeslotLabel, 
-                    isSelected && styles.selectedLabel
-                  ]}>
-                    {time}
-                  </Text>
-                  {isSelected && (
-                    <View style={styles.selectionIndicator}>
-                      <Text style={styles.selectionIndicatorText}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ))}
-      </View>
+      </ScrollView>
       
       <View style={styles.instructions}>
         <Text style={styles.instructionText}>
           Rehearsal hours: 5:00 PM - 11:00 PM (No Friday rehearsals)
         </Text>
         <Text style={styles.instructionText}>
-          Drag to select your available timeslots
+          Tap individual slots or drag to select multiple timeslots
         </Text>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -310,6 +331,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     margin: 8,
     maxHeight: 400, // Limit height to make it scrollable
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
@@ -319,6 +341,11 @@ const styles = StyleSheet.create({
     height: 40,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
+  },
+  timeCol: {
+    width: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerCell: {
     flex: 1,
@@ -331,9 +358,13 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontSize: 12,
   },
+  scrollContainer: {
+    flex: 1,
+  },
   calendarBody: {
     flexDirection: 'row',
-    minHeight: 480, // 12 time slots × 40px height
+    position: 'relative',
+    minHeight: TIME_SLOTS.length * SLOT_HEIGHT,
   },
   timeColumn: {
     width: 60,
@@ -362,6 +393,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   hasTimeslot: {
     backgroundColor: '#f1f5f9',
@@ -369,10 +401,12 @@ const styles = StyleSheet.create({
   selectedCell: {
     backgroundColor: '#dbeafe',
     borderColor: '#3b82f6',
+    borderWidth: 1,
   },
   selectionPreview: {
     backgroundColor: '#e0f2fe',
     borderColor: '#0ea5e9',
+    borderWidth: 1,
   },
   timeslotLabel: {
     fontSize: 10,
@@ -410,5 +444,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  dragOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+  },
+  selectionRectangle: {
+    position: 'absolute',
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    borderColor: '#3b82f6',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 4,
   },
 });

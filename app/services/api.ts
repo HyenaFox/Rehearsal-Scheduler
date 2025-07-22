@@ -213,34 +213,20 @@ class ApiService {
     });
   }
 
-  // Timeslots API
-  static async getAllTimeslots(): Promise<any[]> {
-    return this.makeRequest('/timeslots');
+  // Weekly Availability API
+  static async getWeeklyAvailabilities(): Promise<any[]> {
+    return this.makeRequest('/weekly-availability');
   }
 
-  static async createTimeslot(timeslotData: any): Promise<any> {
-    return this.makeRequest('/timeslots', {
+  static async addWeeklyAvailability(availability: any): Promise<any> {
+    return this.makeRequest('/weekly-availability', {
       method: 'POST',
-      body: JSON.stringify(timeslotData),
+      body: JSON.stringify(availability),
     });
   }
 
-  static async createTimeslotsBulk(timeslots: any[]): Promise<any[]> {
-    return this.makeRequest('/timeslots/bulk', {
-      method: 'POST',
-      body: JSON.stringify({ timeslots }),
-    });
-  }
-
-  static async updateTimeslot(id: string, updates: any): Promise<any> {
-    return this.makeRequest(`/timeslots/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    });
-  }
-
-  static async deleteTimeslot(id: string): Promise<any> {
-    return this.makeRequest(`/timeslots/${id}`, {
+  static async deleteWeeklyAvailability(id: string): Promise<any> {
+    return this.makeRequest(`/weekly-availability/${id}`, {
       method: 'DELETE',
     });
   }

@@ -7,7 +7,7 @@ export interface User {
   email: string;
   name: string;
   phone?: string;
-  availableTimeslots: string[];
+  availability: string[];
   scenes: string[];
   isActor: boolean;
   isAdmin: boolean;
@@ -22,7 +22,6 @@ interface AuthContextType {
   googleLogin: (tokenOrCode: string, isCode?: boolean) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
-  setUserAsActor: (availableTimeslots: string[], scenes: string[]) => Promise<void>;
   forceLogout: () => void;
   skipLogin: () => void;
 }
@@ -112,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           phone: response.user.phone || '',
           isActor: response.user.isActor,
           isAdmin: response.user.isAdmin || false,
-          availableTimeslots: response.user.availableTimeslots || [],
+          availability: response.user.availability || [],
           scenes: response.user.scenes || []
         };
         
@@ -162,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           phone: response.user.phone || '',
           isActor: response.user.isActor,
           isAdmin: response.user.isAdmin || false,
-          availableTimeslots: response.user.availableTimeslots || [],
+          availability: response.user.availability || [],
           scenes: response.user.scenes || []
         };
         
@@ -220,14 +219,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const setUserAsActor = async (availableTimeslots: string[], scenes: string[]): Promise<void> => {
-    await updateProfile({
-      isActor: true,
-      availableTimeslots,
-      scenes
-    });
-  };
-
   const skipLogin = useCallback(() => {
     console.log('🔐 Skip login called - creating guest user');
     // Create a temporary guest user that allows app usage without authentication
@@ -238,7 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phone: '',
       isActor: false,
       isAdmin: false,
-      availableTimeslots: [],
+      availability: [],
       scenes: []
     };
     setUser(guestUser);
@@ -253,7 +244,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     register,
     logout,
     updateProfile,
-    setUserAsActor,
     forceLogout,
     skipLogin,
     googleLogin // Add this line

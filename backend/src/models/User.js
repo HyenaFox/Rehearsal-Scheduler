@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  availableTimeslots: [{
+  availability: [{
     type: String
   }],
   scenes: [{
@@ -102,7 +102,7 @@ userSchema.statics.createUser = async function(userData) {
     name,
     phone: phone || '',
     isActor: isActor || false,
-    availableTimeslots: [],
+    availability: [],
     scenes: []
   };
 
@@ -163,7 +163,7 @@ userSchema.statics.createActor = async function(actorData) {
     password_hash: 'temp-password', // Temporary password for standalone actors
     name,
     isActor: true,
-    availableTimeslots: availableTimeslots || [],
+    availability: availableTimeslots || [],
     scenes: scenes || []
   });
   
@@ -182,7 +182,7 @@ userSchema.statics.deleteActor = async function(id) {
   if (user && user.email && !user.email.includes('@rehearsal-scheduler.local')) {
     // This is a real user account, just set isActor to false
     user.isActor = false;
-    user.availableTimeslots = [];
+    user.availability = [];
     user.scenes = [];
     return user.save();
   } else {

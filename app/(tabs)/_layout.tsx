@@ -96,6 +96,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="weekly-availability"
+        options={{
+          title: '🗓️ Weekly',
+          tabBarLabel: 'Weekly',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 24, color: focused ? '#6366f1' : '#9ca3af' }}>🗓️</Text>
+          ),
+        }}
+        listeners={{
+          tabPress: handleTabPress,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: '👤 Profile',

@@ -12,7 +12,7 @@ const { initDB } = require('./models/database');
 const authRoutes = require('./routes/auth');
 const calendarRoutes = require('./routes/calendar');
 const actorsRoutes = require('./routes/actors');
-const timeslotsRoutes = require('./routes/timeslots');
+const weeklyAvailabilityRoutes = require('./routes/weeklyAvailability');
 const scenesRoutes = require('./routes/scenes');
 const rehearsalsRoutes = require('./routes/rehearsals');
 
@@ -70,7 +70,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/actors', actorsRoutes);
-app.use('/api/timeslots', timeslotsRoutes);
+app.use('/api/weekly-availability', weeklyAvailabilityRoutes);
 app.use('/api/scenes', scenesRoutes);
 app.use('/api/rehearsals', rehearsalsRoutes);
 
@@ -113,11 +113,11 @@ app.get('/', (req, res) => {
         'PUT /api/actors/:id': 'Update an actor (requires auth)',
         'DELETE /api/actors/:id': 'Delete an actor (requires auth)'
       },
-      timeslots: {
-        'GET /api/timeslots': 'Get all timeslots (requires auth)',
-        'POST /api/timeslots': 'Create a new timeslot (requires auth)',
-        'PUT /api/timeslots/:id': 'Update a timeslot (requires auth)',
-        'DELETE /api/timeslots/:id': 'Delete a timeslot (requires auth)'
+      weekly_availability: {
+        'GET /api/weekly-availability': 'Get all weekly availability (requires auth)',
+        'POST /api/weekly-availability': 'Create new weekly availability (requires auth)',
+        'PUT /api/weekly-availability/:id': 'Update weekly availability (requires auth)',
+        'DELETE /api/weekly-availability/:id': 'Delete weekly availability (requires auth)'
       },
       scenes: {
         'GET /api/scenes': 'Get all scenes (requires auth)',
@@ -172,11 +172,11 @@ app.get('/api', (req, res) => {
         'PUT /api/actors/:id': 'Update an actor (requires auth)',
         'DELETE /api/actors/:id': 'Delete an actor (requires auth)'
       },
-      timeslots: {
-        'GET /api/timeslots': 'Get all timeslots (requires auth)',
-        'POST /api/timeslots': 'Create a new timeslot (requires auth)',
-        'PUT /api/timeslots/:id': 'Update a timeslot (requires auth)',
-        'DELETE /api/timeslots/:id': 'Delete a timeslot (requires auth)'
+      weekly_availability: {
+        'GET /api/weekly-availability': 'Get all weekly availability (requires auth)',
+        'POST /api/weekly-availability': 'Create new weekly availability (requires auth)',
+        'PUT /api/weekly-availability/:id': 'Update weekly availability (requires auth)',
+        'DELETE /api/weekly-availability/:id': 'Delete weekly availability (requires auth)'
       },
       scenes: {
         'GET /api/scenes': 'Get all scenes (requires auth)',
@@ -210,10 +210,10 @@ app.use('/api/*', (req, res) => {
       'POST /api/actors',
       'PUT /api/actors/:id',
       'DELETE /api/actors/:id',
-      'GET /api/timeslots',
-      'POST /api/timeslots',
-      'PUT /api/timeslots/:id',
-      'DELETE /api/timeslots/:id',
+      'GET /api/weekly-availability',
+      'POST /api/weekly-availability',
+      'PUT /api/weekly-availability/:id',
+      'DELETE /api/weekly-availability/:id',
       'GET /api/scenes',
       'POST /api/scenes',
       'PUT /api/scenes/:id',

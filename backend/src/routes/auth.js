@@ -67,7 +67,7 @@ router.post('/register', async (req, res) => {
         name: user.name,
         phone: user.phone,
         isActor: user.isActor,
-        availableTimeslots: user.availableTimeslots,
+        availability: user.availability,
         scenes: user.scenes
       }
     });
@@ -140,7 +140,7 @@ router.post('/login', async (req, res) => {
         phone: user.phone,
         isActor: user.isActor,
         isAdmin: user.isAdmin,
-        availableTimeslots: user.availableTimeslots,
+        availability: user.availability,
         scenes: user.scenes
       }
     });
@@ -168,7 +168,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       phone: user.phone,
       isActor: user.isActor,
       isAdmin: user.isAdmin,
-      availableTimeslots: user.availableTimeslots,
+      availability: user.availability,
       scenes: user.scenes
     });
   } catch (error) {
@@ -180,16 +180,16 @@ router.get('/me', authenticateToken, async (req, res) => {
 // Update profile endpoint
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    const { name, phone, isActor, availableTimeslots, scenes } = req.body;
+    const { name, phone, isActor, availability, scenes } = req.body;
     
     const updates = {};
     if (name !== undefined) updates.name = name.trim();
     if (phone !== undefined) updates.phone = phone.trim();
     if (isActor !== undefined) updates.isActor = isActor;
-    if (availableTimeslots !== undefined) updates.availableTimeslots = availableTimeslots;
+    if (availability !== undefined) updates.availability = availability;
     if (scenes !== undefined) updates.scenes = scenes;
 
-    const user = await User.updateUser(req.user._id, updates);
+    const user = await User.findByIdAndUpdate(req.user.userId, updates, { new: true });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -205,7 +205,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
         phone: user.phone,
         isActor: user.isActor,
         isAdmin: user.isAdmin,
-        availableTimeslots: user.availableTimeslots,
+        availability: user.availability,
         scenes: user.scenes
       }
     });
@@ -400,7 +400,7 @@ router.post('/google', async (req, res) => {
         phone: user.phone,
         isActor: user.isActor,
         isAdmin: user.isAdmin,
-        availableTimeslots: user.availableTimeslots,
+        availability: user.availability,
         scenes: user.scenes
       }
     });

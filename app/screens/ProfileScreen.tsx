@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AvailabilityCalendar from '../components/AvailabilityCalendar';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,11 +10,11 @@ import LoginScreen from './LoginScreen';
 
 export default function ProfileScreen() {
   const { user, updateProfile, forceLogout, isLoading: authLoading } = useAuth();
-  const { setActors, timeslots, scenes } = useApp();
+  const { setActors, scenes } = useApp();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [isActor, setIsActor] = useState(false);
-  const [selectedTimeslots, setSelectedTimeslots] = useState<string[]>([]);
+  const [availability, setAvailability] = useState<string[]>([]);
   const [selectedScenes, setSelectedScenes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
@@ -29,13 +30,13 @@ export default function ProfileScreen() {
         name: user.name,
         phone: user.phone,
         isActor: user.isActor,
-        availableTimeslots: user.availableTimeslots,
+        availability: user.availability,
         scenes: user.scenes
       });
       setName(user.name || '');
       setPhone(user.phone || '');
       setIsActor(user.isActor || false);
-      setSelectedTimeslots(user.availableTimeslots || []);
+      setAvailability(user.availability || []);
       setSelectedScenes(user.scenes || []);
       lastUserIdRef.current = user.id;
     }
@@ -104,15 +105,13 @@ export default function ProfileScreen() {
         name: name.trim(),
         phone: phone.trim(),
         isActor,
-        availableTimeslots: isActor ? selectedTimeslots : [],
+        availability: isActor ? availability : [],
         scenes: isActor ? selectedScenes : [],
       };
 
       console.log(`🎭 Starting profile update with isActor: ${isActor}`, updates);
-      console.log('🎭 Selected timeslots:', selectedTimeslots);
+      console.log('🎭 Selected availability:', availability);
       console.log('🎭 Selected scenes:', selectedScenes);
-      console.log('🎭 Available timeslots data:', timeslots.map(t => ({ id: t.id || t._id, day: t.day })));
-      console.log('🎭 Available scenes data:', scenes.map(s => ({ id: s.id || s._id, title: s.title })));
       
       // STEP 1: Update the user profile
       console.log('🔄 STEP 1: Updating user profile...');
@@ -257,15 +256,12 @@ export default function ProfileScreen() {
     }
   };
 
-  const toggleTimeslot = (timeslotId: string) => {
-    console.log('🔄 Toggle timeslot clicked:', timeslotId);
-    console.log('🔄 Current selectedTimeslots:', selectedTimeslots);
-    setSelectedTimeslots(prev => {
-      const newSelection = prev.includes(timeslotId) 
-        ? prev.filter(id => id !== timeslotId)
-        : [...prev, timeslotId];
-      console.log('🔄 New selectedTimeslots:', newSelection);
-      return newSelection;
+  const toggleAvailability = (datetime: string) => {
+    setAvailability(prev => {
+      const newAvailability = prev.includes(datetime)
+        ? prev.filter(d => d !== datetime)
+        : [...prev, datetime];
+      return newAvailability;
     });
   };
 
@@ -370,45 +366,12 @@ export default function ProfileScreen() {
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Available Time Slots</Text>
                 <Text style={styles.subsectionDescription}>
-                  Select from the global time slots when you are available for rehearsals. These time slots are created by administrators and available to all cast members.
+                  Select the half-hour slots when you are available for rehearsals.
                 </Text>
-                
-                {timeslots.length === 0 ? (
-                  <View style={styles.emptyTimeslots}>
-                    <Text style={styles.emptyTimeslotsText}>
-                      No global time slots have been created yet. Contact an admin to set up rehearsal times that will be available to all cast members.
-                    </Text>
-                  </View>
-                ) : (
-                  timeslots.map((timeslot) => {
-                    const timeslotId = timeslot.id || timeslot._id;
-                    const isSelected = selectedTimeslots.includes(timeslotId);
-                    return (
-                      <View key={timeslotId} style={styles.timeslotRow}>
-                        <View style={styles.timeslotInfo}>
-                          <Text style={styles.timeslotDay}>{timeslot.day}</Text>
-                          <Text style={styles.timeslotTime}>
-                            {timeslot.startTime} - {timeslot.endTime}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          style={[
-                            styles.availabilityButton,
-                            isSelected ? styles.availableButton : styles.unavailableButton
-                          ]}
-                          onPress={() => toggleTimeslot(timeslotId)}
-                        >
-                          <Text style={[
-                            styles.availabilityButtonText,
-                            isSelected ? styles.availableButtonText : styles.unavailableButtonText
-                          ]}>
-                            {isSelected ? '✅ Available' : '❌ Unavailable'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })
-                )}
+                <AvailabilityCalendar
+                  onTimeSlotPress={toggleAvailability}
+                  selectedSlots={availability}
+                />
               </View>
 
               <View style={styles.subsection}>

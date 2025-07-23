@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import AvailabilityCalendar from '../components/AvailabilityCalendar';
+import WeeklyPlanner from '../components/WeeklyPlanner';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -256,15 +256,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const toggleAvailability = (datetime: string) => {
-    setAvailability(prev => {
-      const newAvailability = prev.includes(datetime)
-        ? prev.filter(d => d !== datetime)
-        : [...prev, datetime];
-      return newAvailability;
-    });
-  };
-
   const toggleScene = (sceneId: string) => {
     console.log('🔄 Toggle scene clicked:', sceneId);
     console.log('🔄 Current selectedScenes:', selectedScenes);
@@ -368,9 +359,11 @@ export default function ProfileScreen() {
                 <Text style={styles.subsectionDescription}>
                   Select the half-hour slots when you are available for rehearsals.
                 </Text>
-                <AvailabilityCalendar
-                  onTimeSlotPress={toggleAvailability}
-                  selectedSlots={availability}
+                <WeeklyPlanner
+                  onSelectionChange={(selectedSlots) => {
+                    setAvailability(selectedSlots.map(d => d.toISOString()));
+                  }}
+                  initialSelections={availability}
                 />
               </View>
 

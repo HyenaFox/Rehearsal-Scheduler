@@ -131,7 +131,7 @@ app.get('/', (req, res) => {
         'GET /api/calendar/auth/google/callback': 'Handle OAuth redirect from Google',
         'POST /api/calendar/auth/google/callback': 'Handle OAuth callback (requires auth)', 
         'GET /api/calendar/status': 'Check connection status (requires auth)',
-        'POST /api/calendar/check-timeslots': 'Check timeslots against calendar and update availability (requires auth)',
+        'GET /api/calendar/import-availability': 'Import availability from calendar (requires auth)',
         'GET /api/calendar/available-slots': 'Get available slots (requires auth)',
         'POST /api/calendar/import-slots': 'Import slots (requires auth)',
         'DELETE /api/calendar/disconnect': 'Disconnect calendar (requires auth)'

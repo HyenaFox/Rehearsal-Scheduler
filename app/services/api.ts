@@ -382,21 +382,6 @@ class ApiService {
     return this.makeRequest('/calendar/status');
   }
 
-  static async checkTimeslotsAvailability(timeslots: any[], dateRange = 30): Promise<{
-    timeslots: any[];
-    totalEvents: number;
-    busyPeriodsCount: number;
-    dateRange: { from: string; to: string };
-    updatedAvailability: boolean;
-    availableTimeslotIds: string[];
-    message: string;
-  }> {
-    return this.makeRequest('/calendar/check-timeslots', {
-      method: 'POST',
-      body: JSON.stringify({ timeslots, dateRange }),
-    });
-  }
-
   static async getAvailableSlots(): Promise<{
     availableSlots: any[];
     busyEventsCount: number;

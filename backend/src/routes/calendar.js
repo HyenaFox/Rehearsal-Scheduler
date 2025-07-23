@@ -2,7 +2,7 @@ const express = require('express');
 const { google } = require('googleapis');
 const { authenticateToken } = require('../middleware/auth');
 const User = require('../models/User');
-const Timeslot = require('../models/Timeslot');
+const WeeklyAvailability = require('../models/WeeklyAvailability');
 
 const router = express.Router();
 
@@ -259,9 +259,9 @@ router.get('/import-availability', authenticateToken, async (req, res) => {
     oauth2Client.setCredentials(user.googleTokens);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-    // Get all timeslots to check availability against
-    const timeslots = await Timeslot.find({});
-    console.log(`Found ${timeslots.length} timeslots to check availability against`);
+    // Get all weekly availabilities to check availability against
+    const weeklyAvailabilities = await WeeklyAvailability.find({});
+    console.log(`Found ${weeklyAvailabilities.length} weekly availability periods to check against`);
     
     // Get calendar events for the next 30 days
     const now = new Date();
@@ -286,65 +286,44 @@ router.get('/import-availability', authenticateToken, async (req, res) => {
       summary: event.summary || 'Busy'
     }));
 
-    // Helper function to check if a timeslot conflicts with busy times
-    const isTimeslotAvailable = (timeslot, busyTimes) => {
-      // Convert day name to day number (0 = Sunday, 1 = Monday, etc.)
-      const dayMap = {
-        'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
-        'Thursday': 4, 'Friday': 5, 'Saturday': 6
-      };
+    // Helper function to check if a weekly availability period conflicts with busy times
+    const isWeeklyAvailabilityFree = (availability, busyTimes) => {
+      const dayNum = availability.dayOfWeek;
       
-      const timeslotDayNum = dayMap[timeslot.day];
-      if (timeslotDayNum === undefined) {
-        console.warn(`Unknown day: ${timeslot.day}`);
-        return false;
-      }
-
-      // Parse timeslot times (assuming format like "10:00 AM")
-      const parseTime = (timeStr) => {
-        const [time, period] = timeStr.split(' ');
-        const [hours, minutes] = time.split(':').map(Number);
-        let hour24 = hours;
-        
-        if (period === 'PM' && hours !== 12) hour24 += 12;
-        if (period === 'AM' && hours === 12) hour24 = 0;
-        
-        return { hours: hour24, minutes };
-      };
-
-      const startTime = parseTime(timeslot.startTime);
-      const endTime = parseTime(timeslot.endTime);
+      // Parse time strings (format: "HH:mm")
+      const [startHours, startMinutes] = availability.startTime.split(':').map(Number);
+      const [endHours, endMinutes] = availability.endTime.split(':').map(Number);
 
       // Check each week in the date range
       const startDate = new Date(now);
       const endDate = new Date(thirtyDaysFromNow);
       
       for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-        if (date.getDay() === timeslotDayNum) {
-          // Create timeslot instances for this week
-          const timeslotStart = new Date(date);
-          timeslotStart.setHours(startTime.hours, startTime.minutes, 0, 0);
+        if (date.getDay() === dayNum) {
+          // Create availability slot instances for this week
+          const availabilityStart = new Date(date);
+          availabilityStart.setHours(startHours, startMinutes, 0, 0);
           
-          const timeslotEnd = new Date(date);
-          timeslotEnd.setHours(endTime.hours, endTime.minutes, 0, 0);
+          const availabilityEnd = new Date(date);
+          availabilityEnd.setHours(endHours, endMinutes, 0, 0);
           
-          // Check if this timeslot instance conflicts with any busy time
+          // Check if this availability slot conflicts with any busy time
           const hasConflict = busyTimes.some(busyTime => {
             const busyStart = new Date(busyTime.start);
             const busyEnd = new Date(busyTime.end);
             
-            // Check for overlap: timeslot and busy time overlap if one starts before the other ends
-            const overlaps = (timeslotStart < busyEnd && timeslotEnd > busyStart);
+            // Check for overlap: availability and busy time overlap if one starts before the other ends
+            const overlaps = (availabilityStart < busyEnd && availabilityEnd > busyStart);
             
             if (overlaps) {
-              console.log(`Conflict found for ${timeslot.label} on ${date.toDateString()}: overlaps with event "${busyTime.summary}" (${busyStart.toLocaleString()} - ${busyEnd.toLocaleString()})`);
+              console.log(`Conflict found for availability on day ${dayNum} ${availability.startTime}-${availability.endTime} on ${date.toDateString()}: overlaps with event "${busyTime.summary}" (${busyStart.toLocaleString()} - ${busyEnd.toLocaleString()})`);
             }
             
             return overlaps;
           });
           
           if (hasConflict) {
-            return false; // If any instance conflicts, timeslot is not available
+            return false; // If any instance conflicts, availability is not free
           }
         }
       }
@@ -352,44 +331,42 @@ router.get('/import-availability', authenticateToken, async (req, res) => {
       return true; // No conflicts found
     };
 
-    // Check which timeslots are available (not conflicting with busy times)
+    // Check which weekly availabilities are free (not conflicting with busy times)
     const availableSlots = [];
     const unavailableSlots = [];
     
-    console.log('Checking timeslots for availability...');
-    for (const timeslot of timeslots) {
-      console.log(`Checking timeslot: ${timeslot.label} (${timeslot.day} ${timeslot.startTime}-${timeslot.endTime})`);
+    console.log('Checking weekly availabilities for conflicts...');
+    for (const availability of weeklyAvailabilities) {
+      console.log(`Checking availability: Day ${availability.dayOfWeek} ${availability.startTime}-${availability.endTime}`);
       
-      const isAvailable = isTimeslotAvailable(timeslot, busyTimes);
+      const isAvailable = isWeeklyAvailabilityFree(availability, busyTimes);
       
       if (isAvailable) {
         availableSlots.push({
-          timeslotId: timeslot._id.toString(),
-          title: timeslot.label,
-          startTime: timeslot.startTime,
-          endTime: timeslot.endTime,
-          dayOfWeek: timeslot.day
+          availabilityId: availability._id.toString(),
+          dayOfWeek: availability.dayOfWeek,
+          startTime: availability.startTime,
+          endTime: availability.endTime
         });
-        console.log(`✅ Timeslot ${timeslot.label} is available`);
+        console.log(`✅ Availability Day ${availability.dayOfWeek} ${availability.startTime}-${availability.endTime} is free`);
       } else {
         unavailableSlots.push({
-          timeslotId: timeslot._id.toString(),
-          title: timeslot.label,
-          startTime: timeslot.startTime,
-          endTime: timeslot.endTime,
-          dayOfWeek: timeslot.day
+          availabilityId: availability._id.toString(),
+          dayOfWeek: availability.dayOfWeek,
+          startTime: availability.startTime,
+          endTime: availability.endTime
         });
-        console.log(`❌ Timeslot ${timeslot.label} has conflicts`);
+        console.log(`❌ Availability Day ${availability.dayOfWeek} ${availability.startTime}-${availability.endTime} has conflicts`);
       }
     }
     
-    console.log(`Found ${availableSlots.length} available slots out of ${timeslots.length} total timeslots`);
-    console.log(`${unavailableSlots.length} timeslots have conflicts with Google Calendar events`);
+    console.log(`Found ${availableSlots.length} available slots out of ${weeklyAvailabilities.length} total weekly availability periods`);
+    console.log(`${unavailableSlots.length} availability periods have conflicts with Google Calendar events`);
 
     res.json({
       availableSlots,
       unavailableSlots,
-      totalTimeslots: timeslots.length,
+      totalTimeslots: weeklyAvailabilities.length,
       busyEventsCount: events.length,
       dateRange: {
         from: now.toISOString(),

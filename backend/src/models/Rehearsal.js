@@ -6,14 +6,28 @@ const rehearsalSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  // Old format fields (optional for backward compatibility)
   timeslotId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Timeslot',
-    required: true
+    required: false
   },
   timeslot: {
     type: Object, // Store the full timeslot object for easier access
-    required: true
+    required: false
+  },
+  // New format fields
+  date: {
+    type: String, // Date in YYYY-MM-DD format
+    required: false
+  },
+  time: {
+    type: Object, // {start: "HH:MM", end: "HH:MM"}
+    required: false
+  },
+  scene: {
+    type: String, // Scene name
+    required: false
   },
   actorIds: [{
     type: String, // User IDs of the actors
@@ -23,7 +37,7 @@ const rehearsalSchema = new mongoose.Schema({
     type: Object, // Store the full actor objects for easier access
     required: true
   }],
-  date: {
+  createdDate: {
     type: Date,
     default: Date.now
   },

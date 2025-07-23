@@ -2,6 +2,113 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { commonStyles } from '../styles/common';
 
 const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal, isAdmin = false }) => {
+  // Helper function to format date and time for display
+  const formatRehearsalTime = (rehearsal) => {
+    // Debug: Log the rehearsal structure
+    console.log('📋 Rehearsal data structure:', JSON.stringify(rehearsal, null, 2));
+    
+    // Handle old format with timeslot
+    if (rehearsal.timeslot && rehearsal.timeslot.day && rehearsal.timeslot.startTime && rehearsal.timeslot.endTime) {
+      // Format times to 12-hour format
+      const formatTime = (time24) => {
+        try {
+          const date = new Date(`2000-01-01T${time24}`);
+          return date.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          });
+        } catch {
+          return time24; // fallback to original if parsing fails
+        }
+      };
+      
+      const startTime12 = formatTime(rehearsal.timeslot.startTime);
+      const endTime12 = formatTime(rehearsal.timeslot.endTime);
+      return `${rehearsal.timeslot.day} - ${startTime12} to ${endTime12}`;
+    }
+    
+    // Handle new format with date and time
+    if (rehearsal.date && rehearsal.time && rehearsal.time.start && rehearsal.time.end) {
+      try {
+        // Parse the date (format: "2025-07-23")
+        const date = new Date(rehearsal.date + 'T00:00:00');
+        if (isNaN(date.getTime())) {
+          console.error('❌ Invalid date format:', rehearsal.date);
+          return `${rehearsal.date} - ${rehearsal.time.start} to ${rehearsal.time.end}`;
+        }
+        
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+        
+        const dayName = dayNames[date.getDay()];
+        const monthName = monthNames[date.getMonth()];
+        const dayNum = date.getDate();
+        
+        const formattedDate = `${dayName}, ${monthName} ${dayNum}`;
+        
+        // Format times to 12-hour format
+        const formatTime = (time24) => {
+          try {
+            const date = new Date(`2000-01-01T${time24}`);
+            return date.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+          } catch {
+            return time24; // fallback to original if parsing fails
+          }
+        };
+        
+        const startTime12 = formatTime(rehearsal.time.start);
+        const endTime12 = formatTime(rehearsal.time.end);
+        const timeRange = `${startTime12} to ${endTime12}`;
+        
+        return `${formattedDate} - ${timeRange}`;
+      } catch (error) {
+        console.error('❌ Error formatting date:', error);
+        // Format times to 12-hour format even in error case
+        const formatTime = (time24) => {
+          try {
+            const date = new Date(`2000-01-01T${time24}`);
+            return date.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+          } catch {
+            return time24; // fallback to original if parsing fails
+          }
+        };
+        const startTime12 = formatTime(rehearsal.time.start);
+        const endTime12 = formatTime(rehearsal.time.end);
+        return `${rehearsal.date} - ${startTime12} to ${endTime12}`;
+      }
+    }
+    
+    // Try to handle database timestamps (createdDate, etc.)
+    if (rehearsal.createdDate) {
+      try {
+        const date = new Date(rehearsal.createdDate);
+        const formatted = date.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        return `${formatted} - Time TBD`;
+      } catch (error) {
+        console.error('❌ Error formatting createdDate:', error);
+      }
+    }
+    
+    // Fallback for any other format
+    console.warn('⚠️ Unknown rehearsal format, using fallback');
+    return 'Time TBD';
+  };
+
   if (rehearsals.length === 0) {
     return (
       <View style={commonStyles.emptyState}>
@@ -32,8 +139,13 @@ const RehearsalsDisplay = ({ rehearsals, onDeleteRehearsal, isAdmin = false }) =
             </View>
             <View style={styles.rehearsalDetails}>
               <Text style={styles.rehearsalTime}>
-                ⏰ {rehearsal.timeslot.day} - {rehearsal.timeslot.startTime} to {rehearsal.timeslot.endTime}
+                ⏰ {formatRehearsalTime(rehearsal)}
               </Text>
+              {rehearsal.scene && (
+                <Text style={styles.rehearsalScene}>
+                  🎬 {typeof rehearsal.scene === 'string' ? rehearsal.scene : (rehearsal.scene?.title || rehearsal.scene?.name || 'Scene TBD')}
+                </Text>
+              )}
               <Text style={styles.rehearsalActors}>
                 🎭 {rehearsal.actors.map(actor => actor.name).join(', ')}
               </Text>
@@ -126,6 +238,12 @@ const styles = {
     color: '#6366f1',
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  rehearsalScene: {
+    fontSize: 14,
+    color: '#8b5cf6',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   rehearsalActors: {
     fontSize: 14,

@@ -41,26 +41,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Initialize authentication state - check for existing tokens
+  // Initialize authentication state - check for existing cookie session
   useEffect(() => {
     let isMounted = true;
 
     const initializeAuth = async () => {
       try {
-        const token = await StorageService.getItem('auth_token');
-        if (token) {
-          const currentUser = await ApiService.getCurrentUser();
-          if (currentUser && isMounted) {
-            setUser(currentUser);
-          } else {
-            await StorageService.removeItem('auth_token');
+        console.log('🔐 AuthContext: Initializing auth state - checking for existing session');
+        
+        // For development, check localStorage first as it's more reliable than cookies
+        if (__DEV__) {
+          try {
+            const localToken = await StorageService.getItem('auth_token');
+            if (localToken) {
+              console.log('🔐 AuthContext: Found token in localStorage, validating...');
+              const currentUser = await ApiService.getCurrentUser();
+              if (currentUser && isMounted) {
+                console.log('🔐 AuthContext: Valid session found for user:', currentUser.email);
+                setUser(currentUser);
+                return;
+              } else {
+                console.log('🔐 AuthContext: localStorage token invalid, clearing...');
+                await StorageService.removeItem('auth_token');
+              }
+            }
+          } catch (localError) {
+            console.log('🔐 AuthContext: localStorage check failed, trying cookie auth...');
           }
         }
+        
+        // Fallback to cookie-based auth
+        const currentUser = await ApiService.getCurrentUser();
+        if (currentUser && isMounted) {
+          console.log('🔐 AuthContext: Found existing session for user:', currentUser.email);
+          setUser(currentUser);
+        } else {
+          console.log('🔐 AuthContext: No existing session found');
+          setUser(null);
+        }
       } catch (error) {
-        console.error('Auth initialization error:', error);
-        await StorageService.removeItem('auth_token');
+        console.log('🔐 AuthContext: No valid session found:', error);
+        setUser(null);
       } finally {
         if (isMounted) {
+          console.log('🔐 AuthContext: Auth initialization complete');
           setIsLoading(false);
         }
       }

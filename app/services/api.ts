@@ -1,5 +1,4 @@
 import { User } from '../contexts/AuthContext';
-import { StorageService } from './storage';
 
 // Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
@@ -36,53 +35,43 @@ console.log('🌐 API Configuration:', {
 // 'http://192.168.1.159:3000/api' - Use this for physical device (but Google OAuth won't work)
 
 class ApiService {
-  private static async getAuthToken(): Promise<string | null> {
-    try {
-      return await StorageService.getItem('auth_token');
-    } catch (error) {
-      console.error('Error getting auth token:', error);
-      return null;
-    }
-  }
-
-  private static async setAuthToken(token: string): Promise<void> {
-    try {
-      await StorageService.setItem('auth_token', token);
-      console.log('🔑 Auth token stored successfully');
-    } catch (error) {
-      console.error('Error setting auth token:', error);
-    }
-  }
-
-  private static async removeAuthToken(): Promise<void> {
-    try {
-      await StorageService.removeItem('auth_token');
-      console.log('🔑 Auth token removed successfully');
-    } catch (error) {
-      console.error('Error removing auth token:', error);
-    }
-  }
-
+  // Cookie-based authentication - no token management needed
   private static async makeRequest(
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<any> {
-    const token = await this.getAuthToken();
-    
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
+      credentials: 'include', // Include cookies in requests (this is the key for cookie auth)
       ...options,
     };
+
+    // For development, also try to get token from localStorage as fallback
+    if (__DEV__) {
+      try {
+        const { StorageService } = await import('./storage');
+        const token = await StorageService.getItem('auth_token');
+        if (token) {
+          config.headers = {
+            ...config.headers,
+            'Authorization': `Bearer ${token}`,
+          };
+          console.log('🔐 Using localStorage token for request');
+        }
+      } catch (error) {
+        // Ignore error, cookies will be used
+      }
+    }
 
     console.log(`🌐 Making request to: ${API_BASE_URL}${endpoint}`);
     console.log(`🌐 Request config:`, { 
       method: options.method || 'GET', 
-      hasToken: !!token,
-      hasBody: !!options.body 
+      hasBody: !!options.body,
+      credentials: config.credentials,
+      hasAuth: !!(config.headers as any)?.Authorization
     });
 
     try {
@@ -112,6 +101,46 @@ class ApiService {
     }
   }
 
+  // Public request method (no auth required)
+  private static async makePublicRequest(
+    endpoint: string, 
+    options: RequestInit = {}
+  ): Promise<any> {
+    const config: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    console.log(`🌐 Making public request to: ${API_BASE_URL}${endpoint}`);
+    
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 10000);
+      });
+      
+      const fetchPromise = fetch(`${API_BASE_URL}${endpoint}`, config);
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+      
+      console.log(`🌐 Public response status: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Network error' }));
+        console.log(`🌐 Public error response:`, errorData);
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const responseData = await response.json();
+      console.log(`🌐 Public success response received for ${endpoint}`);
+      return responseData;
+    } catch (error) {
+      console.error('🌐 Public API request error:', error);
+      throw error;
+    }
+  }
+
   // Auth methods
   static async register(userData: {
     email: string;
@@ -124,10 +153,19 @@ class ApiService {
       body: JSON.stringify(userData),
     });
 
-    if (response.token) {
-      await this.setAuthToken(response.token);
+    // For development, also store token in localStorage as fallback
+    if (__DEV__ && response.token) {
+      try {
+        const { StorageService } = await import('./storage');
+        await StorageService.setItem('auth_token', response.token);
+        console.log('🔐 Registration successful - token stored in both cookie and localStorage');
+      } catch (error) {
+        console.log('🔐 Registration successful - cookie will be used (localStorage failed)');
+      }
+    } else {
+      console.log('🔐 Registration successful - cookie will be set by server');
     }
-
+    
     return response;
   }
 
@@ -138,15 +176,21 @@ class ApiService {
       body: JSON.stringify(credentials),
     });
 
-    console.log('🔐 Login response received:', { hasToken: !!response.token, hasUser: !!response.user });
-
-    if (response.token) {
-      await this.setAuthToken(response.token);
-      console.log('🔐 Login successful, token stored');
+    console.log('🔐 Login response received:', { hasUser: !!response.user });
+    
+    // For development, also store token in localStorage as fallback
+    if (__DEV__ && response.token) {
+      try {
+        const { StorageService } = await import('./storage');
+        await StorageService.setItem('auth_token', response.token);
+        console.log('🔐 Login successful - token stored in both cookie and localStorage');
+      } catch (error) {
+        console.log('🔐 Login successful - cookie will be used (localStorage failed)');
+      }
     } else {
-      console.log('🔐 Login failed - no token received');
+      console.log('🔐 Login successful - cookie will be set by server');
     }
-
+    
     return response;
   }
 
@@ -162,7 +206,27 @@ class ApiService {
   }
 
   static async logout() {
-    await this.removeAuthToken();
+    try {
+      // For development, also clear localStorage
+      if (__DEV__) {
+        try {
+          const { StorageService } = await import('./storage');
+          await StorageService.removeItem('auth_token');
+          console.log('🔐 localStorage token cleared');
+        } catch {
+          // Ignore error
+        }
+      }
+      
+      // Call backend logout endpoint to clear HTTP-only cookie
+      await this.makeRequest('/auth/logout', {
+        method: 'POST',
+      });
+      console.log('🔐 Backend logout successful - cookie cleared');
+    } catch (error) {
+      console.log('🔐 Backend logout failed:', error);
+      // Don't throw - allow local logout to proceed
+    }
   }
 
   static async getCurrentUser() {
@@ -178,15 +242,34 @@ class ApiService {
   }
 
   static async updateProfile(updates: Partial<User>): Promise<any> {
-    return await this.makeRequest('/auth/profile', {
+    console.log('🌐 ApiService.updateProfile called with:', updates);
+    console.log('🌐 Availability data being sent:', updates.availability?.length || 0, 'slots');
+    if (updates.availability && updates.availability.length > 0) {
+      console.log('🌐 Sample availability slots:', updates.availability.slice(0, 3));
+    }
+    
+    const result = await this.makeRequest('/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
+    
+    console.log('🌐 ApiService.updateProfile result:', result);
+    console.log('🌐 Result availability:', result?.user?.availability?.length || 0, 'slots');
+    return result;
   }
 
   // Actors API
   static async getAllActors(): Promise<any[]> {
     return this.makeRequest('/actors');
+  }
+
+  static async getPublicActors(): Promise<any[]> {
+    // Public endpoint that doesn't require authentication
+    const response = await fetch(`${API_BASE_URL}/actors/public`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   }
 
   static async createActor(actor: any): Promise<any> {
@@ -215,7 +298,7 @@ class ApiService {
 
   // Weekly Availability API
   static async getWeeklyAvailabilities(): Promise<any[]> {
-    return this.makeRequest('/weekly-availability');
+    return this.makePublicRequest('/weekly-availability');
   }
 
   static async addWeeklyAvailability(availability: any): Promise<any> {
@@ -266,10 +349,14 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({
         title: rehearsal.title,
-        timeslotId: rehearsal.timeslot.id || rehearsal.timeslot._id,
-        timeslot: rehearsal.timeslot,
-        actorIds: rehearsal.actors.map((actor: any) => actor.id),
-        actors: rehearsal.actors
+        // Handle both old timeslot format and new date/time format
+        timeslotId: rehearsal.timeslot?.id || rehearsal.timeslot?._id || null,
+        timeslot: rehearsal.timeslot || null,
+        date: rehearsal.date || null,
+        time: rehearsal.time || null,
+        scene: rehearsal.scene || null,
+        actorIds: rehearsal.actors?.map((actor: any) => actor.id || actor._id) || [],
+        actors: rehearsal.actors || []
       }),
     });
   }
@@ -279,10 +366,14 @@ class ApiService {
       method: 'PUT',
       body: JSON.stringify({
         title: rehearsal.title,
-        timeslotId: rehearsal.timeslot.id || rehearsal.timeslot._id,
-        timeslot: rehearsal.timeslot,
-        actorIds: rehearsal.actors.map((actor: any) => actor.id),
-        actors: rehearsal.actors
+        // Handle both old timeslot format and new date/time format
+        timeslotId: rehearsal.timeslot?.id || rehearsal.timeslot?._id || null,
+        timeslot: rehearsal.timeslot || null,
+        date: rehearsal.date || null,
+        time: rehearsal.time || null,
+        scene: rehearsal.scene || null,
+        actorIds: rehearsal.actors?.map((actor: any) => actor.id || actor._id) || [],
+        actors: rehearsal.actors || []
       }),
     });
   }
@@ -301,18 +392,6 @@ class ApiService {
     } catch {
       return false;
     }
-  }
-
-  // Debug methods - remove these after testing
-  static async debugTokenStorage() {
-    const token = await this.getAuthToken();
-    console.log('🔍 Current stored token:', token ? `${token.substring(0, 20)}...` : 'No token');
-    return !!token;
-  }
-
-  static async debugClearToken() {
-    await this.removeAuthToken();
-    console.log('🔍 Token cleared for debugging');
   }
 
   // Test backend connection

@@ -6,11 +6,11 @@ import { useAuth } from './AuthContext';
 interface AppContextType {
   actors: any[];
   rehearsals: any[];
-  timeslots: any[];
+  weeklyAvailabilities: any[];
   scenes: any[];
   setActors: (actors: any[]) => void;
   setRehearsals: (rehearsals: any[]) => void;
-  setTimeslots: (timeslots: any[]) => void;
+  setWeeklyAvailabilities: (weeklyAvailabilities: any[]) => void;
   setScenes: (scenes: any[]) => void;
   handleDeleteActor: (actor: any) => void;
   handleDeleteRehearsal: (index: number) => void;
@@ -18,6 +18,7 @@ interface AppContextType {
   handleAddRehearsal: (rehearsal: any) => void;
   handleAddMultipleRehearsals: (rehearsals: any[]) => void;
   loadData: () => Promise<void>;
+  refreshData: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -34,9 +35,11 @@ export const useApp = () => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [actors, setActors] = useState<any[]>([]);
   const [rehearsals, setRehearsals] = useState<any[]>([]);
-  const [timeslots, setTimeslots] = useState<any[]>([]);
+  const [weeklyAvailabilities, setWeeklyAvailabilities] = useState<any[]>([]);
   const [scenes, setScenes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
   const { user } = useAuth();
   const pathname = usePathname();
 
@@ -50,13 +53,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTimeout(() => reject(new Error('API call timeout')), ms)
       );
       
-      // Always load public data (rehearsals, timeslots, scenes) for all users
-      const [timeslotsData, scenesData, rehearsalsData] = await Promise.all([
+      // Always load public data (rehearsals, weekly availabilities, scenes) for all users
+      const [weeklyAvailabilitiesData, scenesData, rehearsalsData] = await Promise.all([
         Promise.race([
-          ApiService.getAllTimeslots(),
+          ApiService.getWeeklyAvailabilities(),
           timeoutPromise(5000)
         ]).catch(err => {
-          console.warn('Failed to load timeslots:', err);
+          console.warn('Failed to load weekly availabilities:', err);
           return [];
         }) as Promise<any[]>,
         Promise.race([
@@ -75,45 +78,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }) as Promise<any[]>
       ]);
 
-      // Only load actors for authenticated users (not guests or unauthenticated users)
+      // Load actors for everyone (public data for weekly availability display)
       let actorsData: any[] = [];
-      if (user && user.id !== 'guest') {
-        console.log('🔄 Loading actors for authenticated user...');
-        actorsData = await Promise.race([
-          ApiService.getAllActors(),
-          timeoutPromise(5000)
-        ]).catch(err => {
-          console.warn('Failed to load actors:', err);
-          return [];
-        }) as any[];
-      } else {
-        console.log('AppContext - Guest/unauthenticated user, skipping actors load');
+      try {
+        if (user && user.id !== 'guest') {
+          console.log('🔄 Loading full actors data for authenticated user...');
+          actorsData = await Promise.race([
+            ApiService.getAllActors(),
+            timeoutPromise(5000)
+          ]).catch(err => {
+            console.warn('Failed to load full actors data, falling back to public actors:', err);
+            return ApiService.getPublicActors();
+          }) as any[];
+        } else {
+          console.log('🔄 Loading public actors data for unauthenticated user...');
+          actorsData = await Promise.race([
+            ApiService.getPublicActors(),
+            timeoutPromise(5000)
+          ]).catch(err => {
+            console.warn('Failed to load public actors:', err);
+            return [];
+          }) as any[];
+        }
+      } catch (error) {
+        console.warn('Error loading actors data:', error);
+        actorsData = [];
       }
 
       console.log('📦 Data loaded:', {
         actors: actorsData.length,
-        timeslots: timeslotsData.length,
+        weeklyAvailabilities: weeklyAvailabilitiesData.length,
         scenes: scenesData.length,
         rehearsals: rehearsalsData.length,
         userStatus: user ? (user.id === 'guest' ? 'guest' : 'authenticated') : 'unauthenticated'
       });
 
       setActors(actorsData);
-      setTimeslots(timeslotsData);
+      setWeeklyAvailabilities(weeklyAvailabilitiesData);
       setScenes(scenesData);
       setRehearsals(rehearsalsData);
     } catch (error) {
       console.error('❌ Error loading data:', error);
       // On error, set empty arrays but don't block the app
       setActors([]);
-      setTimeslots([]);
+      setWeeklyAvailabilities([]);
       setScenes([]);
       setRehearsals([]);
     } finally {
       setIsLoading(false);
       console.log('📦 Data loading completed, setting isLoading to false');
     }
-  }, [user]); // Add user back to this dependency array
+  }, [user]); // Only depend on user changes
 
   // Load data on mount and when user changes
   useEffect(() => {
@@ -121,8 +136,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (pathname === '/auth/google/callback') {
       return;
     }
-    loadData();
-  }, [pathname, loadData]); // Keep loadData in this dependency array
+    
+    const currentUserId = user?.id || 'guest';
+    
+    // Only reload data if:
+    // 1. Data hasn't been loaded yet, OR
+    // 2. User has changed (different user ID)
+    if (!dataLoaded || lastUserId !== currentUserId) {
+      console.log(`🔄 Loading data - dataLoaded: ${dataLoaded}, userChanged: ${lastUserId !== currentUserId}`);
+      setLastUserId(currentUserId);
+      loadData().then(() => {
+        setDataLoaded(true);
+      });
+    } else {
+      console.log('📋 Data already loaded for this user, skipping reload');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, user?.id]); // Keep dependencies but use smart caching logic
 
   const handleDeleteActor = async (actor: any) => {
     // Only allow authenticated users to manage actors
@@ -222,14 +252,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const refreshData = useCallback(async () => {
+    console.log('🔄 Force refreshing data...');
+    setDataLoaded(false);
+    await loadData();
+    setDataLoaded(true);
+  }, [loadData]);
+
   const value = {
     actors,
     rehearsals,
-    timeslots,
+    weeklyAvailabilities,
     scenes,
     setActors,
     setRehearsals,
-    setTimeslots,
+    setWeeklyAvailabilities,
     setScenes,
     handleDeleteActor,
     handleDeleteRehearsal,
@@ -237,6 +274,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     handleAddRehearsal,
     handleAddMultipleRehearsals,
     loadData,
+    refreshData,
     isLoading,
   };
 

@@ -23,14 +23,17 @@ router.get('/', async (req, res) => {
 // Create new rehearsal
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { title, timeslotId, timeslot, actorIds, actors } = req.body;
+    const { title, timeslotId, timeslot, date, time, scene, actorIds, actors } = req.body;
+    
+    console.log('🎭 Creating rehearsal with data:', JSON.stringify(req.body, null, 2));
     
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
     }
     
-    if (!timeslotId || !timeslot) {
-      return res.status(400).json({ error: 'Timeslot is required' });
+    // Support both old format (timeslotId/timeslot) and new format (date/time)
+    if (!timeslotId && !timeslot && !date && !time) {
+      return res.status(400).json({ error: 'Either timeslot or date/time is required' });
     }
     
     if (!actorIds || !Array.isArray(actorIds) || actorIds.length === 0) {
@@ -41,6 +44,9 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       title,
       timeslotId,
       timeslot,
+      date,
+      time,
+      scene,
       actorIds,
       actors: actors || [],
       createdBy: req.user.id
@@ -48,11 +54,15 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 
     const rehearsal = await Rehearsal.createRehearsal(rehearsalData);
     
+    console.log('💾 Rehearsal saved to database:', JSON.stringify(rehearsal.toObject(), null, 2));
+    
     // Transform _id to id for frontend compatibility
     const transformedRehearsal = {
       ...rehearsal.toObject(),
       id: rehearsal._id.toString()
     };
+    
+    console.log('📤 Returning rehearsal to frontend:', JSON.stringify(transformedRehearsal, null, 2));
     
     res.status(201).json(transformedRehearsal);
   } catch (error) {
@@ -65,14 +75,15 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, timeslotId, timeslot, actorIds, actors } = req.body;
+    const { title, timeslotId, timeslot, date, time, scene, actorIds, actors } = req.body;
     
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
     }
     
-    if (!timeslotId || !timeslot) {
-      return res.status(400).json({ error: 'Timeslot is required' });
+    // Support both old format (timeslotId/timeslot) and new format (date/time)
+    if (!timeslotId && !timeslot && !date && !time) {
+      return res.status(400).json({ error: 'Either timeslot or date/time is required' });
     }
     
     if (!actorIds || !Array.isArray(actorIds) || actorIds.length === 0) {
@@ -83,6 +94,9 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
       title,
       timeslotId,
       timeslot,
+      date,
+      time,
+      scene,
       actorIds,
       actors: actors || []
     };

@@ -4,8 +4,8 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all weekly availability
-router.get('/', authenticateToken, async (req, res) => {
+// Get all weekly availability - NO AUTH REQUIRED
+router.get('/', async (req, res) => {
   try {
     const weeklyAvailabilities = await WeeklyAvailability.find();
     res.json(weeklyAvailabilities);

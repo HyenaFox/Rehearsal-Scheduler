@@ -22,7 +22,7 @@ const sceneSchema = new mongoose.Schema({
   },
   duration: {
     type: Number, // Duration in minutes
-    default: 60
+    default: 30
   },
   priority: {
     type: Number,

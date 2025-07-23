@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { commonStyles } from '../styles/common';
 
 export default function RehearsalsScreen() {
-  const { actors, rehearsals, handleDeleteRehearsal, handleAddRehearsal, handleAddMultipleRehearsals } = useApp();
+  const { actors, rehearsals, scenes, handleDeleteRehearsal, handleAddRehearsal, handleAddMultipleRehearsals } = useApp();
   const { user } = useAuth();
   
   // Admin check for admin-only actions
@@ -102,7 +102,8 @@ export default function RehearsalsScreen() {
         visible={addRehearsalModalVisible}
         onSave={handleSaveRehearsal}
         onCancel={handleCancelAddRehearsal}
-        actors={actors}
+        actors={actors as any}
+        scenes={scenes as any}
       />
       
       <AutoSchedulerModal

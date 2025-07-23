@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import WeeklyPlanner from '../components/WeeklyPlanner';
+import AvailabilityCalendar from '../components/AvailabilityCalendar';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,12 +16,27 @@ export default function ProfileScreen() {
   const [isActor, setIsActor] = useState(false);
   const [availability, setAvailability] = useState<string[]>([]);
   const [selectedScenes, setSelectedScenes] = useState<string[]>([]);
+  const [weeklyAvailability, setWeeklyAvailability] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [showLogin, setShowLogin] = useState(false);
   
   // Track the last user ID to prevent resetting form state on every render
   const lastUserIdRef = useRef<string | null>(null);
+  
+  // Fetch weekly availability periods on mount
+  useEffect(() => {
+    const fetchWeeklyAvailability = async () => {
+      try {
+        const availabilityData = await ApiService.getWeeklyAvailabilities();
+        setWeeklyAvailability(availabilityData);
+      } catch (error) {
+        console.error('Failed to fetch weekly availability:', error);
+      }
+    };
+
+    fetchWeeklyAvailability();
+  }, []);
   
   // Update local state when user data is available (only when user changes)
   useEffect(() => {
@@ -111,6 +126,8 @@ export default function ProfileScreen() {
 
       console.log(`🎭 Starting profile update with isActor: ${isActor}`, updates);
       console.log('🎭 Selected availability:', availability);
+      console.log('🎭 Selected availability length:', availability.length);
+      console.log('🎭 Selected availability sample:', availability.slice(0, 3));
       console.log('🎭 Selected scenes:', selectedScenes);
       
       // STEP 1: Update the user profile
@@ -118,6 +135,7 @@ export default function ProfileScreen() {
       setSaveStatus('Updating profile...');
       const updatedUser = await updateProfile(updates);
       console.log('✅ STEP 1: Profile updated successfully', updatedUser);
+      console.log('✅ STEP 1: Updated user availability:', updatedUser?.availability?.length || 0, 'slots');
 
       // STEP 2: Triple verification for actors list (if user is becoming/staying an actor)
       if (isActor) {
@@ -355,15 +373,39 @@ export default function ProfileScreen() {
           {isActor && (
             <>
               <View style={styles.subsection}>
-                <Text style={styles.subsectionTitle}>Available Time Slots</Text>
+                <Text style={styles.subsectionTitle}>
+                  Available Time Slots ({availability.length} selected)
+                </Text>
                 <Text style={styles.subsectionDescription}>
                   Select the half-hour slots when you are available for rehearsals.
                 </Text>
-                <WeeklyPlanner
-                  onSelectionChange={(selectedSlots) => {
-                    setAvailability(selectedSlots.map(d => d.toISOString()));
+                <AvailabilityCalendar
+                  onTimeSlotSelect={(day, hour, minute) => {
+                    // Convert to date and add to availability
+                    const date = new Date();
+                    date.setDate(date.getDate() - date.getDay() + day);
+                    date.setHours(hour, minute, 0, 0);
+                    const newSlot = date.toISOString();
+                    
+                    console.log('🎯 Time slot selected:', { day, hour, minute, newSlot });
+                    console.log('📅 Current date:', new Date().toISOString());
+                    console.log('📅 Generated slot date:', date.toISOString());
+                    console.log('📊 Current availability count:', availability.length);
+                    
+                    // Toggle the slot
+                    const isAlreadySelected = availability.includes(newSlot);
+                    const updatedAvailability = isAlreadySelected 
+                      ? availability.filter(slot => slot !== newSlot)
+                      : [...availability, newSlot];
+                    
+                    console.log(`${isAlreadySelected ? '❌ Removing' : '✅ Adding'} slot`);
+                    console.log('📋 Updated availability:', updatedAvailability.length, 'slots');
+                    console.log('📋 Full availability array:', updatedAvailability);
+                    setAvailability(updatedAvailability);
                   }}
-                  initialSelections={availability}
+                  selectedSlots={availability}
+                  readOnly={false}
+                  availabilityPeriods={weeklyAvailability}
                 />
               </View>
 
@@ -422,7 +464,8 @@ export default function ProfileScreen() {
           disabled={isLoading}
         >
           <Text style={commonStyles.actionButtonText}>
-            {isLoading ? (saveStatus || 'Saving...') : `Save Changes${isActor ? ' & Verify Actor Status' : ''}`}
+            {isLoading ? (saveStatus || 'Saving...') : 
+             `Save Changes${isActor ? ' & Verify Actor Status' : ''}${isActor && availability.length > 0 ? ` (${availability.length} slots)` : ''}`}
           </Text>
         </TouchableOpacity>
 

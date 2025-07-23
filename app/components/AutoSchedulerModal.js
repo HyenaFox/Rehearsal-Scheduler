@@ -1,59 +1,251 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useApp } from '../contexts/AppContext';
-import {
-  autoScheduleDay,
-  createRehearsalFromOpportunity,
-  findBestRehearsalOpportunities,
-  getSchedulingSummary
-} from '../utils/autoScheduler';
+import { findBestRehearsalOpportunities } from '../utils/autoScheduler';
 
 const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehearsals }) => {
-  const { timeslots, scenes } = useApp();
-  const [selectedDay, setSelectedDay] = useState('Monday');
+  const { scenes } = useApp();
+  const [selectedDateRange, setSelectedDateRange] = useState('next7days');
   const [opportunities, setOpportunities] = useState([]);
   const [summary, setSummary] = useState(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
 
-  // Get unique days from timeslots
-  const availableDays = timeslots && timeslots.length > 0 
-    ? [...new Set(timeslots.map(ts => ts.day))] 
-    : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const updateOpportunities = useCallback(() => {
-    // Only run if we have timeslots and scenes loaded
-    if (!timeslots || !scenes || timeslots.length === 0) {
+  // Date range options
+  const dateRangeOptions = useMemo(() => [
+    { id: 'next7days', label: 'Next 7 Days', days: 7 },
+    { id: 'next14days', label: 'Next 2 Weeks', days: 14 },
+    { id: 'next30days', label: 'Next Month', days: 30 }
+  ], []);
+
+  // Generate time slots for auto-scheduling (9 AM to 9 PM, 30-minute blocks)
+  const timeSlots = useMemo(() => {
+    const slots = [];
+    for (let hour = 9; hour <= 20; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        // Don't go past 9 PM
+        if (hour === 20 && minute > 0) break;
+        
+        const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const endHour = minute === 30 ? hour + 1 : hour;
+        const endMinute = minute === 30 ? 0 : 30;
+        const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+        
+        const startTime12 = new Date(`2000-01-01T${startTime}`).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        const endTime12 = new Date(`2000-01-01T${endTime}`).toLocaleTimeString('en-US', {
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        slots.push({
+          id: `${startTime}-${endTime}`,
+          startTime,
+          endTime,
+          label: `${startTime12} - ${endTime12}`
+        });
+      }
+    }
+    return slots;
+  }, []);
+
+  // Find best rehearsal opportunities for the selected date range
+  const findBestOpportunities = useCallback(() => {
+    if (!scenes || scenes.length === 0) {
+      console.log('[AutoScheduler] No scenes available');
       setOpportunities([]);
-      setSummary(null);
+      setSummary({
+        totalActors: actors?.length || 0,
+        availableActors: 0,
+        scenes: scenes?.length || 0,
+        dateRange: selectedDateRange,
+        availableDates: 0
+      });
       setSelectedOpportunity(null);
       return;
     }
+
+    console.log('[AutoScheduler] Finding opportunities for:', selectedDateRange);
+
+    const dateRangeConfig = dateRangeOptions.find(opt => opt.id === selectedDateRange);
+    const days = dateRangeConfig?.days || 7;
+
+    // Generate available dates (next N days, excluding weekends for now)
+    const availableDates = [];
+    const today = new Date();
     
-    console.log('Auto-scheduler data:', {
-      actors: actors?.length || 0,
-      timeslots: timeslots?.length || 0,
+    for (let i = 1; i <= days; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      // Skip weekends (optional - could be configurable)
+      const dayOfWeek = date.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip Sunday (0) and Saturday (6)
+        availableDates.push(date);
+      }
+    }
+
+    // Find opportunities for each date/time combination
+    const allOpportunities = [];
+    
+    availableDates.forEach(date => {
+      timeSlots.forEach(timeSlot => {
+        scenes.forEach(scene => {
+          // Check if this date/time conflicts with existing rehearsals
+          const dateStr = date.toISOString().split('T')[0];
+          const conflictingRehearsal = existingRehearsals?.find(r => 
+            r.date === dateStr && 
+            ((r.startTime <= timeSlot.startTime && r.endTime > timeSlot.startTime) ||
+             (r.startTime < timeSlot.endTime && r.endTime >= timeSlot.endTime) ||
+             (r.startTime >= timeSlot.startTime && r.endTime <= timeSlot.endTime))
+          );
+
+          if (!conflictingRehearsal) {
+            // Count available actors for this scene
+            const sceneActors = scene.actors || [];
+            const availableActors = sceneActors.filter(actorId => {
+              const actor = actors.find(a => a.id === actorId);
+              if (!actor) return false;
+              
+              // Check if actor is available at this date/time
+              if (actor.availability && Array.isArray(actor.availability)) {
+                // Convert date and time slot to check against actor's availability
+                const slotDate = date;
+                const slotHour = parseInt(timeSlot.startTime.split(':')[0]);
+                const slotMinute = parseInt(timeSlot.startTime.split(':')[1]);
+                
+                // Create a date object for this specific slot
+                const slotDateTime = new Date(slotDate);
+                slotDateTime.setHours(slotHour, slotMinute, 0, 0);
+                
+                // Check if any of the actor's availability slots match this time
+                return actor.availability.some(availableSlot => {
+                  try {
+                    const availableDate = new Date(availableSlot);
+                    // Check if it's the same date and within 30 minutes of the slot
+                    const timeDiff = Math.abs(slotDateTime.getTime() - availableDate.getTime());
+                    return timeDiff < 30 * 60 * 1000; // Within 30 minutes
+                  } catch {
+                    return false;
+                  }
+                });
+              }
+              
+              return false; // Not available if no availability data
+            });
+
+            if (availableActors.length > 0) {
+              allOpportunities.push({
+                id: `${scene.id}-${dateStr}-${timeSlot.id}`,
+                scene,
+                date: dateStr,
+                dateObj: date,
+                timeSlot,
+                availableActors,
+                score: availableActors.length / sceneActors.length // Percentage of actors available
+              });
+            }
+          }
+        });
+      });
+    });
+
+    // Sort by score (highest first) and limit results
+    const bestOpportunities = allOpportunities
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20); // Limit to top 20 opportunities
+
+    console.log('[AutoScheduler] Found opportunities:', bestOpportunities.length);
+
+    setOpportunities(bestOpportunities);
+    setSummary({
+      totalActors: actors?.length || 0,
+      availableActors: actors?.length || 0, // Simplified for now
       scenes: scenes?.length || 0,
-      selectedDay,
-      existingRehearsals: existingRehearsals?.length || 0
+      dateRange: dateRangeConfig?.label || 'Next 7 Days',
+      availableDates: availableDates.length,
+      totalOpportunities: allOpportunities.length,
+      bestOpportunities: bestOpportunities.length
     });
+    setSelectedOpportunity(bestOpportunities[0] || null);
+  }, [actors, existingRehearsals, scenes, selectedDateRange, dateRangeOptions, timeSlots]);
+
+  // New improved method using the updated autoscheduler
+  const findBestOpportunitiesImproved = useCallback(() => {
+    if (!scenes || scenes.length === 0) {
+      console.log('[AutoScheduler] No scenes available');
+      setOpportunities([]);
+      setSummary({
+        totalActors: actors?.length || 0,
+        availableActors: 0,
+        scenes: scenes?.length || 0,
+        dateRange: selectedDateRange,
+        availableDates: 0
+      });
+      setSelectedOpportunity(null);
+      return;
+    }
+
+    console.log('[AutoScheduler] Using improved scheduler logic');
     
-    const opps = findBestRehearsalOpportunities(actors, selectedDay, existingRehearsals, timeslots, scenes);
-    const summaryData = getSchedulingSummary(actors, selectedDay, existingRehearsals, timeslots, scenes);
-    
-    console.log('Auto-scheduler results:', {
-      opportunities: opps.length,
-      summary: summaryData
+    const dateRangeConfig = dateRangeOptions.find(opt => opt.id === selectedDateRange);
+    const days = dateRangeConfig?.days || 7;
+
+    // Get next few weekdays as potential rehearsal days
+    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const allOpportunities = [];
+
+    weekdays.forEach(day => {
+      try {
+        const dayOpportunities = findBestRehearsalOpportunities(actors, day, existingRehearsals, [], scenes);
+        dayOpportunities.forEach(opp => {
+          // Convert to the format expected by the UI
+          allOpportunities.push({
+            id: `${opp.scene.id}-${opp.date}-${opp.timeslot.id}`,
+            scene: opp.scene,
+            date: opp.date,
+            dateObj: opp.dateObj,
+            timeSlot: opp.timeslot,
+            availableActors: opp.actors.map(actor => actor.id),
+            score: opp.efficiency,
+            priority: opp.priority,
+            efficiency: opp.efficiency
+          });
+        });
+      } catch (error) {
+        console.warn(`Failed to get opportunities for ${day}:`, error);
+      }
     });
-    
-    setOpportunities(opps);
-    setSummary(summaryData);
-    setSelectedOpportunity(opps[0] || null);
-  }, [actors, selectedDay, existingRehearsals, timeslots, scenes]);
+
+    // Sort by priority/score (highest first) and limit results
+    const bestOpportunities = allOpportunities
+      .sort((a, b) => (b.priority || b.score) - (a.priority || a.score))
+      .slice(0, 20);
+
+    console.log('[AutoScheduler] Found improved opportunities:', bestOpportunities.length);
+
+    setOpportunities(bestOpportunities);
+    setSummary({
+      totalActors: actors?.length || 0,
+      availableActors: actors?.filter(a => a.availability && a.availability.length > 0).length || 0,
+      scenes: scenes?.length || 0,
+      dateRange: dateRangeConfig?.label || 'Next 7 Days',
+      availableDates: weekdays.length,
+      totalOpportunities: allOpportunities.length,
+      bestOpportunities: bestOpportunities.length
+    });
+    setSelectedOpportunity(bestOpportunities[0] || null);
+  }, [actors, existingRehearsals, scenes, selectedDateRange, dateRangeOptions]);
 
   useEffect(() => {
-    if (visible && selectedDay) {
-      updateOpportunities();
+    if (visible) {
+      // Use the improved method
+      findBestOpportunitiesImproved();
     }
-  }, [visible, selectedDay, updateOpportunities]);
+  }, [visible, findBestOpportunitiesImproved]);
 
   const handleCreateRehearsal = () => {
     if (!selectedOpportunity) {
@@ -61,30 +253,70 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
       return;
     }
 
-    const newRehearsal = createRehearsalFromOpportunity(selectedOpportunity);
+    // Create rehearsal from the selected opportunity
+    const newRehearsal = {
+      id: `rehearsal_${Date.now()}`,
+      title: `${selectedOpportunity.scene.title} Rehearsal`,
+      sceneId: selectedOpportunity.scene.id,
+      date: selectedOpportunity.date,
+      time: {
+        start: selectedOpportunity.timeSlot.startTime,
+        end: selectedOpportunity.timeSlot.endTime
+      },
+      actors: selectedOpportunity.availableActors.map(actorId => 
+        actors.find(a => a.id === actorId)
+      ).filter(Boolean),
+      notes: `Auto-scheduled rehearsal with ${selectedOpportunity.availableActors.length} available actors (efficiency: ${Math.round((selectedOpportunity.efficiency || selectedOpportunity.score) * 100)}%)`
+    };
+
+    console.log('[AutoScheduler] Creating rehearsal:', newRehearsal);
     onSave(newRehearsal);
     resetModal();
   };
-  const handleAutoScheduleDay = () => {
+
+  const handleAutoScheduleRange = () => {
+    const dateRangeConfig = dateRangeOptions.find(opt => opt.id === selectedDateRange);
+    const rangeLabel = dateRangeConfig?.label || 'selected date range';
+    
     Alert.alert(
-      'Auto-Schedule Day',
-      `This will automatically create multiple rehearsals for ${selectedDay}. Continue?`,
+      'Auto-Schedule Range',
+      `This will automatically create multiple rehearsals for the ${rangeLabel}. Continue?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Create All',
           onPress: () => {
-            const newRehearsals = autoScheduleDay(actors, selectedDay, existingRehearsals, timeslots, scenes, 5);
-            if (newRehearsals.length === 0) {
-              Alert.alert('No Opportunities', 'No rehearsal opportunities found for this day.');
+            // Take the top opportunities and create rehearsals for them
+            const topOpportunities = opportunities.slice(0, 5); // Limit to top 5
+            
+            if (topOpportunities.length === 0) {
+              Alert.alert('No Opportunities', 'No rehearsal opportunities found for this date range.');
               return;
             }
             
-            // Save all rehearsals at once
-            onSave(newRehearsals, true); // Pass flag to indicate multiple rehearsals
+            const newRehearsals = topOpportunities.map(opp => ({
+              id: `rehearsal_${Date.now()}_${Math.random()}`,
+              title: `${opp.scene.title} Rehearsal`,
+              sceneId: opp.scene.id,
+              date: opp.date,
+              time: {
+                start: opp.timeSlot.startTime,
+                end: opp.timeSlot.endTime
+              },
+              actors: opp.availableActors.map(actorId => 
+                actors.find(a => a.id === actorId)
+              ).filter(Boolean),
+              notes: `Auto-scheduled rehearsal (efficiency: ${Math.round((opp.efficiency || opp.score) * 100)}%)`
+            }));
+
+            console.log('[AutoScheduler] Creating multiple rehearsals:', newRehearsals.length);
+
+            // Save rehearsals one by one (assuming onSave handles single rehearsals)
+            newRehearsals.forEach(rehearsal => onSave(rehearsal));
+            
             Alert.alert(
-              'Success', 
-              `Created ${newRehearsals.length} rehearsal${newRehearsals.length > 1 ? 's' : ''} for ${selectedDay}!`
+              'Success',
+              `Created ${newRehearsals.length} rehearsal${newRehearsals.length > 1 ? 's' : ''} for the ${rangeLabel}!`
             );
             resetModal();
           }
@@ -94,7 +326,7 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
   };
 
   const resetModal = () => {
-    setSelectedDay('Monday');
+    setSelectedDateRange('next7days');
     setOpportunities([]);
     setSummary(null);
     setSelectedOpportunity(null);
@@ -104,14 +336,6 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
     if (priority >= 70) return '#10b981'; // High priority - green
     if (priority >= 50) return '#f59e0b'; // Medium priority - yellow
     return '#ef4444'; // Low priority - red
-  };
-
-  const getEfficiencyText = (efficiency) => {
-    if (efficiency === 1) return 'Perfect';
-    if (efficiency >= 0.8) return 'Excellent';
-    if (efficiency >= 0.6) return 'Good';
-    if (efficiency >= 0.4) return 'Fair';
-    return 'Limited';
   };
 
   return (
@@ -125,18 +349,18 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
         </View>
 
         <ScrollView style={styles.content}>
-          {/* Day Selection */}
+          {/* Date Range Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select Day</Text>
+            <Text style={styles.sectionTitle}>Select Date Range</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daySelector}>
-              {availableDays.map(day => (
+              {dateRangeOptions.map(option => (
                 <TouchableOpacity
-                  key={day}
-                  style={[styles.dayButton, selectedDay === day && styles.selectedDayButton]}
-                  onPress={() => setSelectedDay(day)}
+                  key={option.id}
+                  style={[styles.dayButton, selectedDateRange === option.id && styles.selectedDayButton]}
+                  onPress={() => setSelectedDateRange(option.id)}
                 >
-                  <Text style={[styles.dayButtonText, selectedDay === day && styles.selectedDayButtonText]}>
-                    {day}
+                  <Text style={[styles.dayButtonText, selectedDateRange === option.id && styles.selectedDayButtonText]}>
+                    {option.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -146,21 +370,23 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
           {/* Summary */}
           {summary && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>📊 {selectedDay} Summary</Text>
+              <Text style={styles.sectionTitle}>📊 {summary.dateRange} Summary</Text>
               <View style={styles.summaryCard}>
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Available Timeslots:</Text>
-                  <Text style={styles.summaryValue}>{summary.availableTimeslots} of {summary.totalTimeslots}</Text>
+                  <Text style={styles.summaryLabel}>Available Dates:</Text>
+                  <Text style={styles.summaryValue}>{summary.availableDates}</Text>
                 </View>
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Rehearsal Opportunities:</Text>
+                  <Text style={styles.summaryLabel}>Total Opportunities:</Text>
                   <Text style={styles.summaryValue}>{summary.totalOpportunities}</Text>
                 </View>
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Best Priority Score:</Text>
-                  <Text style={[styles.summaryValue, { color: summary.bestOpportunity ? getPriorityColor(summary.bestOpportunity.priority) : '#666' }]}>
-                    {summary.bestOpportunity ? summary.bestOpportunity.priority : 'N/A'}
-                  </Text>
+                  <Text style={styles.summaryLabel}>Best Opportunities:</Text>
+                  <Text style={styles.summaryValue}>{summary.bestOpportunities}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Scenes Available:</Text>
+                  <Text style={styles.summaryValue}>{summary.scenes}</Text>
                 </View>
               </View>
             </View>
@@ -169,36 +395,36 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
           {/* Opportunities List */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🎯 Best Opportunities</Text>
-            {!timeslots || timeslots.length === 0 ? (
+            {!scenes || scenes.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No timeslots available</Text>
+                <Text style={styles.emptyStateText}>No scenes available</Text>
                 <Text style={styles.emptyStateSubtext}>
-                  Please create some timeslots in the Timeslots screen first.
-                  {'\n\n'}The auto-scheduler needs timeslots to find rehearsal opportunities.
+                  Please create some scenes in the Scenes screen first.
+                  {'\n\n'}The auto-scheduler needs scenes to find rehearsal opportunities.
                 </Text>
               </View>
             ) : opportunities.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No rehearsal opportunities found for {selectedDay}</Text>
+                <Text style={styles.emptyStateText}>No rehearsal opportunities found for the selected date range</Text>
                 <Text style={styles.emptyStateSubtext}>
                   The auto-scheduler looks for:
-                  {'\n'}• Available actors for timeslots
-                  {'\n'}• Scenes that can be rehearsed together
-                  {'\n'}• Optimal scheduling efficiency
+                  {'\n'}• Available time slots for rehearsals
+                  {'\n'}• Scenes that can be rehearsed
+                  {'\n'}• Actors available for those scenes
                   {'\n\n'}Current data:
                   {'\n'}• Actors: {actors?.length || 0}
-                  {'\n'}• Timeslots: {timeslots?.length || 0} (for {selectedDay}: {timeslots?.filter(ts => ts.day === selectedDay)?.length || 0})
                   {'\n'}• Scenes: {scenes?.length || 0}
+                  {'\n'}• Date Range: {summary?.dateRange || 'None selected'}
                   {'\n\n'}Try:
-                  {'\n'}• Creating actors and assigning them to timeslots
                   {'\n'}• Creating scenes and assigning actors to them
-                  {'\n'}• Checking that actors have availability for {selectedDay}
+                  {'\n'}• Selecting a different date range
+                  {'\n'}• Ensuring scenes have actors assigned
                 </Text>
               </View>
             ) : (
-              opportunities.slice(0, 5).map((opportunity, index) => (
+              opportunities.slice(0, 8).map((opportunity, index) => (
                 <TouchableOpacity
-                  key={`${opportunity.timeslot.id}-${opportunity.scene.id}`}
+                  key={opportunity.id}
                   style={[
                     styles.opportunityCard,
                     selectedOpportunity === opportunity && styles.selectedOpportunityCard
@@ -207,24 +433,27 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
                 >
                   <View style={styles.opportunityHeader}>
                     <Text style={styles.opportunityTitle}>{opportunity.scene.title}</Text>
-                    <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(opportunity.priority) }]}>
-                      <Text style={styles.priorityText}>{opportunity.priority}</Text>
+                    <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(opportunity.score * 100) }]}>
+                      <Text style={styles.priorityText}>{Math.round(opportunity.score * 100)}%</Text>
                     </View>
                   </View>
                   
-                  <Text style={styles.opportunityTimeslot}>
-                    ⏰ {opportunity.timeslot.label}
-                  </Text>
-                  
-                  <Text style={styles.opportunityActors}>
-                    👥 {opportunity.actors.map(a => a.name).join(', ')} ({opportunity.actors.length} actor{opportunity.actors.length > 1 ? 's' : ''})
-                  </Text>
-                  
-                  <View style={styles.opportunityMetrics}>
-                    <Text style={styles.metricText}>
-                      Efficiency: {getEfficiencyText(opportunity.efficiency)} ({Math.round(opportunity.efficiency * 100)}%)
+                  <View style={styles.opportunityDetails}>
+                    <Text style={styles.opportunityTime}>
+                      📅 {new Date(opportunity.date).toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      })}
+                    </Text>
+                    <Text style={styles.opportunityTime}>
+                      🕐 {opportunity.timeSlot.label}
                     </Text>
                   </View>
+                  
+                  <Text style={styles.opportunityActors}>
+                    👥 {opportunity.availableActors.length} actor{opportunity.availableActors.length !== 1 ? 's' : ''} available
+                  </Text>
                 </TouchableOpacity>
               ))
             )}
@@ -233,10 +462,10 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          {timeslots && timeslots.length > 0 && opportunities.length > 0 && (
+          {opportunities.length > 0 && (
             <>
               <TouchableOpacity
-                style={[styles.actionButton, styles.createButton]}
+                style={[styles.actionButton, styles.primaryButton]}
                 onPress={handleCreateRehearsal}
                 disabled={!selectedOpportunity}
               >
@@ -247,10 +476,10 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
               
               <TouchableOpacity
                 style={[styles.actionButton, styles.autoButton]}
-                onPress={handleAutoScheduleDay}
+                onPress={handleAutoScheduleRange}
               >
                 <Text style={styles.actionButtonText}>
-                  🚀 Auto-Schedule Entire Day
+                  🚀 Auto-Schedule Best Opportunities
                 </Text>
               </TouchableOpacity>
             </>
@@ -279,25 +508,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 60,
-    backgroundColor: '#6366f1',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontWeight: 'bold',
+    color: '#1e293b',
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
-    color: '#ffffff',
     fontSize: 18,
-    fontWeight: '600',
+    color: '#64748b',
   },
   content: {
     flex: 1,
@@ -309,7 +539,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1e293b',
+    color: '#334155',
     marginBottom: 12,
   },
   daySelector: {
@@ -318,12 +548,15 @@ const styles = StyleSheet.create({
   dayButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: '#e2e8f0',
   },
   selectedDayButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
   },
   dayButtonText: {
     fontSize: 14,
@@ -337,15 +570,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   summaryLabel: {
@@ -357,21 +588,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1e293b',
   },
+  emptyState: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   opportunityCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   selectedOpportunityCard: {
-    borderColor: '#6366f1',
+    borderColor: '#3b82f6',
+    borderWidth: 2,
   },
   opportunityHeader: {
     flexDirection: 'row',
@@ -388,69 +636,49 @@ const styles = StyleSheet.create({
   priorityBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 6,
     marginLeft: 8,
   },
   priorityText: {
-    color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
+    color: '#ffffff',
   },
-  opportunityTimeslot: {
+  opportunityDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  opportunityTime: {
     fontSize: 14,
     color: '#64748b',
-    marginBottom: 4,
   },
   opportunityActors: {
     fontSize: 14,
     color: '#64748b',
-    marginBottom: 8,
-  },
-  opportunityMetrics: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  metricText: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
   },
   actions: {
     padding: 20,
-    paddingTop: 16,
+    paddingTop: 10,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
+    gap: 12,
   },
   actionButton: {
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  createButton: {
-    backgroundColor: '#10b981',
+  primaryButton: {
+    backgroundColor: '#3b82f6',
   },
   autoButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#10b981',
   },
   cancelButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },

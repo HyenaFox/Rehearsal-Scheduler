@@ -3,27 +3,36 @@ import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useApp } from '../contexts/AppContext';
 import { commonStyles } from '../styles/common';
+import AvailabilityCalendar from './AvailabilityCalendar';
 
 const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
-  const { timeslots, scenes } = useApp();
+  const { scenes } = useApp();
   const [editedName, setEditedName] = useState(actor?.name || '');
-  const [selectedTimeslots, setSelectedTimeslots] = useState(actor?.availableTimeslots || []);
+  const [availability, setAvailability] = useState(actor?.availability || []);
   const [selectedScenes, setSelectedScenes] = useState(actor?.scenes || []);
 
   React.useEffect(() => {
     if (actor) {
       setEditedName(actor.name);
-      setSelectedTimeslots(actor.availableTimeslots || []);
+      setAvailability(actor.availability || []);
       setSelectedScenes(actor.scenes || []);
     }
   }, [actor]);
 
-  const toggleTimeslot = (timeslotId) => {
-    if (selectedTimeslots.includes(timeslotId)) {
-      setSelectedTimeslots(selectedTimeslots.filter(id => id !== timeslotId));
-    } else {
-      setSelectedTimeslots([...selectedTimeslots, timeslotId]);
-    }
+  const handleTimeSlotSelect = (day, hour, minute) => {
+    // Convert to date and add to availability (same logic as ProfileScreen)
+    const date = new Date();
+    date.setDate(date.getDate() - date.getDay() + day);
+    date.setHours(hour, minute, 0, 0);
+    const newSlot = date.toISOString();
+    
+    // Toggle the slot
+    const isAlreadySelected = availability.includes(newSlot);
+    const updatedAvailability = isAlreadySelected 
+      ? availability.filter(slot => slot !== newSlot)
+      : [...availability, newSlot];
+    
+    setAvailability(updatedAvailability);
   };
 
   const toggleScene = (sceneId) => {
@@ -40,7 +49,7 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
       onSave({
         ...actor,
         name: editedName.trim(),
-        availableTimeslots: selectedTimeslots,
+        availability: availability,
         scenes: selectedScenes
       });
     }
@@ -68,47 +77,38 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
               placeholder="Actor name"
             />
 
-            <Text style={styles.sectionTitle}>Available Timeslots:</Text>
-            {timeslots.map(timeslot => (
-              <TouchableOpacity
-                key={timeslot.id || timeslot._id}
-                style={[
-                  styles.checkboxItem,
-                  selectedTimeslots.includes(timeslot.id || timeslot._id) && styles.checkboxItemSelected
-                ]}
-                onPress={() => toggleTimeslot(timeslot.id || timeslot._id)}
-              >
-                <Text style={[
-                  styles.checkboxText,
-                  selectedTimeslots.includes(timeslot.id || timeslot._id) && styles.checkboxTextSelected
-                ]}>
-                  {selectedTimeslots.includes(timeslot.id || timeslot._id) ? '✓' : '○'} {timeslot.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.sectionTitle}>Weekly Availability:</Text>
+            <AvailabilityCalendar
+              selectedSlots={availability}
+              onTimeSlotSelect={handleTimeSlotSelect}
+            />
 
             <Text style={styles.sectionTitle}>Scenes:</Text>
-            {scenes.map(scene => {
-              const sceneId = scene.id || scene._id;
-              const isSelected = selectedScenes.includes(sceneId);
-              return (
-                <TouchableOpacity
-                  key={sceneId}
-                  style={[
-                    styles.checkboxItem,
-                    isSelected && styles.checkboxItemSelected
-                  ]}
-                  onPress={() => toggleScene(sceneId)}
-                >
-                  <Text style={[
-                    styles.checkboxText,
-                    isSelected && styles.checkboxTextSelected
-                  ]}>
-                    {isSelected ? '✓' : '○'} {scene.title}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            {scenes && scenes.length > 0 ? (
+              scenes.map(scene => {
+                const sceneId = scene.id || scene._id;
+                const isSelected = selectedScenes.includes(sceneId);
+                return (
+                  <TouchableOpacity
+                    key={sceneId}
+                    style={[
+                      styles.checkboxItem,
+                      isSelected && styles.checkboxItemSelected
+                    ]}
+                    onPress={() => toggleScene(sceneId)}
+                  >
+                    <Text style={[
+                      styles.checkboxText,
+                      isSelected && styles.checkboxTextSelected
+                    ]}>
+                      {isSelected ? '✓' : '○'} {scene.title}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <Text style={styles.noDataText}>No scenes available</Text>
+            )}
           </ScrollView>
 
           <View style={commonStyles.modalButtons}>
@@ -158,6 +158,13 @@ const styles = {
   checkboxTextSelected: {
     color: '#007bff',
     fontWeight: '600',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: 16,
   },
 };
 

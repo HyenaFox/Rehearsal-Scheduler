@@ -31,7 +31,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       description: description || '',
       actorsRequired: actorsRequired || [],
       location: location || '',
-      duration: duration || 60,
+      duration: duration || 30,
       priority: priority || 5
     }, req.userId);
     
@@ -76,7 +76,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
         description: description || '',
         actorsRequired: actorsRequired || [],
         location: location || '',
-        duration: duration || 60,
+        duration: duration || 30,
         priority: priority || 5,
         updatedAt: new Date()
       },

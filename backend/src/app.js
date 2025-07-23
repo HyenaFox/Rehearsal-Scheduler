@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
 
@@ -27,9 +28,19 @@ if (process.env.NODE_ENV === 'production') {
 // CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
+    // In development, be more permissive
+    if (process.env.NODE_ENV === 'development') {
+      // Allow all localhost origins during development
+      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.')) {
+        callback(null, true);
+        return;
+      }
+    }
+    
     const allowedOrigins = [
-      'http://localhost:8081', // For local development
+      'http://localhost:8081', // For Expo development server
       'http://localhost:8082', // Alternative frontend port
+      'http://localhost:8083', // Additional development port
       'https://rehearsal-scheduler.onrender.com',
       'https://rehearsal-scheduler-frontend.onrender.com'
     ];
@@ -58,6 +69,9 @@ app.use(limiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Cookie parsing middleware
+app.use(cookieParser());
 
 // Request logging middleware
 app.use((req, res, next) => {

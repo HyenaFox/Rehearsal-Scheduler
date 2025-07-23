@@ -4,7 +4,27 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all actors
+// Get all actors (public endpoint for weekly availability display)
+router.get('/public', async (req, res) => {
+  try {
+    const actors = await User.getAllActors();
+    // Transform _id to id and only return public information
+    const publicActors = actors.map(actor => ({
+      id: actor._id.toString(),
+      name: actor.name,
+      availability: actor.availability || [],
+      scenes: actor.scenes || [],
+      isActor: actor.isActor
+      // Exclude sensitive information like email, phone, etc.
+    }));
+    res.json(publicActors);
+  } catch (error) {
+    console.error('Get public actors error:', error);
+    res.status(500).json({ error: 'Failed to get actors' });
+  }
+});
+
+// Get all actors (authenticated)
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const actors = await User.getAllActors();

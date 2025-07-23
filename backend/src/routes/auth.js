@@ -58,6 +58,18 @@ router.post('/register', async (req, res) => {
 
     console.log(`✅ User registered successfully: ${user.email}`);
 
+    // Set HTTP-only cookie for persistent login
+    const cookieOptions = {
+      httpOnly: true, // Prevents XSS attacks by making cookie inaccessible to JavaScript
+      secure: false, // Set to false for local development over HTTP
+      sameSite: 'lax', // Allow same-site cookies for local development
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+      path: '/' // Cookie available for entire domain
+    };
+
+    res.cookie('auth_token', token, cookieOptions);
+    console.log(`🍪 Auth cookie set for new user: ${user.email}`);
+
     res.status(201).json({
       message: 'User registered successfully',
       token,
@@ -130,6 +142,18 @@ router.post('/login', async (req, res) => {
 
     console.log(`✅ User logged in successfully: ${user.email}`);
 
+    // Set HTTP-only cookie for persistent login
+    const cookieOptions = {
+      httpOnly: true, // Prevents XSS attacks by making cookie inaccessible to JavaScript
+      secure: false, // Set to false for local development over HTTP
+      sameSite: 'lax', // Allow same-site cookies for local development
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+      path: '/' // Cookie available for entire domain
+    };
+
+    res.cookie('auth_token', token, cookieOptions);
+    console.log(`🍪 Auth cookie set for user: ${user.email}`);
+
     res.json({
       message: 'Login successful',
       token,
@@ -182,6 +206,18 @@ router.put('/profile', authenticateToken, async (req, res) => {
   try {
     const { name, phone, isActor, availability, scenes } = req.body;
     
+    console.log('🔧 Backend PUT /auth/profile received:', {
+      name: name?.substring(0, 20) + (name?.length > 20 ? '...' : ''),
+      phone: phone?.substring(0, 10) + (phone?.length > 10 ? '...' : ''),
+      isActor,
+      availabilityCount: availability?.length || 0,
+      scenesCount: scenes?.length || 0
+    });
+    
+    if (availability && availability.length > 0) {
+      console.log('🔧 Backend availability sample:', availability.slice(0, 3));
+    }
+    
     const updates = {};
     if (name !== undefined) updates.name = name.trim();
     if (phone !== undefined) updates.phone = phone.trim();
@@ -189,12 +225,20 @@ router.put('/profile', authenticateToken, async (req, res) => {
     if (availability !== undefined) updates.availability = availability;
     if (scenes !== undefined) updates.scenes = scenes;
 
-    const user = await User.findByIdAndUpdate(req.user.userId, updates, { new: true });
+    console.log('🔧 Backend updates object:', {
+      ...updates,
+      availability: updates.availability ? `${updates.availability.length} slots` : 'undefined'
+    });
+
+    console.log('🔍 Attempting to find user with ID:', req.userId);
+    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true });
     if (!user) {
+      console.log('❌ User not found in database with ID:', req.userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
     console.log(`✅ Profile updated for user: ${user.email}`);
+    console.log(`✅ User now has ${user.availability?.length || 0} availability slots`);
 
     res.json({
       message: 'Profile updated successfully',
@@ -390,6 +434,18 @@ router.post('/google', async (req, res) => {
       { expiresIn: '30d' }
     );
 
+    // Set HTTP-only cookie for persistent login
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      path: '/'
+    };
+
+    res.cookie('auth_token', jwtToken, cookieOptions);
+    console.log(`🍪 Auth cookie set for Google user: ${user.email}`);
+
     res.json({
       message: 'Google login successful',
       token: jwtToken,
@@ -409,6 +465,31 @@ router.post('/google', async (req, res) => {
     console.error('Google authentication error:', error);
     res.status(500).json({ 
       error: 'Google authentication failed. Please try again.' 
+    });
+  }
+});
+
+// Logout endpoint
+router.post('/logout', authenticateToken, async (req, res) => {
+  try {
+    // Clear the HTTP-only cookie
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/'
+    };
+
+    res.clearCookie('auth_token', cookieOptions);
+    console.log('🍪 Auth cookie cleared for logout');
+
+    res.json({ 
+      message: 'Logout successful' 
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ 
+      error: 'Logout failed. Please try again.' 
     });
   }
 });

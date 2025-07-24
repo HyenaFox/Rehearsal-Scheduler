@@ -22,6 +22,7 @@ interface AuthContextType {
   googleLogin: (tokenOrCode: string, isCode?: boolean) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
+  refreshUser: () => Promise<void>;
   forceLogout: () => void;
   skipLogin: () => void;
 }
@@ -205,14 +206,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const googleLogin = useCallback(async (tokenOrCode: string, isCode: boolean = false) => {
+    console.log('🔐 🔍 DEBUGGING: AuthContext.googleLogin called with:', {
+      hasTokenOrCode: !!tokenOrCode,
+      tokenOrCodeLength: tokenOrCode?.length,
+      isCode,
+      timestamp: new Date().toISOString()
+    });
+    
     setIsLoggingIn(true); // Set loading state to true
     try {
-      const { token, user } = await ApiService.googleLogin(tokenOrCode, isCode);
-      await StorageService.setItem('auth_token', token);
-      setUser(user);
-      return true;
+      console.log('🔐 🔍 DEBUGGING: Calling ApiService.googleLogin...');
+      const response = await ApiService.googleLogin(tokenOrCode, isCode);
+      
+      console.log('🔐 🔍 DEBUGGING: ApiService.googleLogin response received:', {
+        hasToken: !!response.token,
+        hasUser: !!response.user,
+        userEmail: response.user?.email,
+        userName: response.user?.name,
+        tokenLength: response.token?.length
+      });
+      
+      if (response.token && response.user) {
+        console.log('🔐 🔍 DEBUGGING: Storing token and setting user state...');
+        // Clear any existing tokens first to prevent conflicts
+        await StorageService.removeItem('auth_token');
+        // Set the new token
+        await StorageService.setItem('auth_token', response.token);
+        
+        const userData = {
+          id: response.user.id,
+          email: response.user.email,
+          name: response.user.name,
+          phone: response.user.phone || '',
+          isActor: response.user.isActor,
+          isAdmin: response.user.isAdmin || false,
+          availability: response.user.availability || [],
+          scenes: response.user.scenes || []
+        };
+        
+        console.log('🔐 🔍 DEBUGGING: Setting user state with:', {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          isActor: userData.isActor,
+          isAdmin: userData.isAdmin
+        });
+        
+        setUser(userData);
+        console.log('🔐 🔍 DEBUGGING: ✅ Google login successful!');
+        return true;
+      } else {
+        console.log('🔐 🔍 DEBUGGING: ❌ Missing token or user in response');
+        return false;
+      }
     } catch (error) {
-      console.error('Google login error in AuthContext:', error);
+      console.error('🔐 🔍 DEBUGGING: ❌ Google login error in AuthContext:', {
+        message: (error as any)?.message,
+        status: (error as any)?.status,
+        stack: (error as any)?.stack?.substring(0, 300)
+      });
       return false;
     } finally {
       setIsLoggingIn(false); // Set loading state to false
@@ -235,13 +287,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
 
     try {
-      const updatedUser = await ApiService.updateProfile(updates);
-      setUser(prevUser => ({ ...prevUser, ...updatedUser }));
+      const response = await ApiService.updateProfile(updates);
+      console.log('🔐 AuthContext: updateProfile response:', response);
+      
+      // The API returns { message, user }, so we need to extract the user object
+      const updatedUserData = response.user || response;
+      console.log('🔐 AuthContext: updating user state with:', updatedUserData);
+      
+      setUser(updatedUserData);
     } catch (error) {
       console.error('Error updating profile in AuthContext:', error);
       throw error;
     }
   }, [user]);
+
+  const refreshUser = useCallback(async (): Promise<void> => {
+    try {
+      console.log('🔄 AuthContext: Refreshing user data from server...');
+      const userData = await ApiService.getCurrentUser();
+      console.log('🔄 AuthContext: Refreshed user data:', userData);
+      setUser(userData);
+    } catch (error) {
+      console.error('Error refreshing user in AuthContext:', error);
+      throw error;
+    }
+  }, []);
 
   const skipLogin = useCallback(() => {
     console.log('🔐 Skip login called - creating guest user');
@@ -268,6 +338,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     register,
     logout,
     updateProfile,
+    refreshUser,
     forceLogout,
     skipLogin,
     googleLogin // Add this line

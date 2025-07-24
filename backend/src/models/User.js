@@ -164,7 +164,8 @@ userSchema.statics.createActor = async function(actorData) {
     name,
     isActor: true,
     availability: availableTimeslots || [],
-    scenes: scenes || []
+    scenes: scenes || [],
+    googleId: `actor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Unique googleId for actors
   });
   
   return actor.save();

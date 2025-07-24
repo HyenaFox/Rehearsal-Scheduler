@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ActionButton from '../components/ActionButton';
 import ActorEditModal from '../components/ActorEditModal';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,7 +8,7 @@ import ApiService from '../services/api';
 import { commonStyles } from '../styles/common';
 
 export default function ActorsScreen() {
-  const { actors, setActors, scenes } = useApp();
+  const { actors, setActors, scenes, handleDeleteActor, handleAddActor } = useApp();
   const { user } = useAuth();
   
   // Admin check
@@ -71,6 +72,72 @@ export default function ActorsScreen() {
     setSelectedActor(null);
   };
 
+  const handleAddActorButton = async () => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can add actors.');
+      return;
+    }
+
+    try {
+      await handleAddActor();
+      Alert.alert('Success', 'New actor has been added successfully.');
+    } catch (error) {
+      console.error('❌ Error adding actor:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Please try again.';
+      Alert.alert('Error', `Failed to add actor. ${errorMessage}`);
+    }
+  };
+
+  const confirmDeleteActor = async (actor: any) => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only administrators can delete actors.');
+      return;
+    }
+
+    // For web, use browser confirm dialog
+    if (typeof window !== 'undefined' && window.confirm) {
+      const confirmed = window.confirm(`Are you sure you want to delete "${actor.name}"? This action cannot be undone.`);
+      if (confirmed) {
+        try {
+          await handleDeleteActor(actor);
+          Alert.alert('Success', `${actor.name} has been deleted.`);
+        } catch (error) {
+          console.error('❌ Error deleting actor:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Please try again.';
+          Alert.alert('Error', `Failed to delete ${actor.name}. ${errorMessage}`);
+        }
+      }
+      return;
+    }
+
+    // Fallback to React Native Alert
+    Alert.alert(
+      'Delete Actor',
+      `Are you sure you want to delete "${actor.name}"? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await handleDeleteActor(actor);
+              Alert.alert('Success', `${actor.name} has been deleted.`);
+            } catch (error) {
+              console.error('❌ Error deleting actor:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Please try again.';
+              Alert.alert('Error', `Failed to delete ${actor.name}. ${errorMessage}`);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const ActorCard = ({ actor }: { actor: any }) => {
     const actorScenes = getActorScenes(actor);
     
@@ -79,12 +146,20 @@ export default function ActorsScreen() {
         <View style={styles.actorHeader}>
           <Text style={styles.actorName}>🎭 {actor.name}</Text>
           {isAdmin && (
-            <TouchableOpacity 
-              style={styles.editButton} 
-              onPress={() => handleEditActor(actor)}
-            >
-              <Text style={styles.editButtonText}>✏️ Edit</Text>
-            </TouchableOpacity>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                style={styles.editButton} 
+                onPress={() => handleEditActor(actor)}
+              >
+                <Text style={styles.editButtonText}>✏️ Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.deleteButton} 
+                onPress={() => confirmDeleteActor(actor)}
+              >
+                <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
         
@@ -126,6 +201,17 @@ export default function ActorsScreen() {
             <Text style={commonStyles.screenTitle}>🎭 Actors</Text>
             <Text style={styles.subtitle}>View all actors and their scene assignments</Text>
           </View>
+          
+          {/* Action Button */}
+          {isAdmin && (
+            <View style={styles.buttonContainer}>
+              <ActionButton 
+                title="➕ Add Actor" 
+                onPress={handleAddActorButton} 
+                style={[styles.addButton, { backgroundColor: '#10b981' }]} 
+              />
+            </View>
+          )}
         </View>
         
         <ScrollView 
@@ -169,6 +255,16 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 4,
   },
+  buttonContainer: {
+    marginTop: 12,
+    alignItems: 'flex-end',
+  },
+  addButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 120,
+  },
   scrollContent: {
     paddingBottom: 20,
   },
@@ -195,6 +291,10 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     flex: 1,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   editButton: {
     backgroundColor: '#f1f5f9',
     paddingHorizontal: 12,
@@ -207,6 +307,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: '#475569',
+  },
+  deleteButton: {
+    backgroundColor: '#fef2f2',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  deleteButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#dc2626',
   },
   actorDetails: {
     gap: 12,

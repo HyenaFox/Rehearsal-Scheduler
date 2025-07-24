@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import AvailabilityCalendar from '../components/AvailabilityCalendar';
 import GoogleCalendarIntegration from '../components/GoogleCalendarIntegration';
 import { useApp } from '../contexts/AppContext';
@@ -20,6 +20,8 @@ export default function ProfileScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [showLogin, setShowLogin] = useState(false);
+  const [clearConfirmModalVisible, setClearConfirmModalVisible] = useState(false);
+  const [justCleared, setJustCleared] = useState(false);
   
   // Track the last user ID to prevent resetting form state on every render
   const lastUserIdRef = useRef<string | null>(null);
@@ -40,22 +42,19 @@ export default function ProfileScreen() {
   
   // Update local state when user data is available (only when user changes)
   useEffect(() => {
-    if (user && user.id !== lastUserIdRef.current) {
-      console.log('👤 Initializing profile form with user data:', {
-        name: user.name,
-        phone: user.phone,
-        isActor: user.isActor,
-        availability: user.availability,
-        scenes: user.scenes
-      });
+    if (user && user.id !== lastUserIdRef.current && !justCleared) {
       setName(user.name || '');
       setPhone(user.phone || '');
       setIsActor(user.isActor || false);
-      setAvailability(user.availability || []);
+      
+      // Deduplicate availability array to prevent counting issues
+      const uniqueAvailability = [...new Set(user.availability || [])];
+      setAvailability(uniqueAvailability);
+      
       setSelectedScenes(user.scenes || []);
       lastUserIdRef.current = user.id;
     }
-  }, [user]);
+  }, [user, justCleared]);
 
   // If user wants to login, show login form
   if (showLogin && !user) {
@@ -100,6 +99,12 @@ export default function ProfileScreen() {
       </View>
     );
   }
+
+  const handleGoogleCalendarImport = (importedSlots: string[]) => {
+    // Merge with existing availability and deduplicate
+    const combinedAvailability = [...new Set([...availability, ...importedSlots])];
+    setAvailability(combinedAvailability);
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -376,21 +381,44 @@ export default function ProfileScreen() {
                 <Text style={styles.subsectionTitle}>
                   Available Time Slots ({availability.length} selected)
                 </Text>
+                {__DEV__ && (
+                  <Text style={{ fontSize: 10, color: 'gray', marginBottom: 5 }}>
+                    Debug: First 3 slots = {availability.slice(0, 3).join(', ')}
+                  </Text>
+                )}
                 <Text style={styles.subsectionDescription}>
                   Select the half-hour slots when you are available for rehearsals.
                 </Text>
                 <AvailabilityCalendar
                   onTimeSlotSelect={(day, hour, minute) => {
-                    // Convert to date and add to availability
-                    const date = new Date();
-                    date.setDate(date.getDate() - date.getDay() + day);
-                    date.setHours(hour, minute, 0, 0);
-                    const newSlot = date.toISOString();
+                    // Convert to date using the same logic as backend: next 7 days from today
+                    const today = new Date();
+                    
+                    // Find the next occurrence of this day of week within 7 days
+                    // Use the same logic as backend: dayOffset from 0 to 6
+                    let targetDate = new Date(today);
+                    const daysUntilTarget = (day - today.getDay() + 7) % 7;
+                    targetDate.setDate(targetDate.getDate() + daysUntilTarget);
+                    
+                    targetDate.setHours(hour, minute, 0, 0);
+                    const newSlot = targetDate.toISOString();
                     
                     console.log('🎯 Time slot selected:', { day, hour, minute, newSlot });
                     console.log('📅 Current date:', new Date().toISOString());
-                    console.log('📅 Generated slot date:', date.toISOString());
+                    console.log('📅 Generated slot date:', targetDate.toISOString());
+                    console.log('📅 Days until target:', daysUntilTarget);
                     console.log('📊 Current availability count:', availability.length);
+                    
+                    // Debug: Show what's in current availability
+                    console.log('🔍 Current availability sample:', availability.slice(0, 3).map(slot => {
+                      const d = new Date(slot);
+                      return {
+                        slot,
+                        day: d.getDay(),
+                        hour: d.getHours(),
+                        minute: d.getMinutes()
+                      };
+                    }));
                     
                     // Toggle the slot
                     const isAlreadySelected = availability.includes(newSlot);
@@ -407,6 +435,18 @@ export default function ProfileScreen() {
                   readOnly={false}
                   availabilityPeriods={weeklyAvailability}
                 />
+                
+                {/* Clear All Timeslots Button */}
+                {availability.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.clearTimeslotsButton}
+                    onPress={() => {
+                      setClearConfirmModalVisible(true);
+                    }}
+                  >
+                    <Text style={styles.clearTimeslotsButtonText}>🗑️ Clear All Timeslots</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               <View style={styles.subsection}>
@@ -475,7 +515,7 @@ export default function ProfileScreen() {
           <Text style={commonStyles.sectionText}>
             Connect your Google Calendar to automatically sync your availability with rehearsal time slots.
           </Text>
-          <GoogleCalendarIntegration />
+          <GoogleCalendarIntegration onSlotsImported={handleGoogleCalendarImport} />
         </View>
 
         {user.isAdmin && (
@@ -487,6 +527,94 @@ export default function ProfileScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Clear Confirmation Modal */}
+      <Modal
+        visible={clearConfirmModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setClearConfirmModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Clear All Timeslots</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to clear all your availability? This action cannot be undone.
+            </Text>
+            
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => {
+                  setClearConfirmModalVisible(false);
+                }}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalConfirmButton]}
+                onPress={async () => {
+                  setClearConfirmModalVisible(false);
+                  
+                  // Store original availability for rollback
+                  const originalAvailability = [...availability];
+                  
+                  try {
+                    // Set flag to prevent useEffect from overriding the clear
+                    setJustCleared(true);
+                    
+                    // Clear frontend state immediately for responsive UI
+                    setAvailability([]);
+                    
+                    // Update the database to clear availability
+                    const updates = {
+                      availability: []
+                    };
+                    
+                    await updateProfile(updates);
+                    
+                    // Wait a moment for the backend to process the update
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Verify the update worked by checking the backend directly
+                    console.log('� Verifying update worked...');
+                    try {
+                      const currentUser = await ApiService.getCurrentUser();
+                      console.log('� Backend user availability count:', currentUser?.availability?.length || 0);
+                      
+                      if (currentUser?.availability?.length > 0) {
+                        console.log('⚠️ Backend still has availability data, something went wrong');
+                      }
+                    } catch (verifyError) {
+                      console.log('❌ Could not verify backend update:', verifyError);
+                    }
+                    
+                    // Force refresh the component state to ensure sync
+                    setAvailability([]);
+                    
+                    // Reset the flag after a delay to allow normal operation to resume
+                    setTimeout(() => {
+                      setJustCleared(false);
+                    }, 2000);
+                    
+                  } catch (error) {
+                    console.error('❌ Error clearing availability:', error);
+                    
+                    // Restore the availability state if database update failed
+                    setAvailability(originalAvailability);
+                    
+                    // Reset the flag on error
+                    setJustCleared(false);
+                  }
+                }}
+              >
+                <Text style={styles.modalConfirmButtonText}>Clear All</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -747,5 +875,86 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontWeight: '600',
     letterSpacing: 0.2,
+  },
+  clearTimeslotsButton: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 16,
+    alignItems: 'center',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  clearTimeslotsButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 20,
+    maxWidth: 400,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#6b7280',
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  modalConfirmButton: {
+    backgroundColor: '#ef4444',
+  },
+  modalCancelButtonText: {
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalConfirmButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

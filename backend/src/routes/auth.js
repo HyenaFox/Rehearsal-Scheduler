@@ -364,75 +364,142 @@ router.post('/google', async (req, res) => {
   try {
     const { token, code } = req.body;
     
-    console.log('🔐 Google auth request received:', { 
+    console.log('🔐 🔍 DEBUGGING: Google auth request received:', { 
       hasToken: !!token, 
       hasCode: !!code,
       tokenLength: token?.length,
-      codeLength: code?.length 
+      codeLength: code?.length,
+      requestOrigin: req.headers.origin,
+      userAgent: req.headers['user-agent']?.substring(0, 50)
     });
 
     let payload;
     
     if (token) {
       // Handle ID token (mobile flow)
-      console.log('🔐 Processing Google ID token...');
-      const ticket = await googleClient.verifyIdToken({
-        idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID
-      });
-      payload = ticket.getPayload();
+      console.log('🔐 🔍 DEBUGGING: Processing Google ID token (mobile flow)...');
+      console.log('🔐 🔍 DEBUGGING: Token preview:', token.substring(0, 50) + '...');
+      
+      try {
+        const ticket = await googleClient.verifyIdToken({
+          idToken: token,
+          audience: process.env.GOOGLE_CLIENT_ID
+        });
+        payload = ticket.getPayload();
+        console.log('🔐 🔍 DEBUGGING: Token verification successful');
+      } catch (tokenError) {
+        console.log('🔐 🔍 DEBUGGING: Token verification failed:', tokenError.message);
+        throw tokenError;
+      }
     } else if (code) {
       // Handle authorization code (web flow)
-      console.log('🔐 Processing Google authorization code...');
+      console.log('🔐 🔍 DEBUGGING: Processing Google authorization code (web flow)...');
+      console.log('🔐 🔍 DEBUGGING: Code preview:', code.substring(0, 20) + '...');
       
       // Set the redirect URI dynamically based on the request origin
       const origin = req.headers.origin || 'http://localhost:8082';
       googleClient.redirectUri = `${origin}/auth/google/callback`;
+      console.log('🔐 🔍 DEBUGGING: Using redirect URI:', googleClient.redirectUri);
       
-      const { tokens } = await googleClient.getToken(code);
-      const ticket = await googleClient.verifyIdToken({
-        idToken: tokens.id_token,
-        audience: process.env.GOOGLE_CLIENT_ID
-      });
-      payload = ticket.getPayload();
+      try {
+        const { tokens } = await googleClient.getToken(code);
+        console.log('🔐 🔍 DEBUGGING: Code exchange successful, tokens received');
+        
+        const ticket = await googleClient.verifyIdToken({
+          idToken: tokens.id_token,
+          audience: process.env.GOOGLE_CLIENT_ID
+        });
+        payload = ticket.getPayload();
+        console.log('🔐 🔍 DEBUGGING: Token verification successful');
+      } catch (codeError) {
+        console.log('🔐 🔍 DEBUGGING: Code exchange/verification failed:', codeError.message);
+        throw codeError;
+      }
     } else {
+      console.log('🔐 🔍 DEBUGGING: No token or code provided in request');
       return res.status(400).json({ error: 'No token or code provided' });
     }
 
     if (!payload || !payload.email) {
+      console.log('🔐 🔍 DEBUGGING: Invalid payload or missing email:', { 
+        hasPayload: !!payload, 
+        hasEmail: !!payload?.email 
+      });
       return res.status(400).json({ error: 'Invalid Google token/code' });
     }
 
-    console.log('🔐 Google payload received for:', payload.email);
+    console.log('🔐 🔍 DEBUGGING: Google payload extracted:', {
+      email: payload.email,
+      name: payload.name,
+      googleId: payload.sub,
+      emailVerified: payload.email_verified,
+      domain: payload.hd || 'no domain'
+    });
 
     // Check if user exists
+    console.log('🔐 🔍 DEBUGGING: Searching for existing user with email:', payload.email.toLowerCase());
     let user = await User.findByEmail(payload.email.toLowerCase());
     
     if (!user) {
       // Create new user from Google profile
-      console.log('🔐 Creating new user from Google profile...');
-      user = await User.createUser({
+      console.log('🔐 🔍 DEBUGGING: No existing user found, creating new user...');
+      console.log('🔐 🔍 DEBUGGING: Creating user with data:', {
         email: payload.email.toLowerCase(),
         name: payload.name || 'Google User',
         googleId: payload.sub,
         isActor: false
       });
-      console.log('✅ New user created from Google:', user.email);
+      
+      try {
+        user = await User.createUser({
+          email: payload.email.toLowerCase(),
+          name: payload.name || 'Google User',
+          googleId: payload.sub,
+          isActor: false
+        });
+        console.log('🔐 🔍 DEBUGGING: ✅ New user created successfully:', {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          isActor: user.isActor,
+          isAdmin: user.isAdmin
+        });
+      } catch (createError) {
+        console.log('🔐 🔍 DEBUGGING: ❌ Failed to create new user:', createError.message);
+        throw createError;
+      }
     } else {
       // Update existing user's Google ID if not set
+      console.log('🔐 🔍 DEBUGGING: ✅ Existing user found:', {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        isActor: user.isActor,
+        isAdmin: user.isAdmin,
+        hasGoogleId: !!user.googleId,
+        currentGoogleId: user.googleId
+      });
+      
       if (!user.googleId) {
+        console.log('🔐 🔍 DEBUGGING: Updating user with Google ID...');
         user.googleId = payload.sub;
         await user.save();
+        console.log('🔐 🔍 DEBUGGING: User updated with Google ID');
+      } else {
+        console.log('🔐 🔍 DEBUGGING: User already has Google ID, no update needed');
       }
-      console.log('✅ Existing user logged in via Google:', user.email);
     }
 
+    console.log('🔐 🔍 DEBUGGING: Generating JWT token for user:', user.email);
+    
     // Generate JWT token
     const jwtToken = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
+
+    console.log('🔐 🔍 DEBUGGING: JWT token generated successfully');
 
     // Set HTTP-only cookie for persistent login
     const cookieOptions = {
@@ -444,25 +511,39 @@ router.post('/google', async (req, res) => {
     };
 
     res.cookie('auth_token', jwtToken, cookieOptions);
-    console.log(`🍪 Auth cookie set for Google user: ${user.email}`);
+    console.log(`🔐 🔍 DEBUGGING: 🍪 Auth cookie set for Google user: ${user.email}`);
+
+    const responseUser = {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      isActor: user.isActor,
+      isAdmin: user.isAdmin,
+      availability: user.availability,
+      scenes: user.scenes
+    };
+
+    console.log('🔐 🔍 DEBUGGING: Sending successful response with user:', {
+      id: responseUser.id,
+      email: responseUser.email,
+      name: responseUser.name,
+      isActor: responseUser.isActor,
+      isAdmin: responseUser.isAdmin
+    });
 
     res.json({
       message: 'Google login successful',
       token: jwtToken,
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        phone: user.phone,
-        isActor: user.isActor,
-        isAdmin: user.isAdmin,
-        availability: user.availability,
-        scenes: user.scenes
-      }
+      user: responseUser
     });
 
   } catch (error) {
-    console.error('Google authentication error:', error);
+    console.error('🔐 🔍 DEBUGGING: ❌ Google authentication error:', {
+      message: error.message,
+      stack: error.stack?.substring(0, 500),
+      name: error.name
+    });
     res.status(500).json({ 
       error: 'Google authentication failed. Please try again.' 
     });

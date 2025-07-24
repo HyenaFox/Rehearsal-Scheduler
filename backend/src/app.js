@@ -56,15 +56,26 @@ app.use(cors({
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
+// Rate limiting - very permissive for development
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: process.env.NODE_ENV === 'development' ? 10000 : 1000, // 10k requests per minute in dev, 1k in prod
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting entirely for development environment
+    return process.env.NODE_ENV === 'development';
+  }
 });
-app.use(limiter);
+
+// Only apply rate limiting in production
+if (process.env.NODE_ENV !== 'development') {
+  app.use(limiter);
+  console.log('🛡️ Rate limiting enabled for production');
+} else {
+  console.log('🔓 Rate limiting disabled for development');
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

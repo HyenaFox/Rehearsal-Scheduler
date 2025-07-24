@@ -13,11 +13,20 @@ export default function GoogleCallback() {
     console.log('🔗 Hash:', window.location.hash);
     
     const handleLogin = async (tokenOrCode: string, isCode: boolean = false) => {
-      const success = await googleLogin(tokenOrCode, isCode);
-      // Redirect immediately based on success, don't wait for other state changes
-      if (success) {
-        router.replace('/(tabs)/profile');
-      } else {
+      try {
+        const success = await googleLogin(tokenOrCode, isCode);
+        if (success) {
+          // For development, add a small delay to ensure localStorage is updated
+          if (__DEV__) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          router.replace('/(tabs)/profile');
+        } else {
+          alert('Google login failed. Please try again.');
+          router.replace('/');
+        }
+      } catch (error) {
+        console.error('🔗 Callback login error:', error);
         alert('Google login failed. Please try again.');
         router.replace('/');
       }

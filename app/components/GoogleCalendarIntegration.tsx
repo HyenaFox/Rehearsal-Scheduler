@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useApp } from '../contexts/AppContext';
+import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 
@@ -10,11 +9,15 @@ interface GoogleCalendarIntegrationProps {
 
 export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCalendarIntegrationProps) {
   const { user } = useAuth();
-  const { timeslots } = useApp();
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-
-  console.log('GoogleCalendarIntegration render - isConnected:', isConnected, 'user:', user?.id);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{
+    slots: string[];
+    validCount: number;
+    conflictCount: number;
+    busyEventsCount: number;
+  } | null>(null);
 
   const handleGoogleConnect = async () => {
     if (!user || user.id === 'guest') {
@@ -121,11 +124,8 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
 
   const checkConnectionStatus = async () => {
     try {
-      console.log('Checking Google Calendar connection status...');
       const status = await ApiService.getGoogleCalendarStatus();
-      console.log('Connection status response:', status);
       const connected = status.connected || false;
-      console.log('Setting isConnected to:', connected);
       setIsConnected(connected);
     } catch (error) {
       console.error('Error checking Google Calendar status:', error);
@@ -163,18 +163,10 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
         busyEventsCount
       });
 
-      const validSlots = availableSlots.filter((slot: any) => {
-        // Check if this slot corresponds to an existing timeslot
-        const matchingTimeslot = timeslots.find(timeslot => 
-          timeslot.id === slot.timeslotId || 
-          timeslot._id === slot.timeslotId ||
-          timeslot.id === slot.timeslotId.toString()
-        );
-        console.log('Checking slot:', slot.timeslotId, 'against timeslots, found match:', !!matchingTimeslot);
-        return !!matchingTimeslot;
-      });
-
-      console.log('Valid slots found:', validSlots.length, 'out of', availableSlots.length);
+      // Since the backend now only returns actual timeslots that exist in the database,
+      // we don't need to do additional frontend validation
+      const validSlots = availableSlots;
+      console.log('Valid slots found:', validSlots.length, 'out of', totalTimeslots, 'total timeslots');
 
       if (validSlots.length === 0) {
         const conflictMessage = unavailableSlots.length > 0 
@@ -188,34 +180,41 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
         return;
       }
 
-      // Convert to timeslot IDs
-      const availableTimeslotIds = validSlots.map((slot: any) => slot.timeslotId);
-      console.log('Available timeslot IDs:', availableTimeslotIds);
+      // Convert to ISO date strings (same format as manual selection)
+      const availableTimeslots = validSlots.map((slot: any) => slot.date);
       
-      const conflictInfo = unavailableSlots.length > 0 
-        ? `\n\n${unavailableSlots.length} other timeslots have conflicts with your calendar.`
-        : '';
-      
-      Alert.alert(
-        'Import Successful',
-        `Found ${validSlots.length} available timeslots from your Google Calendar analysis.${conflictInfo}\n\nAnalyzed ${busyEventsCount} calendar events. These available timeslots will be added to your profile.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          },
-          {
-            text: 'Confirm',
-            onPress: () => {
-              onSlotsImported?.(availableTimeslotIds);
-            }
-          }
-        ]
-      );
+      // Set up the pending import data and show modal
+      setPendingImport({
+        slots: availableTimeslots,
+        validCount: validSlots.length,
+        conflictCount: unavailableSlots.length,
+        busyEventsCount
+      });
+      setShowConfirmModal(true);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google Calendar import error:', error);
-      Alert.alert('Error', 'Failed to import availability from Google Calendar');
+      
+      // Handle expired/invalid Google tokens
+      if (error.response && error.response.status === 401) {
+        console.log('Google Calendar authorization expired, resetting connection status');
+        setIsConnected(false);
+        Alert.alert(
+          'Authorization Expired', 
+          'Your Google Calendar connection has expired. Please reconnect to Google Calendar and try again.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Optionally automatically trigger reconnection
+                // handleGoogleConnect();
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to import availability from Google Calendar');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -224,6 +223,20 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
   React.useEffect(() => {
     checkConnectionStatus();
   }, []);
+
+  // Handler functions for the modal
+  const handleConfirmImport = () => {
+    if (pendingImport) {
+      onSlotsImported?.(pendingImport.slots);
+    }
+    setShowConfirmModal(false);
+    setPendingImport(null);
+  };
+
+  const handleCancelImport = () => {
+    setShowConfirmModal(false);
+    setPendingImport(null);
+  };
 
   if (user?.id === 'guest') {
     return null; // Don't show for guest users
@@ -263,6 +276,42 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCancelImport}
+      >
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.modal}>
+            <Text style={modalStyles.title}>Confirm Import</Text>
+            <Text style={modalStyles.message}>
+              {pendingImport && (
+                <>
+                  Found {pendingImport.validCount} available timeslots from your Google Calendar analysis.
+                  {pendingImport.conflictCount > 0 && (
+                    <>
+                      {'\n\n'}{pendingImport.conflictCount} other timeslots have conflicts with your calendar.
+                    </>
+                  )}
+                  {'\n\n'}Analyzed {pendingImport.busyEventsCount} calendar events.
+                  {'\n\n'}Would you like to mark these timeslots as available in your profile?
+                </>
+              )}
+            </Text>
+            <View style={modalStyles.buttonContainer}>
+              <TouchableOpacity style={[modalStyles.button, modalStyles.cancelButton]} onPress={handleCancelImport}>
+                <Text style={modalStyles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[modalStyles.button, modalStyles.confirmButton]} onPress={handleConfirmImport}>
+                <Text style={modalStyles.confirmButtonText}>Import Timeslots</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -322,6 +371,66 @@ const styles = StyleSheet.create({
   connectedText: {
     color: '#2e7d32',
     fontSize: 14,
+    fontWeight: '600',
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modal: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
+    margin: 20,
+    maxWidth: 400,
+    width: '90%',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#333',
+  },
+  message: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 20,
+    color: '#666',
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  button: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  confirmButton: {
+    backgroundColor: '#34a853',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

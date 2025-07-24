@@ -18,7 +18,10 @@ router.get('/auth/google', authenticateToken, async (req, res) => {
   try {
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
-      scope: ['https://www.googleapis.com/auth/calendar.readonly'],
+      scope: [
+        'https://www.googleapis.com/auth/calendar.readonly',
+        'https://www.googleapis.com/auth/userinfo.email'
+      ],
       state: req.user.id // Pass user ID to identify user after callback
     });
 
@@ -68,7 +71,15 @@ router.get('/auth/google/callback', async (req, res) => {
     if (code && state) {
       try {
         // Process the authorization code directly here
+        console.log('🔄 Processing OAuth authorization code...');
         const { tokens } = await oauth2Client.getToken(code);
+        console.log('🎫 Received tokens from Google:', {
+          hasAccessToken: !!tokens.access_token,
+          hasRefreshToken: !!tokens.refresh_token,
+          tokenType: tokens.token_type,
+          expiryDate: tokens.expiry_date,
+          scope: tokens.scope
+        });
         
         // Store tokens in user record using the state (user ID)
         await User.findByIdAndUpdate(state, {
@@ -224,20 +235,49 @@ router.get('/status', authenticateToken, async (req, res) => {
     const user = await User.findById(req.user.id);
     const isConnected = !!(user.googleTokens && user.googleConnected);
     
+    console.log(`🔍 Status check for user ${req.user.id}: isConnected=${isConnected}, hasTokens=${!!user.googleTokens}, googleConnected=${user.googleConnected}`);
+    
     let googleEmail = null;
+    let actuallyConnected = false;
+    
     if (isConnected) {
       try {
+        console.log('🔑 Setting credentials and testing Google API access...');
+        console.log('🎫 Token details:', {
+          hasAccessToken: !!user.googleTokens.access_token,
+          hasRefreshToken: !!user.googleTokens.refresh_token,
+          tokenType: user.googleTokens.token_type,
+          expiryDate: user.googleTokens.expiry_date,
+          accessTokenLength: user.googleTokens.access_token?.length,
+          refreshTokenLength: user.googleTokens.refresh_token?.length
+        });
+        
         oauth2Client.setCredentials(user.googleTokens);
         const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
         const userInfo = await oauth2.userinfo.get();
         googleEmail = userInfo.data.email;
+        actuallyConnected = true;
+        console.log(`✅ Google API access successful for ${googleEmail}`);
       } catch (error) {
-        console.log('Could not fetch Google user info:', error.message);
+        console.log('❌ Could not fetch Google user info:', error.message);
+        
+        // If token is invalid (expired), clear the stored tokens
+        if (error.message === 'invalid_grant') {
+          console.log('🧹 Google tokens expired, clearing stored tokens');
+          await User.findByIdAndUpdate(req.user.id, {
+            $unset: { 
+              googleTokens: '',
+              googleConnected: ''
+            }
+          });
+          actuallyConnected = false;
+        }
       }
     }
 
+    console.log(`📋 Final status: actuallyConnected=${actuallyConnected}, googleEmail=${googleEmail}`);
     res.json({
-      connected: isConnected,
+      connected: actuallyConnected,
       googleEmail,
       hasAvailableSlots: false // Will be implemented later
     });
@@ -259,20 +299,89 @@ router.get('/import-availability', authenticateToken, async (req, res) => {
     oauth2Client.setCredentials(user.googleTokens);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-    // Get all weekly availabilities to check availability against
-    const weeklyAvailabilities = await WeeklyAvailability.find({});
-    console.log(`Found ${weeklyAvailabilities.length} weekly availability periods to check against`);
+    // Get actual timeslots from the database instead of generating our own
+    console.log('📅 Fetching actual timeslots from WeeklyAvailability collection...');
+    const weeklyAvailabilities = await WeeklyAvailability.find({}).sort({ day: 1, hour: 1, minute: 1 });
+    console.log(`📋 Found ${weeklyAvailabilities.length} timeslots in database`);
     
-    // Get calendar events for the next 30 days
-    const now = new Date();
-    const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
+    // Debug: show what timeslots we found
+    weeklyAvailabilities.forEach((slot, index) => {
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayOfWeek = slot.dayOfWeek !== undefined ? slot.dayOfWeek : 'undefined';
+      const startTime = slot.startTime || 'undefined';
+      const endTime = slot.endTime || 'undefined';
+      console.log(`📋 Slot ${index + 1}: ${days[dayOfWeek] || 'unknown'} ${startTime} - ${endTime} (dayOfWeek=${dayOfWeek})`);
+      console.log(`📋 Raw slot data:`, { dayOfWeek: slot.dayOfWeek, startTime: slot.startTime, endTime: slot.endTime, _id: slot._id });
+    });
+    
+    if (weeklyAvailabilities.length === 0) {
+      console.log('❌ No timeslots found in WeeklyAvailability collection!');
+      return res.json({
+        availableSlots: [],
+        unavailableSlots: [],
+        totalTimeslots: 0,
+        busyEventsCount: 0,
+        error: 'No timeslots configured in the system',
+        dateRange: {
+          from: new Date().toISOString(),
+          to: new Date().toISOString()
+        }
+      });
+    }
 
-    console.log(`Fetching Google Calendar events from ${now.toISOString()} to ${thirtyDaysFromNow.toISOString()}`);
+    // Convert database timeslots to a format we can work with for the next 7 days
+    const generateTimeslotsFromDatabase = (weeklyAvailabilities) => {
+      const timeslots = [];
+      const now = new Date();
+      
+      console.log(`📅 Generating timeslots for next 7 days starting from ${now.toISOString()}`);
+      
+      // For each of the next 7 days (0 to 6)
+      for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+        const date = new Date(now.getTime() + (dayOffset * 24 * 60 * 60 * 1000));
+        const dayOfWeek = date.getDay();
+        
+        // Find all timeslots for this day of the week
+        const timeslotsForDay = weeklyAvailabilities.filter(slot => slot.dayOfWeek === dayOfWeek);
+        
+        // Create actual dated timeslots for this specific date
+        timeslotsForDay.forEach(slot => {
+          // Parse startTime (format: "HH:mm")
+          const [hour, minute] = slot.startTime.split(':').map(num => parseInt(num, 10));
+          
+          const slotDate = new Date(date);
+          slotDate.setHours(hour, minute, 0, 0);
+          
+          timeslots.push({
+            id: `${slotDate.toISOString().split('T')[0]}-${slot.startTime}`,
+            date: new Date(slotDate),
+            dayOfWeek: dayOfWeek,
+            hour: hour,
+            minute: minute,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            weeklyAvailabilityId: slot._id.toString()
+          });
+        });
+      }
+      
+      console.log(`✅ Generated ${timeslots.length} actual timeslots from database (should match database count)`);
+      return timeslots;
+    };
+
+    const actualTimeslots = generateTimeslotsFromDatabase(weeklyAvailabilities);
+    console.log(`✅ Generated ${actualTimeslots.length} actual timeslots from database (vs potential maximum of ${weeklyAvailabilities.length * 7})`);
+
+    // Get calendar events for the next 7 days
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+
+    console.log(`Fetching Google Calendar events from ${now.toISOString()} to ${sevenDaysFromNow.toISOString()}`);
 
     const response = await calendar.events.list({
       calendarId: 'primary',
       timeMin: now.toISOString(),
-      timeMax: thirtyDaysFromNow.toISOString(),
+      timeMax: sevenDaysFromNow.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
     });
@@ -286,98 +395,88 @@ router.get('/import-availability', authenticateToken, async (req, res) => {
       summary: event.summary || 'Busy'
     }));
 
-    // Helper function to check if a weekly availability period conflicts with busy times
-    const isWeeklyAvailabilityFree = (availability, busyTimes) => {
-      const dayNum = availability.dayOfWeek;
+    // Helper function to check if a timeslot conflicts with busy times
+    const isTimeslotFree = (timeslot, busyTimes) => {
+      const slotStart = new Date(timeslot.date);
+      const slotEnd = new Date(slotStart.getTime() + (30 * 60 * 1000)); // 30 minutes later
       
-      // Parse time strings (format: "HH:mm")
-      const [startHours, startMinutes] = availability.startTime.split(':').map(Number);
-      const [endHours, endMinutes] = availability.endTime.split(':').map(Number);
-
-      // Check each week in the date range
-      const startDate = new Date(now);
-      const endDate = new Date(thirtyDaysFromNow);
-      
-      for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-        if (date.getDay() === dayNum) {
-          // Create availability slot instances for this week
-          const availabilityStart = new Date(date);
-          availabilityStart.setHours(startHours, startMinutes, 0, 0);
-          
-          const availabilityEnd = new Date(date);
-          availabilityEnd.setHours(endHours, endMinutes, 0, 0);
-          
-          // Check if this availability slot conflicts with any busy time
-          const hasConflict = busyTimes.some(busyTime => {
-            const busyStart = new Date(busyTime.start);
-            const busyEnd = new Date(busyTime.end);
-            
-            // Check for overlap: availability and busy time overlap if one starts before the other ends
-            const overlaps = (availabilityStart < busyEnd && availabilityEnd > busyStart);
-            
-            if (overlaps) {
-              console.log(`Conflict found for availability on day ${dayNum} ${availability.startTime}-${availability.endTime} on ${date.toDateString()}: overlaps with event "${busyTime.summary}" (${busyStart.toLocaleString()} - ${busyEnd.toLocaleString()})`);
-            }
-            
-            return overlaps;
-          });
-          
-          if (hasConflict) {
-            return false; // If any instance conflicts, availability is not free
-          }
+      // Check if this timeslot conflicts with any busy time
+      const hasConflict = busyTimes.some(busyTime => {
+        const busyStart = new Date(busyTime.start);
+        const busyEnd = new Date(busyTime.end);
+        
+        // Check for overlap: timeslot and busy time overlap if one starts before the other ends
+        const overlaps = (slotStart < busyEnd && slotEnd > busyStart);
+        
+        if (overlaps) {
+          console.log(`Conflict found for timeslot ${timeslot.id}: overlaps with event "${busyTime.summary}" (${busyStart.toLocaleString()} - ${busyEnd.toLocaleString()})`);
         }
-      }
+        
+        return overlaps;
+      });
       
-      return true; // No conflicts found
+      return !hasConflict;
     };
 
-    // Check which weekly availabilities are free (not conflicting with busy times)
+    // Check which timeslots are free (not conflicting with busy times)
     const availableSlots = [];
     const unavailableSlots = [];
     
-    console.log('Checking weekly availabilities for conflicts...');
-    for (const availability of weeklyAvailabilities) {
-      console.log(`Checking availability: Day ${availability.dayOfWeek} ${availability.startTime}-${availability.endTime}`);
-      
-      const isAvailable = isWeeklyAvailabilityFree(availability, busyTimes);
+    console.log('Checking actual timeslots for conflicts...');
+    for (const timeslot of actualTimeslots) {
+      const isAvailable = isTimeslotFree(timeslot, busyTimes);
       
       if (isAvailable) {
         availableSlots.push({
-          availabilityId: availability._id.toString(),
-          dayOfWeek: availability.dayOfWeek,
-          startTime: availability.startTime,
-          endTime: availability.endTime
+          timeslotId: timeslot.id,
+          date: timeslot.date.toISOString(),
+          dayOfWeek: timeslot.dayOfWeek,
+          hour: timeslot.hour,
+          minute: timeslot.minute
         });
-        console.log(`✅ Availability Day ${availability.dayOfWeek} ${availability.startTime}-${availability.endTime} is free`);
+        console.log(`✅ Timeslot ${timeslot.id} is free`);
       } else {
         unavailableSlots.push({
-          availabilityId: availability._id.toString(),
-          dayOfWeek: availability.dayOfWeek,
-          startTime: availability.startTime,
-          endTime: availability.endTime
+          timeslotId: timeslot.id,
+          date: timeslot.date.toISOString(),
+          dayOfWeek: timeslot.dayOfWeek,
+          hour: timeslot.hour,
+          minute: timeslot.minute
         });
-        console.log(`❌ Availability Day ${availability.dayOfWeek} ${availability.startTime}-${availability.endTime} has conflicts`);
+        console.log(`❌ Timeslot ${timeslot.id} has conflicts`);
       }
     }
     
-    console.log(`Found ${availableSlots.length} available slots out of ${weeklyAvailabilities.length} total weekly availability periods`);
-    console.log(`${unavailableSlots.length} availability periods have conflicts with Google Calendar events`);
+    console.log(`Found ${availableSlots.length} available timeslots out of ${actualTimeslots.length} total actual timeslots`);
+    console.log(`${unavailableSlots.length} timeslots have conflicts with Google Calendar events`);
 
     res.json({
       availableSlots,
       unavailableSlots,
-      totalTimeslots: weeklyAvailabilities.length,
+      totalTimeslots: actualTimeslots.length,
       busyEventsCount: events.length,
       dateRange: {
         from: now.toISOString(),
-        to: thirtyDaysFromNow.toISOString()
+        to: sevenDaysFromNow.toISOString()
       }
     });
 
   } catch (error) {
     console.error('Error importing Google Calendar availability:', error);
     
-    // Handle token refresh if needed
+    // Handle expired/invalid tokens
+    if (error.message === 'invalid_grant' || (error.response && error.response.data && error.response.data.error === 'invalid_grant')) {
+      // Clear the expired tokens from the database
+      await User.findByIdAndUpdate(req.user.id, {
+        $unset: { 
+          googleTokens: '',
+          googleConnected: ''
+        }
+      });
+      return res.status(401).json({ error: 'Google Calendar authorization expired. Please reconnect your Google account.' });
+    }
+    
+    // Handle other 401 authorization errors
     if (error.code === 401) {
       return res.status(401).json({ error: 'Google Calendar authorization expired. Please reconnect.' });
     }
@@ -404,6 +503,17 @@ router.delete('/disconnect', authenticateToken, async (req, res) => {
 // Legacy endpoints (keeping for compatibility)
 router.get('/events', authenticateToken, async (req, res) => {
   res.status(501).json({ error: 'Use /import-availability instead' });
+});
+
+// Get available timeslots from WeeklyAvailability
+router.get('/available-slots', async (req, res) => {
+  try {
+    const slots = await WeeklyAvailability.find({}).sort({ dayOfWeek: 1, startTime: 1 });
+    res.json(slots);
+  } catch (error) {
+    console.error('Error fetching available slots:', error);
+    res.status(500).json({ error: 'Failed to fetch available slots' });
+  }
 });
 
 router.post('/events', authenticateToken, async (req, res) => {

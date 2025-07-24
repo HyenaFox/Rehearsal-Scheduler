@@ -1,4 +1,5 @@
 // Auto-scheduler utility functions
+import { getGlobalTimeSlotsForDay, isRehearsalDay } from './globalTimeslots.js';
 
 /**
  * Find the best rehearsal opportunities for a given day
@@ -23,6 +24,12 @@ export const findBestRehearsalOpportunities = (actors, targetDay, existingRehear
   const targetDayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     .indexOf(targetDay.toLowerCase());
   
+  // Check if the target day is a valid rehearsal day
+  if (!isRehearsalDay(targetDayIndex)) {
+    console.log('🤖 [AutoScheduler] Invalid rehearsal day:', targetDay, '- Only Sunday, Monday, Tuesday, Wednesday, Thursday are allowed');
+    return [];
+  }
+  
   // Find the next occurrence of the target day
   for (let i = 1; i <= 14; i++) { // Look up to 2 weeks ahead
     const date = new Date(today);
@@ -38,37 +45,9 @@ export const findBestRehearsalOpportunities = (actors, targetDay, existingRehear
     return [];
   }
 
-  // Generate time slots (9 AM to 9 PM, 30-minute blocks)
-  const timeSlots = [];
-  for (let hour = 9; hour <= 20; hour++) {
-    for (let minute = 0; minute < 60; minute += 30) {
-      // Don't go past 9 PM
-      if (hour === 20 && minute > 0) break;
-      
-      const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-      const endHour = minute === 30 ? hour + 1 : hour;
-      const endMinute = minute === 30 ? 0 : 30;
-      const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-      
-      const startTime12 = new Date(`2000-01-01T${startTime}`).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      const endTime12 = new Date(`2000-01-01T${endTime}`).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      
-      timeSlots.push({
-        id: `${hour}:${minute.toString().padStart(2, '0')}-${endHour}:${endMinute.toString().padStart(2, '0')}`,
-        startTime: startTime,
-        endTime: endTime,
-        label: `${startTime12} - ${endTime12}`
-      });
-    }
-  }
+  // Use globally defined timeslots (6 PM to 11:30 PM on rehearsal days only)
+  const timeSlots = getGlobalTimeSlotsForDay(targetDayIndex);
+  console.log('🤖 [AutoScheduler] Using global timeslots:', timeSlots.length, 'slots from 6 PM to 11:30 PM');
 
   const opportunities = [];
 

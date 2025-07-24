@@ -1,4 +1,5 @@
 import { User } from '../contexts/AuthContext';
+import { StorageService } from './storage';
 
 // Use only the EXPO_PUBLIC_API_URL environment variable for the API base URL
 const getApiBaseUrl = () => {
@@ -195,14 +196,55 @@ class ApiService {
   }
 
   static async googleLogin(tokenOrCode: string, isCode: boolean = false): Promise<{ token: string; user: any }> {
+    console.log('🔐 🔍 DEBUGGING: ApiService.googleLogin called with:', {
+      hasTokenOrCode: !!tokenOrCode,
+      tokenOrCodeLength: tokenOrCode?.length,
+      isCode,
+      tokenOrCodePreview: tokenOrCode?.substring(0, 30) + '...'
+    });
+    
     const body = isCode 
       ? JSON.stringify({ code: tokenOrCode })
       : JSON.stringify({ token: tokenOrCode });
       
-    return this.makeRequest('/auth/google', {
-      method: 'POST',
-      body,
+    console.log('🔐 🔍 DEBUGGING: Making request to /auth/google with:', {
+      bodyType: isCode ? 'code' : 'token',
+      bodyLength: body.length
     });
+    
+    try {
+      const response = await this.makeRequest('/auth/google', {
+        method: 'POST',
+        body,
+      });
+      
+      console.log('🔐 🔍 DEBUGGING: /auth/google response received:', {
+        hasToken: !!response.token,
+        hasUser: !!response.user,
+        userEmail: response.user?.email,
+        userName: response.user?.name,
+        message: response.message
+      });
+      
+      // For development, also store token in localStorage as fallback
+      if (__DEV__ && response.token) {
+        try {
+          await StorageService.setItem('auth_token', response.token);
+          console.log('🔐 Google login successful - token stored in both cookie and localStorage');
+        } catch {
+          console.log('🔐 Google login successful - cookie will be used (localStorage failed)');
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('🔐 🔍 DEBUGGING: /auth/google request failed:', {
+        message: (error as any)?.message,
+        status: (error as any)?.status,
+        stack: (error as any)?.stack?.substring(0, 300)
+      });
+      throw error;
+    }
   }
 
   static async logout() {

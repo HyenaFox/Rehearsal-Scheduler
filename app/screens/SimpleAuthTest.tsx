@@ -1,9 +1,10 @@
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService, { testApiConnection } from '../services/api';
+import SafeGoogleSignIn from '../services/SafeGoogleSignIn';
 
 export default function SimpleAuthTest() {
-  const { user, isLoading, login } = useAuth();
+  const { user, isLoading, login, googleLogin } = useAuth();
 
   console.log('🧪 SimpleAuthTest - Current state:', {
     hasUser: !!user,
@@ -63,6 +64,101 @@ export default function SimpleAuthTest() {
     }
   };
 
+  const testGoogleLogin = async () => {
+    console.log('🧪 🔍 DEBUGGING: Starting Google login test...');
+    
+    try {
+      // Ensure Google Sign-In is configured
+      console.log('🧪 🔍 DEBUGGING: Ensuring Google Sign-In is configured...');
+      const configured = await SafeGoogleSignIn.ensureConfigured();
+      if (!configured) {
+        throw new Error('Failed to configure Google Sign-In');
+      }
+      
+      // Check if user is already signed in
+      console.log('🧪 🔍 DEBUGGING: Checking if user is already signed in...');
+      const isSignedIn = await SafeGoogleSignIn.hasPreviousSignIn();
+      console.log('🧪 🔍 DEBUGGING: User has previous sign in:', isSignedIn);
+      
+      if (isSignedIn) {
+        console.log('🧪 🔍 DEBUGGING: User has previous sign in, signing out first...');
+        await SafeGoogleSignIn.signOut();
+      }
+      
+      // Start sign-in process
+      console.log('🧪 🔍 DEBUGGING: Starting Google sign-in process...');
+      const userInfo = await SafeGoogleSignIn.signIn();
+      console.log('🧪 🔍 DEBUGGING: Google sign-in successful, userInfo received:', {
+        email: userInfo.data?.user?.email,
+        name: userInfo.data?.user?.name,
+        hasIdToken: !!userInfo.data?.idToken,
+        idTokenLength: userInfo.data?.idToken?.length
+      });
+      
+      if (!userInfo.data?.idToken) {
+        throw new Error('No ID token received from Google');
+      }
+      
+      console.log('🧪 🔍 DEBUGGING: Calling googleLogin from AuthContext...');
+      const success = await googleLogin(userInfo.data.idToken);
+      
+      console.log('🧪 🔍 DEBUGGING: GoogleLogin function returned:', success);
+      console.log('🧪 🔍 DEBUGGING: Auth state after googleLogin:', { 
+        hasUser: !!user, 
+        userEmail: user?.email, 
+        isLoading 
+      });
+      
+      // Wait a moment for state to update
+      setTimeout(() => {
+        console.log('🧪 🔍 DEBUGGING: Auth state after timeout:', { 
+          hasUser: !!user, 
+          userEmail: user?.email, 
+          isLoading 
+        });
+      }, 1000);
+      
+      if (success) {
+        Alert.alert('Google Login Success', `Login successful! User: ${user?.email || 'checking...'}`);
+      } else {
+        Alert.alert('Google Login Failed', 'Google login failed - check console for details');
+      }
+      
+    } catch (error: any) {
+      console.error('🧪 🔍 DEBUGGING: Google login error:', error);
+      console.error('🧪 🔍 DEBUGGING: Error details:', {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack
+      });
+      Alert.alert('Google Login Error', `Error: ${error?.message || 'Unknown error'}`);
+    }
+  };
+
+  const testDirectGoogleAuth = async () => {
+    console.log('🧪 🔍 DEBUGGING: Testing direct Google auth API call...');
+    
+    // Simulate a Google ID token for testing
+    const testEmail = 'sethhaypol@gmail.com';
+    console.log(`🧪 🔍 DEBUGGING: Testing email matching for: ${testEmail}`);
+    
+    try {
+      // Call the API directly to see what happens
+      console.log('🧪 🔍 DEBUGGING: Making direct API call to /auth/google...');
+      const response = await ApiService.googleLogin('fake-token-for-testing');
+      console.log('🧪 🔍 DEBUGGING: Direct Google API response:', response);
+      Alert.alert('Direct Google API', `Response: ${JSON.stringify(response, null, 2)}`);
+    } catch (error: any) {
+      console.error('🧪 🔍 DEBUGGING: Direct Google API error:', error);
+      console.error('🧪 🔍 DEBUGGING: Error details:', {
+        message: error?.message,
+        status: error?.status,
+        response: error?.response
+      });
+      Alert.alert('Direct Google API Error', `Error: ${error?.message || 'Unknown error'}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -85,6 +181,14 @@ export default function SimpleAuthTest() {
 
       <TouchableOpacity style={styles.button} onPress={testLogin}>
         <Text style={styles.buttonText}>Test Login (test@test.com)</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={testGoogleLogin}>
+        <Text style={styles.buttonText}>🔍 Test Google Login (Debug)</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={testDirectGoogleAuth}>
+        <Text style={styles.buttonText}>🔍 Test Direct Google API</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={testDirectApiLogin}>

@@ -2,7 +2,7 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { signInWithGoogle } from '../services/googleAuth';
+import { googleSignInHandler } from '../services/googleAuthService';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -25,7 +25,7 @@ export default function LoginScreen() {
     if (Platform.OS === 'web') {
       try {
         // For web, this will redirect to Google OAuth and then to our callback
-        signInWithGoogle(); // This redirects, callback page handles the rest
+        googleSignInHandler(); // This redirects, callback page handles the rest
       } catch (error: any) {
         console.error('Google Sign-In Error:', error);
         Alert.alert('Google Sign-In Failed', error.message || 'Could not sign in with Google. Please try again.');

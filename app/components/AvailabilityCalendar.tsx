@@ -49,16 +49,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
   const timeSlots = generateTimeSlots();
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('📅 AvailabilityCalendar props:', {
-      selectedSlotsCount: selectedSlots.length,
-      availabilityPeriodsCount: availabilityPeriods.length,
-      generatedSlotsCount: timeSlots.length,
-      availabilityPeriods: availabilityPeriods
-    });
-  }, [selectedSlots, availabilityPeriods, timeSlots.length]);
-
   const isSlotSelected = (day: number, hour: number, minute: number) => {
     if (!selectedSlots || selectedSlots.length === 0) return false;
     

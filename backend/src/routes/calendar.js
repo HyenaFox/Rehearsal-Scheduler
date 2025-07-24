@@ -301,7 +301,7 @@ router.get('/import-availability', authenticateToken, async (req, res) => {
 
     // Get actual timeslots from the database instead of generating our own
     console.log('📅 Fetching actual timeslots from WeeklyAvailability collection...');
-    const weeklyAvailabilities = await WeeklyAvailability.find({}).sort({ day: 1, hour: 1, minute: 1 });
+    const weeklyAvailabilities = await WeeklyAvailability.find({}).sort({ dayOfWeek: 1, startTime: 1 });
     console.log(`📋 Found ${weeklyAvailabilities.length} timeslots in database`);
     
     // Debug: show what timeslots we found

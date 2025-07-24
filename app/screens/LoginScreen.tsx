@@ -1,6 +1,7 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import ErrorModal from '../components/ErrorModal';
 import { useAuth } from '../contexts/AuthContext';
 import { googleSignInHandler } from '../services/googleAuthService';
 
@@ -10,8 +11,17 @@ export default function LoginScreen() {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [errorTitle, setErrorTitle] = useState('Error');
   
   const { login, register, skipLogin, googleLogin } = useAuth();
+
+  const showError = (title: string, message: string) => {
+    setErrorTitle(title);
+    setErrorMessage(message);
+    setErrorModalVisible(true);
+  };
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
@@ -28,7 +38,11 @@ export default function LoginScreen() {
         googleSignInHandler(); // This redirects, callback page handles the rest
       } catch (error: any) {
         console.error('Google Sign-In Error:', error);
-        Alert.alert('Google Sign-In Failed', error.message || 'Could not sign in with Google. Please try again.');
+        if (error.message && error.message.includes('access_denied')) {
+          showError('Google Sign-In Unavailable', 'This app is currently in testing mode. Please use email/password login or contact the developer to be added as a test user.');
+        } else {
+          showError('Google Sign-In Failed', error.message || 'Could not sign in with Google. Please try again.');
+        }
       }
     } else {
       try {
@@ -37,7 +51,7 @@ export default function LoginScreen() {
         if ((response as any).idToken) {
           const success = await googleLogin((response as any).idToken);
           if (!success) {
-            Alert.alert('Google Sign-In Failed', 'Could not sign in with Google. Please try again.');
+            showError('Google Sign-In Failed', 'Could not sign in with Google. Please try again.');
           }
         }
       } catch (error: any) {
@@ -49,7 +63,7 @@ export default function LoginScreen() {
           // play services not available or outdated
         } else {
           // some other error happened
-          Alert.alert('Google Sign-In Error', 'An unexpected error occurred.');
+          showError('Google Sign-In Error', 'An unexpected error occurred.');
         }
       }
     }
@@ -57,28 +71,26 @@ export default function LoginScreen() {
 
   const handleSubmit = async () => {
     if (!email || !password || (isRegisterMode && !name)) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showError('Missing Information', 'Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
     
     try {
-      let success = false;
-      
       if (isRegisterMode) {
-        success = await register(email, password, name);
-        if (!success) {
-          Alert.alert('Registration Failed', 'An account with this email already exists');
+        const result = await register(email, password, name);
+        if (!result.success) {
+          showError('Registration Failed', result.error || 'An unexpected error occurred');
         }
       } else {
-        success = await login(email, password);
-        if (!success) {
-          Alert.alert('Login Failed', 'Invalid email or password');
+        const result = await login(email, password);
+        if (!result.success) {
+          showError('Login Failed', result.error || 'An unexpected error occurred');
         }
       }
     } catch {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      showError('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +163,10 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignIn}>
-            <Text style={styles.googleButtonText}>Sign in with Google</Text>
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+            <Text style={styles.googleButtonSubtext}>
+              Creates account automatically • Currently in testing mode
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.toggleButton} onPress={toggleMode}>
@@ -169,6 +184,13 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      
+      <ErrorModal
+        visible={errorModalVisible}
+        title={errorTitle}
+        message={errorMessage}
+        onClose={() => setErrorModalVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -297,5 +319,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     letterSpacing: 0.5,
+  },
+  googleButtonSubtext: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

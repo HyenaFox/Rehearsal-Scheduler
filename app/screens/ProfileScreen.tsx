@@ -381,11 +381,6 @@ export default function ProfileScreen() {
                 <Text style={styles.subsectionTitle}>
                   Available Time Slots ({availability.length} selected)
                 </Text>
-                {__DEV__ && (
-                  <Text style={{ fontSize: 10, color: 'gray', marginBottom: 5 }}>
-                    Debug: First 3 slots = {availability.slice(0, 3).join(', ')}
-                  </Text>
-                )}
                 <Text style={styles.subsectionDescription}>
                   Select the half-hour slots when you are available for rehearsals.
                 </Text>

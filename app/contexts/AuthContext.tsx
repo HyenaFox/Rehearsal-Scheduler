@@ -17,8 +17,8 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isLoggingIn: boolean; // Add this line
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string, name: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   googleLogin: (tokenOrCode: string, isCode?: boolean) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updates: Partial<User>) => Promise<void>;
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await StorageService.removeItem('auth_token');
               }
             }
-          } catch (localError) {
+          } catch {
             console.log('🔐 AuthContext: localStorage check failed, trying cookie auth...');
           }
         }
@@ -115,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthProvider - isLoading state changed:', isLoading);
   }, [isLoading]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('🔐 AuthContext: Starting login for', email);
       setIsLoading(true);
@@ -145,13 +145,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         
         console.log('🔐 AuthContext: Login completed successfully');
-        return true;
+        return { success: true };
       } else {
         console.log('🔐 AuthContext: No user or token in response, login failed');
         console.log('🔐 AuthContext: Response token:', !!response.token);
         console.log('🔐 AuthContext: Response user:', !!response.user);
         setUser(null);
-        return false;
+        return { success: false, error: 'Login failed. Please check your credentials.' };
       }
     } catch (error) {
       console.error('🔐 AuthContext: Login error:', error);
@@ -160,13 +160,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         stack: (error as any)?.stack || 'No stack trace',
         name: (error as any)?.name || 'Unknown error type'
       });
-      return false;
+      
+      // Extract error message from the API response
+      const errorMessage = (error as any)?.message || 'An unexpected error occurred. Please try again.';
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }
   };
 
-  const register = async (email: string, password: string, name: string): Promise<boolean> => {
+  const register = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('🔐 AuthContext: Starting registration for', email);
       setIsLoading(true);
@@ -192,14 +195,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         console.log('🔐 AuthContext: Setting user data', userData);
         setUser(userData);
-        return true;
+        return { success: true };
       } else {
         console.log('🔐 AuthContext: No user in response');
-        return false;
+        return { success: false, error: 'Registration failed. Please try again.' };
       }
     } catch (error) {
       console.error('🔐 AuthContext: Registration error:', error);
-      return false;
+      
+      // Extract error message from the API response
+      const errorMessage = (error as any)?.message || 'Registration failed. Please try again.';
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }

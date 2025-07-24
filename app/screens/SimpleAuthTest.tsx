@@ -43,9 +43,9 @@ export default function SimpleAuthTest() {
     
     try {
       console.log('🧪 Calling login function with test@test.com...');
-      const success = await login('test@test.com', 'test123');
+      const result = await login('test@test.com', 'test123');
       
-      console.log('🧪 Login function returned:', success);
+      console.log('🧪 Login function returned:', result);
       console.log('🧪 Auth state after login function:', { hasUser: !!user, userEmail: user?.email, isLoading });
       
       // Wait a moment for state to update
@@ -53,10 +53,10 @@ export default function SimpleAuthTest() {
         console.log('🧪 Auth state after timeout:', { hasUser: !!user, userEmail: user?.email, isLoading });
       }, 1000);
       
-      if (success) {
+      if (result.success) {
         Alert.alert('Success', `Login successful! User: ${user?.email || 'unknown'}`);
       } else {
-        Alert.alert('Failed', 'Login failed - check console for details');
+        Alert.alert('Failed', `Login failed: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('🧪 Login error:', error);

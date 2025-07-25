@@ -78,7 +78,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, availableTimeslots, scenes } = req.body;
+    const { name, availableTimeslots, availability, scenes } = req.body;
     
     console.log('Update actor request - ID:', id, 'Type:', typeof id);
     
@@ -94,7 +94,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
     const actorData = {
       name,
-      availableTimeslots: availableTimeslots || [],
+      availability: availability || availableTimeslots || [],
       scenes: scenes || [],
       isActor: true
     };

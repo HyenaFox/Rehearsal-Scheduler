@@ -49,39 +49,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeAuth = async () => {
       try {
         console.log('🔐 AuthContext: Initializing auth state - checking for existing session');
+        console.log('🔐 AuthContext: Current hostname:', typeof window !== 'undefined' ? window.location.hostname : 'N/A');
+        console.log('🔐 AuthContext: __DEV__ flag:', __DEV__);
         
-        // For development, check localStorage first as it's more reliable than cookies
-        if (__DEV__) {
-          try {
-            const localToken = await StorageService.getItem('auth_token');
-            if (localToken) {
-              console.log('🔐 AuthContext: Found token in localStorage, validating...');
-              const currentUser = await ApiService.getCurrentUser();
-              if (currentUser && isMounted) {
-                console.log('🔐 AuthContext: Valid session found for user:', currentUser.email);
-                setUser(currentUser);
-                return;
-              } else {
-                console.log('🔐 AuthContext: localStorage token invalid, clearing...');
-                await StorageService.removeItem('auth_token');
+        // Always try to get current user first (works with both cookies and localStorage)
+        try {
+          console.log('🔐 AuthContext: Attempting to get current user from backend...');
+          const currentUser = await ApiService.getCurrentUser();
+          if (currentUser && isMounted) {
+            console.log('🔐 AuthContext: Valid session found for user:', currentUser.email);
+            setUser(currentUser);
+            return;
+          } else {
+            console.log('🔐 AuthContext: No current user returned from backend');
+          }
+        } catch (error) {
+          console.log('🔐 AuthContext: Failed to get current user:', error instanceof Error ? error.message : String(error));
+          
+          // If the backend request failed, try localStorage as fallback for development
+          const isWebDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+          if (__DEV__ || isWebDev) {
+            try {
+              console.log('🔐 AuthContext: Backend failed, checking localStorage as fallback...');
+              const localToken = await StorageService.getItem('auth_token');
+              console.log('🔐 AuthContext: LocalStorage token found:', !!localToken);
+              if (localToken) {
+                console.log('🔐 AuthContext: Found token in localStorage, will retry backend with this token');
+                // The token will be used by the next API call through the makeRequest method
+                try {
+                  const retryUser = await ApiService.getCurrentUser();
+                  if (retryUser && isMounted) {
+                    console.log('🔐 AuthContext: Retry successful for user:', retryUser.email);
+                    setUser(retryUser);
+                    return;
+                  }
+                } catch (retryError) {
+                  console.log('🔐 AuthContext: Retry failed, clearing invalid token');
+                  await StorageService.removeItem('auth_token');
+                }
               }
+            } catch (storageError) {
+              console.log('🔐 AuthContext: localStorage fallback failed:', storageError);
             }
-          } catch {
-            console.log('🔐 AuthContext: localStorage check failed, trying cookie auth...');
           }
         }
         
-        // Fallback to cookie-based auth
-        const currentUser = await ApiService.getCurrentUser();
-        if (currentUser && isMounted) {
-          console.log('🔐 AuthContext: Found existing session for user:', currentUser.email);
-          setUser(currentUser);
-        } else {
-          console.log('🔐 AuthContext: No existing session found');
-          setUser(null);
-        }
+        console.log('🔐 AuthContext: No valid session found');
+        setUser(null);
       } catch (error) {
-        console.log('🔐 AuthContext: No valid session found:', error);
+        console.log('🔐 AuthContext: Auth initialization error:', error);
         setUser(null);
       } finally {
         if (isMounted) {
@@ -129,6 +145,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (response.user && response.token) {
+        // Store token in localStorage for persistence on web
+        const isWebDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        if (__DEV__ || isWebDev) {
+          try {
+            console.log('🔐 AuthContext: Storing token in localStorage for persistence');
+            await StorageService.setItem('auth_token', response.token);
+          } catch (error) {
+            console.log('🔐 AuthContext: Failed to store token in localStorage:', error);
+          }
+        }
+        
         const userData = {
           id: response.user.id,
           email: response.user.email,
@@ -181,7 +208,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userEmail: response.user?.email 
       });
       
-      if (response.user) {
+      if (response.user && response.token) {
+        // Store token in localStorage for persistence on web
+        const isWebDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        if (__DEV__ || isWebDev) {
+          try {
+            console.log('🔐 AuthContext: Storing registration token in localStorage for persistence');
+            await StorageService.setItem('auth_token', response.token);
+          } catch (error) {
+            console.log('🔐 AuthContext: Failed to store registration token in localStorage:', error);
+          }
+        }
+        
         const userData = {
           id: response.user.id,
           email: response.user.email,
@@ -277,14 +315,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     console.log('Logout called');
+    // Clear localStorage token
+    try {
+      await StorageService.removeItem('auth_token');
+      console.log('🔐 AuthContext: Cleared token from localStorage');
+    } catch (error) {
+      console.log('🔐 AuthContext: Failed to clear token from localStorage:', error);
+    }
     ApiService.logout();
     setUser(null);
   }, []);
 
-  const forceLogout = useCallback(() => {
+  const forceLogout = useCallback(async () => {
     console.log('Force logout called');
+    // Clear localStorage token
+    try {
+      await StorageService.removeItem('auth_token');
+      console.log('🔐 AuthContext: Cleared token from localStorage (force logout)');
+    } catch (error) {
+      console.log('🔐 AuthContext: Failed to clear token from localStorage (force logout):', error);
+    }
     ApiService.logout();
     setUser(null);
   }, []);

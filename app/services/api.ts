@@ -51,7 +51,8 @@ class ApiService {
     };
 
     // For development, also try to get token from localStorage as fallback
-    if (__DEV__) {
+    const isWebDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if (__DEV__ || isWebDev) {
       try {
         const { StorageService } = await import('./storage');
         const token = await StorageService.getItem('auth_token');
@@ -60,9 +61,12 @@ class ApiService {
             ...config.headers,
             'Authorization': `Bearer ${token}`,
           };
-          console.log('🔐 Using localStorage token for request');
+          console.log('🔐 Using localStorage token for request (length:', token.length, ')');
+        } else {
+          console.log('🔐 No localStorage token found, relying on cookies');
         }
       } catch (error) {
+        console.log('🔐 Failed to get localStorage token:', error);
         // Ignore error, cookies will be used
       }
     }
@@ -72,7 +76,8 @@ class ApiService {
       method: options.method || 'GET', 
       hasBody: !!options.body,
       credentials: config.credentials,
-      hasAuth: !!(config.headers as any)?.Authorization
+      hasAuth: !!(config.headers as any)?.Authorization,
+      headers: config.headers
     });
 
     try {
@@ -495,6 +500,17 @@ class ApiService {
     });
   }
 
+  static async exchangeGoogleCode(code: string, state?: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    console.log('🔄 ApiService: Exchanging Google OAuth code...');
+    return this.makeRequest('/calendar/auth/google/exchange-code', {
+      method: 'POST',
+      body: JSON.stringify({ code, state }),
+    });
+  }
+
   static async getGoogleCalendarStatus(): Promise<{
     connected: boolean;
     googleEmail?: string;
@@ -520,6 +536,21 @@ class ApiService {
   }> {
     const response = await this.makeRequest('/calendar/import-availability');
     return response;
+  }
+
+  static async disconnectGoogleCalendar(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    console.log('🔌 ApiService: Starting disconnectGoogleCalendar...');
+    try {
+      const result = await this.makeRequest('/calendar/disconnect', { method: 'DELETE' });
+      console.log('🔌 ApiService: Disconnect successful:', result);
+      return result;
+    } catch (error) {
+      console.error('🔌 ApiService: Disconnect failed:', error);
+      throw error;
+    }
   }
 
   static async importSelectedSlots(selectedSlots: any[]): Promise<any> {

@@ -6,25 +6,74 @@ const WeeklyAvailability = require('../models/WeeklyAvailability');
 
 const router = express.Router();
 
-// OAuth2 client configuration
+// OAuth2 client configuration with dynamic redirect URI
+// Environment variables used:
+// - GOOGLE_REDIRECT_URI: Explicit redirect URI (highest priority)
+// - FRONTEND_URL: Frontend app URL for production (e.g., https://your-app.onrender.com)
+// - NODE_ENV: Determines if we're in production or development
+const getRedirectUri = () => {
+  // Check for explicit redirect URI in environment variables first
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    console.log('🔗 Using GOOGLE_REDIRECT_URI from env:', process.env.GOOGLE_REDIRECT_URI);
+    return process.env.GOOGLE_REDIRECT_URI;
+  }
+  
+  // Determine redirect URI based on environment
+  if (process.env.NODE_ENV === 'production') {
+    // Production: Use frontend URL from environment or default to render.com
+    const frontendUrl = process.env.FRONTEND_URL || 'https://rehearsal-scheduler-frontend.onrender.com';
+    const redirectUri = `${frontendUrl}/(tabs)/profile`;
+    console.log('🔗 Production redirect URI:', redirectUri);
+    return redirectUri;
+  } else {
+    // Development: Use localhost
+    const redirectUri = 'http://localhost:8081/(tabs)/profile';
+    console.log('🔗 Development redirect URI:', redirectUri);
+    return redirectUri;
+  }
+};
+
+// Create OAuth2 client without redirect URI (will be set dynamically per request)
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/calendar/auth/google/callback'
+  process.env.GOOGLE_CLIENT_SECRET
 );
 
 // Generate Google OAuth URL
 router.get('/auth/google', authenticateToken, async (req, res) => {
   try {
+    const currentRedirectUri = getRedirectUri();
+    console.log('🔗 Generating Google OAuth URL for user:', req.user.id);
+    console.log('🔗 Current redirect URI:', currentRedirectUri);
+    console.log('🔗 Environment check:', {
+      NODE_ENV: process.env.NODE_ENV,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI
+    });
+    
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: [
         'https://www.googleapis.com/auth/calendar.readonly',
         'https://www.googleapis.com/auth/userinfo.email'
       ],
-      state: req.user.id // Pass user ID to identify user after callback
+      state: req.user.id, // Pass user ID to identify user after callback
+      redirect_uri: currentRedirectUri // Explicitly set the redirect URI
     });
 
+    console.log('🔗 Generated auth URL:', authUrl);
+    
+    // Parse the URL to check what redirect_uri is actually being used
+    try {
+      const url = new URL(authUrl);
+      const actualRedirectUri = url.searchParams.get('redirect_uri');
+      console.log('🔗 Actual redirect_uri in URL:', actualRedirectUri);
+      console.log('🔗 Expected redirect_uri:', currentRedirectUri);
+      console.log('🔗 URLs match:', actualRedirectUri === currentRedirectUri);
+    } catch (parseError) {
+      console.log('🔗 Could not parse auth URL:', parseError.message);
+    }
+    
     res.json({ authUrl });
   } catch (error) {
     console.error('Error generating Google auth URL:', error);
@@ -32,189 +81,93 @@ router.get('/auth/google', authenticateToken, async (req, res) => {
   }
 });
 
-// Handle Google OAuth callback (GET - direct from Google)
+// Legacy GET callback handler (deprecated - keeping for backward compatibility)
+// NOTE: This endpoint is no longer used with the new redirect flow
 router.get('/auth/google/callback', async (req, res) => {
+  console.log('⚠️ Legacy GET callback handler called - this should not happen with the new redirect flow');
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Deprecated Callback</title>
+      <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .warning { color: orange; font-size: 18px; }
+      </style>
+    </head>
+    <body>
+      <div class="warning">
+        <h2>⚠️ Deprecated Callback</h2>
+        <p>This callback method is deprecated. Please use the new redirect flow.</p>
+        <p>Redirecting you back to the app...</p>
+      </div>
+      <script>
+        setTimeout(() => {
+          const frontendUrl = '${process.env.NODE_ENV === 'production' 
+            ? (process.env.FRONTEND_URL || 'https://rehearsal-scheduler-frontend.onrender.com')
+            : 'http://localhost:8081'}';
+          window.location.href = frontendUrl;
+        }, 3000);
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Handle Google OAuth code exchange (POST - from frontend)
+router.post('/auth/google/exchange-code', authenticateToken, async (req, res) => {
   try {
-    const { code, error, state } = req.query;
+    const { code, state } = req.body;
+    console.log('🔄 Processing OAuth code exchange for user:', req.user.id);
+    console.log('📝 Code received (length):', code?.length || 0);
+    console.log('📝 State received:', state);
     
-    if (error) {
-      // Send error page that will communicate with parent window
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Authorization Failed</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .error { color: red; font-size: 18px; }
-          </style>
-        </head>
-        <body>
-          <div class="error">
-            <h2>❌ Authorization Failed</h2>
-            <p>Error: ${error}</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'GOOGLE_AUTH_ERROR',
-                error: '${error}'
-              }, '*');
-            }
-            setTimeout(() => window.close(), 2000);
-          </script>
-        </body>
-        </html>
-      `);
+    if (!code) {
+      return res.status(400).json({ error: 'Authorization code is required' });
     }
+    
+    // Set the redirect URI for token exchange
+    const currentRedirectUri = getRedirectUri();
+    console.log('🔄 Using redirect URI for token exchange:', currentRedirectUri);
+    
+    // Exchange the authorization code for tokens with the correct redirect URI
+    const { tokens } = await oauth2Client.getToken({
+      code: code,
+      redirect_uri: currentRedirectUri
+    });
+    console.log('🎫 Received tokens from Google:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      tokenType: tokens.token_type,
+      expiryDate: tokens.expiry_date,
+      scope: tokens.scope
+    });
+    
+    // Store tokens in user record
+    await User.findByIdAndUpdate(req.user.id, {
+      googleTokens: tokens,
+      googleConnected: true
+    });
 
-    if (code && state) {
-      try {
-        // Process the authorization code directly here
-        console.log('🔄 Processing OAuth authorization code...');
-        const { tokens } = await oauth2Client.getToken(code);
-        console.log('🎫 Received tokens from Google:', {
-          hasAccessToken: !!tokens.access_token,
-          hasRefreshToken: !!tokens.refresh_token,
-          tokenType: tokens.token_type,
-          expiryDate: tokens.expiry_date,
-          scope: tokens.scope
-        });
-        
-        // Store tokens in user record using the state (user ID)
-        await User.findByIdAndUpdate(state, {
-          googleTokens: tokens,
-          googleConnected: true
-        });
-
-        console.log(`✅ Google Calendar connected for user: ${state}`);
-
-        // Send success page
-        return res.send(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Authorization Successful</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-              .success { color: green; font-size: 18px; }
-            </style>
-          </head>
-          <body>
-            <div class="success">
-              <h2>✅ Authorization Successful!</h2>
-              <p>Google Calendar has been connected successfully!</p>
-              <p>This window will close automatically...</p>
-            </div>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'GOOGLE_AUTH_SUCCESS',
-                  connected: true
-                }, '*');
-              }
-              setTimeout(() => window.close(), 2000);
-            </script>
-          </body>
-          </html>
-        `);
-      } catch (tokenError) {
-        console.error('Error exchanging code for tokens:', tokenError);
-        return res.send(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Authorization Failed</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-              .error { color: red; font-size: 18px; }
-            </style>
-          </head>
-          <body>
-            <div class="error">
-              <h2>❌ Authorization Failed</h2>
-              <p>Failed to exchange authorization code for tokens</p>
-            </div>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'GOOGLE_AUTH_ERROR',
-                  error: 'Failed to exchange authorization code'
-                }, '*');
-              }
-              setTimeout(() => window.close(), 2000);
-            </script>
-          </body>
-          </html>
-        `);
-      }
-    }
-
-    // No code or error - something went wrong
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Authorization Failed</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-          .error { color: red; font-size: 18px; }
-        </style>
-      </head>
-      <body>
-        <div class="error">
-          <h2>❌ Authorization Failed</h2>
-          <p>No authorization code received</p>
-        </div>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage({
-              type: 'GOOGLE_AUTH_ERROR',
-              error: 'No authorization code received'
-            }, '*');
-          }
-          setTimeout(() => window.close(), 2000);
-        </script>
-      </body>
-      </html>
-    `);
+    console.log(`✅ Google Calendar connected successfully for user: ${req.user.id}`);
+    res.json({ success: true, message: 'Google Calendar connected successfully' });
   } catch (error) {
-    console.error('Error handling Google OAuth callback:', error);
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Authorization Failed</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-          .error { color: red; font-size: 18px; }
-        </style>
-      </head>
-      <body>
-        <div class="error">
-          <h2>❌ Server Error</h2>
-          <p>Server error during authorization</p>
-        </div>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage({
-              type: 'GOOGLE_AUTH_ERROR',
-              error: 'Server error during authorization'
-            }, '*');
-          }
-          setTimeout(() => window.close(), 2000);
-        </script>
-      </body>
-      </html>
-    `);
+    console.error('Error exchanging OAuth code:', error);
+    res.status(500).json({ error: 'Failed to connect Google Calendar' });  
   }
 });
 
-// Handle Google OAuth callback (POST - from frontend)
+// Legacy POST callback endpoint (keeping for backward compatibility)
 router.post('/auth/google/callback', authenticateToken, async (req, res) => {
   try {
     const { code } = req.body;
-    const { tokens } = await oauth2Client.getAccessToken(code);
+    const currentRedirectUri = getRedirectUri();
+    console.log('🔄 Legacy callback: Using redirect URI for token exchange:', currentRedirectUri);
+    
+    const { tokens } = await oauth2Client.getToken({
+      code: code,
+      redirect_uri: currentRedirectUri
+    });
     
     // Store tokens in user record
     await User.findByIdAndUpdate(req.user.id, {
@@ -488,11 +441,16 @@ router.get('/import-availability', authenticateToken, async (req, res) => {
 // Disconnect Google Calendar
 router.delete('/disconnect', authenticateToken, async (req, res) => {
   try {
+    console.log(`🔌 Disconnecting Google Calendar for user: ${req.user.id}`);
+    
     await User.findByIdAndUpdate(req.user.id, {
-      $unset: { googleTokens: 1 },
-      googleConnected: false
+      $unset: { 
+        googleTokens: '',
+        googleConnected: ''
+      }
     });
 
+    console.log(`✅ Google Calendar disconnected successfully for user: ${req.user.id}`);
     res.json({ success: true, message: 'Google Calendar disconnected successfully' });
   } catch (error) {
     console.error('Error disconnecting Google Calendar:', error);

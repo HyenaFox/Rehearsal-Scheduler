@@ -48,7 +48,7 @@ export default function ActorsScreen() {
       // Update actor in backend
       await ApiService.updateActor(editedActor.id, {
         name: editedActor.name,
-        availableTimeslots: editedActor.availableTimeslots,
+        availability: editedActor.availability,
         scenes: editedActor.scenes
       });
       

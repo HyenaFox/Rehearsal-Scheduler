@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import ApiService from '../services/api';
 
@@ -18,10 +18,22 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
     conflictCount: number;
     busyEventsCount: number;
   } | null>(null);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [messageModal, setMessageModal] = useState<{
+    title: string;
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
 
   const handleGoogleConnect = async () => {
     if (!user || user.id === 'guest') {
-      Alert.alert('Error', 'Please log in to connect Google Calendar');
+      setMessageModal({
+        title: 'Error',
+        message: 'Please log in to connect Google Calendar',
+        type: 'error'
+      });
+      setShowMessageModal(true);
       return;
     }
 
@@ -30,94 +42,21 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
       // Get Google OAuth URL from backend
       const authUrl = await ApiService.getGoogleAuthUrl();
       
-      console.log('Opening OAuth popup with URL:', authUrl);
+      console.log('Redirecting to Google OAuth URL:', authUrl);
       
-      // Open popup window for Google OAuth
-      const popup = window.open(
-        authUrl,
-        'google-auth',
-        'width=500,height=600,scrollbars=yes,resizable=yes'
-      );
-
-      if (!popup) {
-        Alert.alert('Error', 'Popup blocked. Please allow popups for this site and try again.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Listen for the popup to close or receive a message
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          console.log('Popup closed, checking connection status...');
-          setIsLoading(false);
-          // Check if user was successfully connected
-          setTimeout(() => {
-            checkConnectionStatus();
-          }, 1000); // Wait a bit before checking status
-        }
-      }, 1000);
-
-      // Listen for messages from the popup (auth success)
-      const messageListener = async (event: MessageEvent) => {
-        console.log('Message received from:', event.origin, 'Data:', event.data);
-        
-        // Allow messages from both frontend and backend origins
-        const allowedOrigins = [
-          window.location.origin, // Frontend origin (e.g., http://localhost:8081)
-          'http://localhost:3000', // Backend origin
-          'https://accounts.google.com' // Google origin
-        ];
-        
-        if (!allowedOrigins.includes(event.origin)) {
-          console.log('Ignored message from origin:', event.origin);
-          return;
-        }
-        
-        console.log('Processing message:', event.data);
-        
-        if (event.data.type === 'GOOGLE_AUTH_SUCCESS') {
-          console.log('Google auth success received!');
-          clearInterval(checkClosed);
-          popup?.close();
-          window.removeEventListener('message', messageListener);
-          
-          // Backend has already processed the OAuth, just update the UI
-          console.log('Google auth success received, updating UI state');
-          setIsConnected(true);
-          setIsLoading(false);
-          
-          // Also check the connection status to make sure it persists
-          setTimeout(() => {
-            checkConnectionStatus();
-          }, 500);
-          
-          Alert.alert('Success', 'Google Calendar connected successfully!');
-        } else if (event.data.type === 'GOOGLE_AUTH_ERROR') {
-          console.log('Google auth error received:', event.data.error);
-          clearInterval(checkClosed);
-          popup?.close();
-          window.removeEventListener('message', messageListener);
-          Alert.alert('Error', 'Failed to connect Google Calendar');
-          setIsLoading(false);
-        }
-      };
-
-      window.addEventListener('message', messageListener);
-
-      // Also add a fallback timeout
-      setTimeout(() => {
-        if (!popup.closed) {
-          console.log('OAuth popup still open after 5 minutes, cleaning up listeners');
-          clearInterval(checkClosed);
-          window.removeEventListener('message', messageListener);
-          setIsLoading(false);
-        }
-      }, 300000); // 5 minutes timeout
+      // Use redirect for better mobile compatibility (no sessionStorage needed)
+      
+      // Redirect to Google OAuth
+      window.location.href = authUrl;
 
     } catch (error) {
       console.error('Google Calendar connection error:', error);
-      Alert.alert('Error', 'Failed to connect to Google Calendar');
+      setMessageModal({
+        title: 'Error',
+        message: 'Failed to connect to Google Calendar',
+        type: 'error'
+      });
+      setShowMessageModal(true);
       setIsLoading(false);
     }
   };
@@ -133,9 +72,63 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
     }
   };
 
+  const handleDisconnect = async () => {
+    console.log('🔌 handleDisconnect called');
+    console.log('🔌 Current user:', user ? `${user.email} (${user.id})` : 'null');
+    console.log('🔌 Is guest?', user?.id === 'guest');
+    
+    if (!user || user.id === 'guest') {
+      setMessageModal({
+        title: 'Error',
+        message: 'Please log in to disconnect Google Calendar',
+        type: 'error'
+      });
+      setShowMessageModal(true);
+      return;
+    }
+
+    console.log('🔌 Showing confirmation dialog...');
+    setShowDisconnectModal(true);
+  };
+
+  const handleConfirmDisconnect = async () => {
+    console.log('🔌 Disconnect button pressed, starting disconnect process...');
+    setShowDisconnectModal(false);
+    setIsLoading(true);
+    try {
+      console.log('🔌 Calling ApiService.disconnectGoogleCalendar()...');
+      const result = await ApiService.disconnectGoogleCalendar();
+      console.log('🔌 Disconnect API result:', result);
+      setIsConnected(false);
+      console.log('🔌 Set isConnected to false, showing success alert');
+      setMessageModal({
+        title: 'Success',
+        message: 'Google Calendar disconnected successfully!',
+        type: 'success'
+      });
+      setShowMessageModal(true);
+    } catch (error) {
+      console.error('🔌 Google Calendar disconnect error:', error);
+      setMessageModal({
+        title: 'Error',
+        message: `Failed to disconnect Google Calendar: ${error.message || 'Unknown error'}`,
+        type: 'error'
+      });
+      setShowMessageModal(true);
+    } finally {
+      setIsLoading(false);
+      console.log('🔌 Disconnect process completed');
+    }
+  };
+
   const handleImportAvailability = async () => {
     if (!user || user.id === 'guest') {
-      Alert.alert('Error', 'Please log in to import availability');
+      setMessageModal({
+        title: 'Error',
+        message: 'Please log in to import availability',
+        type: 'error'
+      });
+      setShowMessageModal(true);
       return;
     }
 
@@ -147,7 +140,12 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
       
       // The response should have availableSlots array and potentially unavailableSlots
       if (!importResponse || !importResponse.availableSlots || !Array.isArray(importResponse.availableSlots)) {
-        Alert.alert('Error', 'Invalid response from Google Calendar import');
+        setMessageModal({
+          title: 'Error',
+          message: 'Invalid response from Google Calendar import',
+          type: 'error'
+        });
+        setShowMessageModal(true);
         return;
       }
 
@@ -173,10 +171,12 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
           ? `\n\n${unavailableSlots.length} timeslots have conflicts with your Google Calendar events.`
           : '';
         
-        Alert.alert(
-          'No Available Timeslots', 
-          `No timeslots are available based on your Google Calendar.${conflictMessage}\n\nFound ${busyEventsCount} events in your calendar that conflict with rehearsal times.`
-        );
+        setMessageModal({
+          title: 'No Available Timeslots',
+          message: `No timeslots are available based on your Google Calendar.${conflictMessage}\n\nFound ${busyEventsCount} events in your calendar that conflict with rehearsal times.`,
+          type: 'error'
+        });
+        setShowMessageModal(true);
         return;
       }
 
@@ -199,21 +199,19 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
       if (error.response && error.response.status === 401) {
         console.log('Google Calendar authorization expired, resetting connection status');
         setIsConnected(false);
-        Alert.alert(
-          'Authorization Expired', 
-          'Your Google Calendar connection has expired. Please reconnect to Google Calendar and try again.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Optionally automatically trigger reconnection
-                // handleGoogleConnect();
-              }
-            }
-          ]
-        );
+        setMessageModal({
+          title: 'Authorization Expired',
+          message: 'Your Google Calendar connection has expired. Please reconnect to Google Calendar and try again.',
+          type: 'error'
+        });
+        setShowMessageModal(true);
       } else {
-        Alert.alert('Error', 'Failed to import availability from Google Calendar');
+        setMessageModal({
+          title: 'Error',
+          message: 'Failed to import availability from Google Calendar',
+          type: 'error'
+        });
+        setShowMessageModal(true);
       }
     } finally {
       setIsLoading(false);
@@ -222,6 +220,85 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
 
   React.useEffect(() => {
     checkConnectionStatus();
+    
+    // Check if returning from Google OAuth redirect via URL parameter
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const googleCalendarConnected = urlParams.get('google_calendar_connected');
+      const oauthCode = urlParams.get('code');
+      const oauthState = urlParams.get('state');
+      
+      // Handle OAuth callback with authorization code
+      if (oauthCode && oauthState) {
+        console.log('🔄 Processing Google OAuth callback with code:', oauthCode.length, 'characters');
+        
+        // Clean up the URL parameters immediately
+        const newUrl = window.location.pathname;
+        window.history.replaceState(null, '', newUrl);
+        
+        // Exchange the authorization code for tokens
+        const handleOAuthCallback = async () => {
+          setIsLoading(true);
+          try {
+            console.log('🔄 Exchanging OAuth code for tokens...');
+            const result = await ApiService.exchangeGoogleCode(oauthCode, oauthState);
+            console.log('✅ OAuth code exchange successful:', result);
+            
+            // Update connection status
+            setIsConnected(true);
+            
+            // Show success message
+            setMessageModal({
+              title: 'Success',
+              message: 'Google Calendar connected successfully!',
+              type: 'success'
+            });
+            setShowMessageModal(true);
+            
+          } catch (error) {
+            console.error('❌ OAuth code exchange failed:', error);
+            setMessageModal({
+              title: 'Error',
+              message: `Failed to connect Google Calendar: ${error.message || 'Unknown error'}`,
+              type: 'error'
+            });
+            setShowMessageModal(true);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        
+        handleOAuthCallback();
+      }
+      // Legacy support for old callback method
+      else if (googleCalendarConnected === 'true') {
+        console.log('Returning from Google Calendar OAuth redirect via URL parameter (legacy)');
+        
+        // Clean up the URL parameter
+        const newUrl = window.location.pathname;
+        window.history.replaceState(null, '', newUrl);
+        
+        // Check connection status and show success message
+        setTimeout(async () => {
+          try {
+            const status = await ApiService.getGoogleCalendarStatus();
+            const connected = status.connected || false;
+            setIsConnected(connected);
+            
+            if (connected) {
+              setMessageModal({
+                title: 'Success',
+                message: 'Google Calendar connected successfully!',
+                type: 'success'
+              });
+              setShowMessageModal(true);
+            }
+          } catch (error) {
+            console.error('Error checking connection status after redirect:', error);
+          }
+        }, 1000);
+      }
+    }
   }, []);
 
   // Handler functions for the modal
@@ -274,6 +351,16 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
               {isLoading ? 'Analyzing Calendar...' : 'Check Availability'}
             </Text>
           </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.button, styles.disconnectButton, isLoading && styles.disabledButton]}
+            onPress={handleDisconnect}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>
+              Disconnect Google Calendar
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -307,6 +394,66 @@ export default function GoogleCalendarIntegration({ onSlotsImported }: GoogleCal
               </TouchableOpacity>
               <TouchableOpacity style={[modalStyles.button, modalStyles.confirmButton]} onPress={handleConfirmImport}>
                 <Text style={modalStyles.confirmButtonText}>Import Timeslots</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Disconnect Confirmation Modal */}
+      <Modal
+        visible={showDisconnectModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDisconnectModal(false)}
+      >
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.modal}>
+            <Text style={modalStyles.title}>Disconnect Google Calendar</Text>
+            <Text style={modalStyles.message}>
+              Are you sure you want to disconnect your Google Calendar? You will need to reconnect to use Google Calendar features.
+            </Text>
+            <View style={modalStyles.buttonContainer}>
+              <TouchableOpacity 
+                style={[modalStyles.button, modalStyles.cancelButton]} 
+                onPress={() => setShowDisconnectModal(false)}
+              >
+                <Text style={modalStyles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[modalStyles.button, modalStyles.confirmButton, { backgroundColor: '#ea4335' }]} 
+                onPress={handleConfirmDisconnect}
+              >
+                <Text style={modalStyles.confirmButtonText}>Disconnect</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Message Modal (Success/Error) */}
+      <Modal
+        visible={showMessageModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMessageModal(false)}
+      >
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.modal}>
+            <Text style={[modalStyles.title, messageModal?.type === 'success' ? { color: '#34a853' } : { color: '#ea4335' }]}>
+              {messageModal?.title}
+            </Text>
+            <Text style={modalStyles.message}>
+              {messageModal?.message}
+            </Text>
+            <View style={modalStyles.buttonContainer}>
+              <TouchableOpacity 
+                style={[modalStyles.button, modalStyles.confirmButton, 
+                  messageModal?.type === 'success' ? { backgroundColor: '#34a853' } : { backgroundColor: '#ea4335' }
+                ]} 
+                onPress={() => setShowMessageModal(false)}
+              >
+                <Text style={modalStyles.confirmButtonText}>OK</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -352,6 +499,9 @@ const styles = StyleSheet.create({
   },
   importButton: {
     backgroundColor: '#34a853',
+  },
+  disconnectButton: {
+    backgroundColor: '#ea4335',
   },
   disabledButton: {
     backgroundColor: '#ccc',

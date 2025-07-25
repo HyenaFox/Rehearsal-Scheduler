@@ -20,11 +20,21 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
   }, [actor]);
 
   const handleTimeSlotSelect = (day, hour, minute) => {
-    // Convert to date and add to availability (same logic as ProfileScreen)
-    const date = new Date();
-    date.setDate(date.getDate() - date.getDay() + day);
-    date.setHours(hour, minute, 0, 0);
-    const newSlot = date.toISOString();
+    // Convert to date using the same logic as ProfileScreen for consistency
+    const today = new Date();
+    
+    // Find the next occurrence of this day of week within 7 days
+    // Use the same logic as backend: dayOffset from 0 to 6
+    let targetDate = new Date(today);
+    const daysUntilTarget = (day - today.getDay() + 7) % 7;
+    targetDate.setDate(targetDate.getDate() + daysUntilTarget);
+    
+    targetDate.setHours(hour, minute, 0, 0);
+    const newSlot = targetDate.toISOString();
+    
+    console.log('🎯 ActorEditModal: Time slot selected:', { day, hour, minute, newSlot });
+    console.log('📅 ActorEditModal: Generated slot date:', targetDate.toISOString());
+    console.log('📅 ActorEditModal: Days until target:', daysUntilTarget);
     
     // Toggle the slot
     const isAlreadySelected = availability.includes(newSlot);
@@ -32,6 +42,7 @@ const ActorEditModal = ({ actor, visible, onSave, onCancel }) => {
       ? availability.filter(slot => slot !== newSlot)
       : [...availability, newSlot];
     
+    console.log(`${isAlreadySelected ? '❌ Removing' : '✅ Adding'} slot in ActorEditModal`);
     setAvailability(updatedAvailability);
   };
 

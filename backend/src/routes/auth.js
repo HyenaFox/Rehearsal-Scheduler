@@ -180,8 +180,10 @@ router.post('/login', async (req, res) => {
 // Get current user endpoint
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
+    console.log('🔍 /me endpoint called for user:', req.user.email);
+    const user = await User.findById(req.user._id);
     if (!user) {
+      console.log('❌ User not found in database:', req.user._id);
       return res.status(404).json({ error: 'User not found' });
     }
 

@@ -316,7 +316,7 @@ This project is created for educational purposes as part of CS153a at Brandeis U
 **Course**: CS153a - Mobile Application Development  
 **Institution**: Brandeis University  
 **Student**: Seth Haycock-Poller  
-**Semester**: Fall 2024
+**Semester**: Summer 2025
 
 ## 🔗 Additional Resources
 
@@ -327,6 +327,6 @@ This project is created for educational purposes as part of CS153a at Brandeis U
 
 ---
 
-## 🎭 Built for Brandeis University Boris' Kitchen Theater Community
+## 🎭 Built with ❤️ for Brandeis University Boris' Kitchen Sketch Comedy
 
-*Connecting actors, directors, and production staff with modern scheduling technology*
+*Brandeis University Boris' Kitchen Sketch Comedy*

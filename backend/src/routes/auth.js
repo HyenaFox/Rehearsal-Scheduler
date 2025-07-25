@@ -60,11 +60,11 @@ router.post('/register', async (req, res) => {
 
     // Set HTTP-only cookie for persistent login
     const cookieOptions = {
-      httpOnly: true, // Prevents XSS attacks by making cookie inaccessible to JavaScript
-      secure: false, // Set to false for local development over HTTP
-      sameSite: 'lax', // Allow same-site cookies for local development
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
-      path: '/' // Cookie available for entire domain
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      path: '/'
     };
 
     res.cookie('auth_token', token, cookieOptions);
@@ -144,11 +144,11 @@ router.post('/login', async (req, res) => {
 
     // Set HTTP-only cookie for persistent login
     const cookieOptions = {
-      httpOnly: true, // Prevents XSS attacks by making cookie inaccessible to JavaScript
-      secure: false, // Set to false for local development over HTTP
-      sameSite: 'lax', // Allow same-site cookies for local development
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
-      path: '/' // Cookie available for entire domain
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      path: '/'
     };
 
     res.cookie('auth_token', token, cookieOptions);

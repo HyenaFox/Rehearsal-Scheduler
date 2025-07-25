@@ -1,5 +1,5 @@
-// Simple test script to verify authentication works
 require('dotenv').config();
+// Simple test script to verify authentication works
 
 const express = require('express');
 const { initDB } = require('./src/models/database');

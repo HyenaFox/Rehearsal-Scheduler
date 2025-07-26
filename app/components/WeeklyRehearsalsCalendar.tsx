@@ -52,6 +52,7 @@ const WeeklyRehearsalsCalendar: React.FC<WeeklyRehearsalsCalendarProps> = ({
   });
 
 
+
   const formatTime = (hour: number, minute: number) => {
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     const amPm = hour >= 12 ? 'PM' : 'AM';
@@ -158,6 +159,20 @@ const WeeklyRehearsalsCalendar: React.FC<WeeklyRehearsalsCalendarProps> = ({
         
         // Check if the rehearsal starts within this time slot
         return rehearsalHour === hour && rehearsalMinute === minute;
+      }
+      
+      // Handle rehearsals with date but no time structure (fallback to default 6 PM)
+      if (rehearsal.date && !rehearsal.time && !rehearsal.timeslot) {
+        // Use the determined week to display
+        const targetDate = new Date(weekToDisplay);
+        targetDate.setDate(weekToDisplay.getDate() + day); // Add the day offset
+        
+        const targetDateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        if (rehearsal.date !== targetDateStr) return false;
+        
+        // Default to 6:00 PM (18:00) if no time is specified
+        return hour === 18 && minute === 0;
       }
       
       // Handle old format with timeslot

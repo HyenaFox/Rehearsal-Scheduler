@@ -17,6 +17,17 @@ interface SelectedSlotInfo {
 const WeeklyRehearsalsView: React.FC<WeeklyRehearsalsViewProps> = ({ rehearsals }) => {
   const [selectedSlotInfo, setSelectedSlotInfo] = useState<SelectedSlotInfo | null>(null);
 
+  // Filter rehearsals to only include valid rehearsal days (Sunday-Thursday, days 0-4)
+  const validRehearsals = rehearsals.filter(rehearsal => {
+    if (!rehearsal.date) return false;
+    
+    const date = new Date(rehearsal.date + 'T00:00:00');
+    const dayOfWeek = date.getDay();
+    
+    // Only include Sunday (0) through Thursday (4)
+    return dayOfWeek >= 0 && dayOfWeek <= 4;
+  });
+
 
   const handleTimeSlotSelect = (day: number, hour: number, minute: number, rehearsal: any | null) => {
     const dayName = dayNames[day];
@@ -35,20 +46,17 @@ const WeeklyRehearsalsView: React.FC<WeeklyRehearsalsViewProps> = ({ rehearsals 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>📅 Weekly Rehearsal Schedule</Text>
-        <Text style={styles.subtitle}>
-          View scheduled rehearsals. Tap on a time slot to see rehearsal details.
-        </Text>
-        {rehearsals.length > 0 && (
+        <Text style={styles.title}>📅 Weekly Schedule</Text>
+        {validRehearsals.length > 0 && (
           <Text style={styles.weekInfo}>
-            Showing week with {rehearsals.length} scheduled rehearsal{rehearsals.length > 1 ? 's' : ''}
+            {validRehearsals.length} rehearsal{validRehearsals.length > 1 ? 's' : ''} this week
           </Text>
         )}
       </View>
       
       <View style={styles.calendarSection}>
         <WeeklyRehearsalsCalendar 
-          rehearsals={rehearsals}
+          rehearsals={validRehearsals}
           onTimeSlotSelect={handleTimeSlotSelect}
         />
       </View>
@@ -68,7 +76,7 @@ const WeeklyRehearsalsView: React.FC<WeeklyRehearsalsViewProps> = ({ rehearsals 
                 <Text style={styles.rehearsalScene}>🎬 Scene: {selectedSlotInfo.rehearsal.scene}</Text>
               )}
               <Text style={styles.rehearsalTime}>
-                ⏰ {selectedSlotInfo.rehearsal.time?.start || selectedSlotInfo.rehearsal.timeslot?.startTime} - {selectedSlotInfo.rehearsal.time?.end || selectedSlotInfo.rehearsal.timeslot?.endTime}
+                ⏰ {selectedSlotInfo.rehearsal.time?.start || selectedSlotInfo.rehearsal.timeslot?.startTime || '6:00 PM'} - {selectedSlotInfo.rehearsal.time?.end || selectedSlotInfo.rehearsal.timeslot?.endTime || '8:00 PM'}
               </Text>
               <View style={styles.actorsSection}>
                 <Text style={styles.actorsTitle}>
@@ -120,37 +128,31 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: 'white',
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    marginBottom: 16,
-    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 8,
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 8,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   title: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1e293b',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    lineHeight: 24,
+    marginBottom: 4,
   },
   weekInfo: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#059669',
     fontWeight: '500',
-    marginTop: 8,
   },
   calendarSection: {
     backgroundColor: 'white',

@@ -111,7 +111,7 @@ const ScenesScreen = ({ onBack }) => {
           ) : (
             scenes.map(scene => (
               <Card
-                key={scene.id}
+                key={scene.id || scene._id}
                 title={scene.title}
                 sections={[
                   {

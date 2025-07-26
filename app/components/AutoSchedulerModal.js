@@ -256,8 +256,8 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
     // Create rehearsal from the selected opportunity
     const newRehearsal = {
       id: `rehearsal_${Date.now()}`,
-      title: `${selectedOpportunity.scene.title} Rehearsal`,
-      sceneId: selectedOpportunity.scene.id,
+      title: selectedOpportunity.scene.title, // Use scene title directly
+      sceneId: selectedOpportunity.scene.id || selectedOpportunity.scene._id,
       date: selectedOpportunity.date,
       time: {
         start: selectedOpportunity.timeSlot.startTime,
@@ -266,7 +266,8 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
       actors: selectedOpportunity.availableActors.map(actorId => 
         actors.find(a => a.id === actorId)
       ).filter(Boolean),
-      notes: `Auto-scheduled rehearsal with ${selectedOpportunity.availableActors.length} available actors (efficiency: ${Math.round((selectedOpportunity.efficiency || selectedOpportunity.score) * 100)}%)`
+      scene: selectedOpportunity.scene.title, // Store scene title as string
+      notes: `Auto-scheduled with ${selectedOpportunity.availableActors.length} available actors (${Math.round((selectedOpportunity.efficiency || selectedOpportunity.score) * 100)}% efficiency)`
     };
 
     console.log('[AutoScheduler] Creating rehearsal:', newRehearsal);
@@ -296,8 +297,8 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
             
             const newRehearsals = topOpportunities.map(opp => ({
               id: `rehearsal_${Date.now()}_${Math.random()}`,
-              title: `${opp.scene.title} Rehearsal`,
-              sceneId: opp.scene.id,
+              title: opp.scene.title, // Use scene title directly
+              sceneId: opp.scene.id || opp.scene._id,
               date: opp.date,
               time: {
                 start: opp.timeSlot.startTime,
@@ -306,7 +307,8 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
               actors: opp.availableActors.map(actorId => 
                 actors.find(a => a.id === actorId)
               ).filter(Boolean),
-              notes: `Auto-scheduled rehearsal (efficiency: ${Math.round((opp.efficiency || opp.score) * 100)}%)`
+              scene: opp.scene.title, // Store scene title as string
+              notes: `Auto-scheduled (${Math.round((opp.efficiency || opp.score) * 100)}% efficiency)`
             }));
 
             console.log('[AutoScheduler] Creating multiple rehearsals:', newRehearsals.length);

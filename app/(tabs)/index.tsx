@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ActionButton from '../components/ActionButton';
 import AddRehearsalModal from '../components/AddRehearsalModal';
 import AutoSchedulerModal from '../components/AutoSchedulerModal';
 import RehearsalsDisplay from '../components/RehearsalsDisplay';
+import WeeklyRehearsalsView from '../components/WeeklyRehearsalsView';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { commonStyles } from '../styles/common';
@@ -17,6 +18,7 @@ export default function RehearsalsScreen() {
   
   const [addRehearsalModalVisible, setAddRehearsalModalVisible] = useState(false);
   const [autoSchedulerModalVisible, setAutoSchedulerModalVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'weekly'>('list');
 
   const handleAddRehearsalButton = () => {
     if (!isAdmin) {
@@ -68,6 +70,26 @@ export default function RehearsalsScreen() {
             Manage rehearsals and schedule your production
           </Text>
           
+          {/* View Toggle */}
+          <View style={showStyles.viewToggle}>
+            <TouchableOpacity
+              style={[showStyles.toggleButton, viewMode === 'list' && showStyles.activeToggle]}
+              onPress={() => setViewMode('list')}
+            >
+              <Text style={[showStyles.toggleText, viewMode === 'list' && showStyles.activeToggleText]}>
+                📋 List
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[showStyles.toggleButton, viewMode === 'weekly' && showStyles.activeToggle]}
+              onPress={() => setViewMode('weekly')}
+            >
+              <Text style={[showStyles.toggleText, viewMode === 'weekly' && showStyles.activeToggleText]}>
+                📅 Weekly
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Action Buttons */}
           {isAdmin && (
             <View style={showStyles.buttonRow}>
@@ -85,16 +107,22 @@ export default function RehearsalsScreen() {
           )}
         </View>
           
-        <ScrollView 
-          style={commonStyles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
-          <RehearsalsDisplay
+        {viewMode === 'list' ? (
+          <ScrollView 
+            style={commonStyles.scrollView}
+            showsVerticalScrollIndicator={false}
+          >
+            <RehearsalsDisplay
+              rehearsals={rehearsals}
+              onDeleteRehearsal={handleDeleteRehearsal}
+              isAdmin={isAdmin}
+            />
+          </ScrollView>
+        ) : (
+          <WeeklyRehearsalsView
             rehearsals={rehearsals}
-            onDeleteRehearsal={handleDeleteRehearsal}
-            isAdmin={isAdmin}
           />
-        </ScrollView>
+        )}
       </View>
 
       {/* Modals */}
@@ -118,6 +146,38 @@ export default function RehearsalsScreen() {
 }
 
 const showStyles = StyleSheet.create({
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    padding: 4,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  activeToggle: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  activeToggleText: {
+    color: '#1e293b',
+    fontWeight: '600',
+  },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

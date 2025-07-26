@@ -26,8 +26,9 @@ const rehearsalSchema = new mongoose.Schema({
     required: false
   },
   scene: {
-    type: String, // Scene name
-    required: false
+    type: String, // Scene name/title
+    required: true,
+    trim: true
   },
   actorIds: [{
     type: String, // User IDs of the actors

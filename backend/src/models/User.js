@@ -57,6 +57,16 @@ const userSchema = new mongoose.Schema({
   googleId: {
     type: String,
     default: null
+  },
+  // Timezone support
+  timezone: {
+    type: String,
+    default: 'UTC'
+  },
+  timezoneInfo: {
+    name: String,
+    offset: String,
+    abbreviation: String
   }
 }, {
   timestamps: true // This adds createdAt and updatedAt automatically

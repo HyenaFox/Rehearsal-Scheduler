@@ -17,11 +17,12 @@ export default function TabLayout() {
   const CustomTabBar = ({ state, descriptors, navigation }: any) => {
     // Define which tabs should be visible
     const visibleTabs = isAdmin 
-      ? ['index', 'rehearsals', 'scenes', 'weekly-availability', 'profile']
-      : ['index', 'weekly-availability', 'profile'];
+      ? ['index', 'polls', 'rehearsals', 'scenes', 'weekly-availability', 'profile']
+      : ['index', 'polls', 'weekly-availability', 'profile'];
 
     const tabConfigs: { [key: string]: { label: string; icon: string } } = {
       'index': { label: 'Shows', icon: '📅' },
+      'polls': { label: 'Polls', icon: '🗳️' },
       'rehearsals': { label: 'Actors', icon: '🎭' },
       'scenes': { label: 'Scenes', icon: '🎬' },
       'weekly-availability': { label: 'Weekly', icon: '🗓️' },
@@ -124,6 +125,12 @@ export default function TabLayout() {
         name="index"
         options={{
           title: '📅 Shows',
+        }}
+      />
+      <Tabs.Screen
+        name="polls"
+        options={{
+          title: '🗳️ Polls',
         }}
       />
       <Tabs.Screen

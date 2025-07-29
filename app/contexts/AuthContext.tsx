@@ -4,6 +4,7 @@ import { StorageService } from '../services/storage';
 
 export interface User {
   id: string;
+  _id?: string; // For backward compatibility with MongoDB
   email: string;
   name: string;
   phone?: string;

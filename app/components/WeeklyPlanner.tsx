@@ -1,329 +1,337 @@
-import { format, getDay, parse, startOfWeek } from 'date-fns';
-import { enUS } from 'date-fns/locale';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Calendar, dateFnsLocalizer, Event } from 'react-big-calendar';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { format, getDay, parse, startOfWeek, addDays } from 'date-fns';
 import { useApp } from '../contexts/AppContext';
 import ApiService from '../services/api';
-
-const locales = {
-  'en-US': enUS,
-};
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
+import { responsive, getScreenSize } from '../utils/responsive';
 
 interface WeeklyPlannerProps {
   onSelectionChange: (selectedSlots: Date[]) => void;
   initialSelections?: string[];
 }
 
-interface Tooltip {
-  x: number;
-  y: number;
-  content: string;
-  visible: boolean;
-}
+const rehearsalDays = [0, 1, 2, 3, 4]; // Sunday, Monday, Tuesday, Wednesday, Thursday
+const rehearsalDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu'];
 
 const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ onSelectionChange, initialSelections = [] }) => {
-  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedSlots, setSelectedSlots] = useState<Date[]>([]);
   const [weeklyAvailabilities, setWeeklyAvailabilities] = useState<any[]>([]);
-  const [tooltip, setTooltip] = useState<Tooltip>({ x: 0, y: 0, content: '', visible: false });
   const { actors } = useApp();
+  const screenSize = getScreenSize();
+  const styles = createResponsiveStyles(screenSize);
 
-  // Debug logging
+  // Initialize selected slots from props
   useEffect(() => {
-    console.log('🔧 WeeklyPlanner: Component initialized with props:', {
-      initialSelections,
-      actorsCount: actors?.length || 0,
-      weeklyAvailabilitiesCount: weeklyAvailabilities.length
-    });
-  }, [initialSelections, actors, weeklyAvailabilities]);
-
-  // Helper function to get actors available during a specific time slot
-  const getActorsAvailableForTimeSlot = useCallback((slotStart: Date): string[] => {
-    if (!actors || actors.length === 0) {
-      return [];
-    }
-
-    const day = getDay(slotStart);
-    const slotTime = format(slotStart, 'h:mm a');
-    const slotEndTime = format(new Date(slotStart.getTime() + 30 * 60000), 'h:mm a');
-
-    // Check if the time slot is within any weekly availability period
-    const isSlotAvailable = weeklyAvailabilities.some(avail => {
-      if (avail.dayOfWeek !== day) return false;
-      return slotTime >= avail.startTime && slotEndTime <= avail.endTime;
-    });
-
-    if (!isSlotAvailable) {
-      return [];
-    }
-
-    // For now, we'll assume all actors are potentially available during admin-defined periods
-    // In a real system, this would check each actor's individual availability
-    const availableActors = actors.filter(actor => {
-      // Check if actor has old-style timeslot availability that matches this time
-      if (actor.availableTimeslots && actor.availableTimeslots.length > 0) {
-        // This is legacy logic for backward compatibility
-        return true; // For now, include all actors during available periods
-      }
-      
-      // Check if actor has individual availability data (if it exists)
-      if (actor.availability && Array.isArray(actor.availability)) {
-        // Check if any of the actor's availability slots overlap with this time slot
-        return actor.availability.some((availableSlot: string) => {
-          try {
-            const slotDate = new Date(availableSlot);
-            const slotDateEnd = new Date(slotDate.getTime() + 30 * 60000);
-            return slotStart >= slotDate && slotStart < slotDateEnd;
-          } catch {
-            return false;
-          }
-        });
-      }
-
-      // If no specific availability data, assume available during admin periods
-      return true;
-    });
-
-    return availableActors.map(actor => actor.name);
-  }, [actors, weeklyAvailabilities]);
-
-  useEffect(() => {
-    const initialEvents = initialSelections.map(s => ({ start: new Date(s), end: new Date(new Date(s).getTime() + 30 * 60000), title: 'Available' }));
-    setEvents(initialEvents);
+    const initialSlots = initialSelections.map(s => new Date(s));
+    setSelectedSlots(initialSlots);
   }, [initialSelections]);
 
   useEffect(() => {
-    const fetchAndSetAvailabilities = async () => {
+    const fetchAvailabilities = async () => {
       try {
         const availabilities = await ApiService.getWeeklyAvailabilities();
-        console.log('📅 WeeklyPlanner: Fetched availabilities:', availabilities);
         setWeeklyAvailabilities(availabilities);
       } catch (error) {
-        console.error('❌ WeeklyPlanner: Error fetching weekly availabilities:', error);
+        console.error('Error fetching weekly availabilities:', error);
       }
     };
-    fetchAndSetAvailabilities();
+    fetchAvailabilities();
   }, []);
 
-  const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
-    const day = getDay(start);
-    console.log('📅 WeeklyPlanner: Slot selected:', { day, start, end, availableSlots: weeklyAvailabilities });
+  // Generate time slots for rehearsal times (6:00 PM to 11:30 PM)
+  const generateTimeSlots = () => {
+    const slots: { day: number; hour: number; minute: number; date: Date }[] = [];
+    const today = startOfWeek(new Date()); // Get start of current week
+
+    for (const dayIndex of rehearsalDays) {
+      const dayDate = addDays(today, dayIndex);
+      
+      for (let hour = 18; hour <= 23; hour++) { // 6 PM to 11 PM
+        for (let minute = 0; minute < 60; minute += 30) { // 30-minute intervals
+          if (hour === 23 && minute > 30) break; // Stop after 11:30 PM
+          
+          const slotDate = new Date(dayDate);
+          slotDate.setHours(hour, minute, 0, 0);
+          
+          slots.push({ day: dayIndex, hour, minute, date: slotDate });
+        }
+      }
+    }
     
-    // Check if this slot is within admin-defined weekly availability periods
-    const isAvailable = weeklyAvailabilities.some(avail => {
+    return slots;
+  };
+
+  const timeSlots = generateTimeSlots();
+
+  const isSlotSelected = (date: Date) => {
+    return selectedSlots.some(slot => 
+      slot.getTime() === date.getTime()
+    );
+  };
+
+  const isSlotAvailable = (day: number, hour: number, minute: number) => {
+    if (weeklyAvailabilities.length === 0) return true;
+    
+    const timeInMinutes = hour * 60 + minute;
+    
+    return weeklyAvailabilities.some(avail => {
       if (avail.dayOfWeek !== day) return false;
-      const startTime = parse(avail.startTime, 'HH:mm', new Date());
-      const endTime = parse(avail.endTime, 'HH:mm', new Date());
-      const slotStartTime = parse(format(start, 'HH:mm'), 'HH:mm', new Date());
-      const slotEndTime = parse(format(end, 'HH:mm'), 'HH:mm', new Date());
-      return slotStartTime >= startTime && slotEndTime <= endTime;
+      
+      const [startHour, startMinute] = avail.startTime.split(':').map(Number);
+      const [endHour, endMinute] = avail.endTime.split(':').map(Number);
+      
+      const startTimeInMinutes = startHour * 60 + startMinute;
+      const endTimeInMinutes = endHour * 60 + endMinute;
+      
+      return timeInMinutes >= startTimeInMinutes && timeInMinutes < endTimeInMinutes;
     });
+  };
 
-    console.log('📅 WeeklyPlanner: Is slot available?', isAvailable);
+  const handleTimeSlotPress = useCallback((date: Date, day: number, hour: number, minute: number) => {
+    if (!isSlotAvailable(day, hour, minute)) return;
 
-    if (isAvailable) {
-      // Check if this slot is already selected
-      const existingEventIndex = events.findIndex(event => 
-        event.start && event.start.getTime() === start.getTime()
-      );
-
-      let updatedEvents;
-      if (existingEventIndex >= 0) {
-        // Slot is already selected - remove it (toggle off)
-        updatedEvents = events.filter((_, index) => index !== existingEventIndex);
-        console.log('📅 WeeklyPlanner: Removed existing slot');
-      } else {
-        // Slot is not selected - add it (toggle on)
-        const newEvent = { start, end, title: 'Available' };
-        updatedEvents = [...events, newEvent];
-        console.log('📅 WeeklyPlanner: Added new slot');
-      }
-      
-      setEvents(updatedEvents);
-      onSelectionChange(updatedEvents.map(e => e.start as Date));
+    let updatedSlots;
+    if (isSlotSelected(date)) {
+      // Remove slot
+      updatedSlots = selectedSlots.filter(slot => slot.getTime() !== date.getTime());
     } else {
-      console.log('📅 WeeklyPlanner: Slot not available - outside admin-defined availability periods');
+      // Add slot
+      updatedSlots = [...selectedSlots, date];
     }
-  }, [events, onSelectionChange, weeklyAvailabilities]);
+    
+    setSelectedSlots(updatedSlots);
+    onSelectionChange(updatedSlots);
+  }, [selectedSlots, onSelectionChange]);
 
-  // Handle mouse events for tooltip
-  const handleSlotMouseEnter = useCallback((slotInfo: any, event: React.MouseEvent) => {
-    if (slotInfo && slotInfo.start) {
-      const rect = (event.target as HTMLElement).getBoundingClientRect();
-      const availableActors = getActorsAvailableForTimeSlot(slotInfo.start);
-      
-      const tooltipContent = availableActors.length > 0 
-        ? `Available actors: ${availableActors.join(', ')}` 
-        : 'No actors available';
-      
-      setTooltip({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 10,
-        content: tooltipContent,
-        visible: true
-      });
+  const formatTime = (hour: number, minute: number) => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+  };
+
+  // Group slots by time for display
+  const groupedSlots = timeSlots.reduce((acc, slot) => {
+    const timeKey = `${slot.hour}:${slot.minute}`;
+    if (!acc[timeKey]) {
+      acc[timeKey] = { hour: slot.hour, minute: slot.minute, slots: [] };
     }
-  }, [getActorsAvailableForTimeSlot]);
+    acc[timeKey].slots.push(slot);
+    return acc;
+  }, {} as Record<string, { hour: number; minute: number; slots: typeof timeSlots }>);
 
-  const handleSlotMouseLeave = useCallback(() => {
-    setTooltip(prev => ({ ...prev, visible: false }));
-  }, []);
-
-  // Custom Event component to handle click-to-remove
-  const CustomEvent = useCallback(({ event }: any) => {
-    const handleEventClick = (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('🎯 CustomEvent: Event clicked for removal:', event);
-      
-      // Remove this event when clicked
-      const updatedEvents = events.filter(existingEvent => 
-        existingEvent.start?.getTime() !== event.start?.getTime()
-      );
-      console.log('🗑️ CustomEvent: Removing event, updated events:', updatedEvents.length);
-      setEvents(updatedEvents);
-      onSelectionChange(updatedEvents.map(e => e.start as Date));
-    };
-
-    return (
-      <div 
-        onClick={handleEventClick}
-        onMouseDown={handleEventClick} // Try mouseDown as backup
-        style={{
-          height: '100%',
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          fontSize: '11px',
-          fontWeight: '600',
-          backgroundColor: '#6366f1',
-          color: 'white',
-          borderRadius: '4px',
-          border: '1px solid #4f46e5',
-          userSelect: 'none',
-        }}
-        title="Click to remove availability"
-      >
-        ✓ Available
-      </div>
-    );
-  }, [events, onSelectionChange]);
-
-  // Custom TimeSlot component to handle hover events
-  const CustomTimeSlot = useCallback(({ value, resource, ...props }: any) => {
-    return (
-      <div
-        {...props}
-        onMouseEnter={(event) => handleSlotMouseEnter({ start: value }, event)}
-        onMouseLeave={handleSlotMouseLeave}
-        style={{ 
-          ...props.style, 
-          cursor: 'pointer',
-          height: '100%'
-        }}
-      />
-    );
-  }, [handleSlotMouseEnter, handleSlotMouseLeave]);
+  const sortedTimes = Object.values(groupedSlots).sort((a, b) => {
+    if (a.hour !== b.hour) return a.hour - b.hour;
+    return a.minute - b.minute;
+  });
 
   return (
-    <div style={{ height: 500, position: 'relative' }}>
-      <style>{`
-        .rbc-time-slot:hover {
-          background-color: rgba(99, 102, 241, 0.1) !important;
-        }
-        .rbc-day-slot:hover {
-          background-color: rgba(99, 102, 241, 0.1) !important;
-        }
-        .rbc-event {
-          background-color: #6366f1 !important;
-          border: 2px solid #4f46e5 !important;
-          border-radius: 6px !important;
-          color: white !important;
-          font-weight: 600 !important;
-          opacity: 0.9 !important;
-        }
-        .rbc-event:hover {
-          background-color: #4f46e5 !important;
-          opacity: 1 !important;
-          cursor: pointer !important;
-        }
-        .rbc-selected {
-          background-color: rgba(99, 102, 241, 0.2) !important;
-        }
-      `}</style>
+    <View style={styles.container}>
+      <Text style={styles.title}>Select Your Availability</Text>
+      <Text style={styles.subtitle}>Tap time slots to toggle availability</Text>
       
-      <Calendar
-        localizer={localizer}
-        events={events}
-        startAccessor="start"
-        endAccessor="end"
-        selectable
-        onSelectSlot={handleSelectSlot}
-        onSelectEvent={(event: any) => {
-          console.log('📅 Calendar: Event selected for removal:', event);
-          // Remove the selected event
-          const updatedEvents = events.filter(existingEvent => 
-            existingEvent.start?.getTime() !== event.start?.getTime()
-          );
-          setEvents(updatedEvents);
-          onSelectionChange(updatedEvents.map(e => e.start as Date));
-        }}
-        defaultView="week"
-        step={30}
-        timeslots={1}
-        components={{
-          timeSlotWrapper: CustomTimeSlot,
-          event: CustomEvent,
-        }}
-      />
-      
-      {/* Tooltip */}
-      {tooltip.visible && (
-        <div
-          style={{
-            position: 'fixed',
-            left: tooltip.x,
-            top: tooltip.y,
-            transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            color: 'white',
-            padding: '8px 12px',
-            borderRadius: '4px',
-            fontSize: '14px',
-            whiteSpace: 'nowrap',
-            zIndex: 1000,
-            pointerEvents: 'none',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
-          }}
-        >
-          {tooltip.content}
-          <div
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 0,
-              height: 0,
-              borderLeft: '6px solid transparent',
-              borderRight: '6px solid transparent',
-              borderTop: '6px solid rgba(0, 0, 0, 0.8)',
-            }}
-          />
-        </div>
-      )}
-    </div>
+      {/* Header with day names */}
+      <View style={styles.headerRow}>
+        <View style={styles.timeHeaderCell} />
+        {rehearsalDayNames.map((dayName, index) => (
+          <View key={index} style={styles.dayHeaderCell}>
+            <Text style={styles.dayHeaderText}>{dayName}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Scrollable time slots */}
+      <ScrollView style={styles.slotsContainer} showsVerticalScrollIndicator={false}>
+        {sortedTimes.map((timeGroup) => (
+          <View key={`${timeGroup.hour}-${timeGroup.minute}`} style={styles.timeSlotRow}>
+            <View style={styles.timeCell}>
+              <Text style={styles.timeCellText}>
+                {formatTime(timeGroup.hour, timeGroup.minute)}
+              </Text>
+            </View>
+            
+            {rehearsalDays.map(dayIndex => {
+              const slot = timeGroup.slots.find(s => s.day === dayIndex);
+              if (!slot) return <View key={dayIndex} style={styles.emptyCell} />;
+              
+              const isSelected = isSlotSelected(slot.date);
+              const isAvailable = isSlotAvailable(slot.day, slot.hour, slot.minute);
+              
+              return (
+                <TouchableOpacity
+                  key={`${dayIndex}-${timeGroup.hour}-${timeGroup.minute}`}
+                  style={[
+                    styles.timeSlot,
+                    isSelected && styles.selectedSlot,
+                    !isAvailable && styles.unavailableSlot
+                  ]}
+                  onPress={() => handleTimeSlotPress(slot.date, slot.day, slot.hour, slot.minute)}
+                  disabled={!isAvailable}
+                  activeOpacity={0.7}
+                >
+                  {isSelected && (
+                    <Text style={styles.checkmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Legend */}
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: '#6366f1' }]} />
+          <Text style={styles.legendText}>Selected</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: '#f8f9fa' }]} />
+          <Text style={styles.legendText}>Available</Text>
+        </View>
+        {weeklyAvailabilities.length > 0 && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#f5f5f5' }]} />
+            <Text style={styles.legendText}>Unavailable</Text>
+          </View>
+        )}
+      </View>
+    </View>
   );
+};
+
+const createResponsiveStyles = (screenSize: any) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#ffffff',
+      borderRadius: 12,
+      margin: responsive.spacing.sm,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    title: {
+      fontSize: responsive.fontSize.lg,
+      fontWeight: '600',
+      color: '#1e293b',
+      textAlign: 'center',
+      paddingTop: responsive.spacing.md,
+      paddingBottom: responsive.spacing.xs,
+    },
+    subtitle: {
+      fontSize: responsive.fontSize.sm,
+      color: '#64748b',
+      textAlign: 'center',
+      paddingBottom: responsive.spacing.md,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: '#e2e8f0',
+      backgroundColor: '#f8fafc',
+    },
+    timeHeaderCell: {
+      width: screenSize.isPhone ? 60 : 70,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRightWidth: 1,
+      borderRightColor: '#e2e8f0',
+    },
+    dayHeaderCell: {
+      flex: 1,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRightWidth: 1,
+      borderRightColor: '#e2e8f0',
+    },
+    dayHeaderText: {
+      fontSize: responsive.fontSize.sm,
+      fontWeight: '600',
+      color: '#374151',
+    },
+    slotsContainer: {
+      flex: 1,
+      maxHeight: screenSize.isPhone ? 300 : 400,
+    },
+    timeSlotRow: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: '#f1f5f9',
+    },
+    timeCell: {
+      width: screenSize.isPhone ? 60 : 70,
+      height: screenSize.isPhone ? 35 : 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRightWidth: 1,
+      borderRightColor: '#e2e8f0',
+      backgroundColor: '#f8fafc',
+    },
+    timeCellText: {
+      fontSize: screenSize.isPhone ? 9 : 11,
+      color: '#64748b',
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+    timeSlot: {
+      flex: 1,
+      height: screenSize.isPhone ? 35 : 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRightWidth: 1,
+      borderRightColor: '#f1f5f9',
+      backgroundColor: '#ffffff',
+      minHeight: responsive.touchTarget.small,
+    },
+    selectedSlot: {
+      backgroundColor: '#6366f1',
+    },
+    unavailableSlot: {
+      backgroundColor: '#f5f5f5',
+      opacity: 0.5,
+    },
+    emptyCell: {
+      flex: 1,
+      height: screenSize.isPhone ? 35 : 40,
+      borderRightWidth: 1,
+      borderRightColor: '#f1f5f9',
+      backgroundColor: '#f5f5f5',
+    },
+    checkmark: {
+      color: '#ffffff',
+      fontSize: responsive.fontSize.sm,
+      fontWeight: 'bold',
+    },
+    legend: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingHorizontal: responsive.spacing.md,
+      paddingVertical: responsive.spacing.sm,
+      backgroundColor: '#f8fafc',
+      borderTopWidth: 1,
+      borderTopColor: '#e2e8f0',
+      flexWrap: 'wrap',
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: screenSize.isPhone ? responsive.spacing.xs : 0,
+    },
+    legendColor: {
+      width: 12,
+      height: 12,
+      borderRadius: 2,
+      marginRight: responsive.spacing.xs,
+    },
+    legendText: {
+      fontSize: responsive.fontSize.xs,
+      color: '#64748b',
+    },
+  });
 };
 
 export default WeeklyPlanner;

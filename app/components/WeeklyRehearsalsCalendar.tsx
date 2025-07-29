@@ -222,7 +222,7 @@ const WeeklyRehearsalsCalendar: React.FC<WeeklyRehearsalsCalendarProps> = ({
   };
 
   const renderTimeSlotGrid = () => {
-    const grid: JSX.Element[] = [];
+    const grid: React.ReactElement[] = [];
     
     // Header row with day names
     grid.push(

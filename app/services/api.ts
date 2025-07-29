@@ -560,10 +560,100 @@ class ApiService {
     });
   }
 
-  static async disconnectGoogleCalendar(): Promise<any> {
-    return this.makeRequest('/calendar/disconnect', {
+  // Poll management methods
+  static async getPolls(): Promise<any[]> {
+    console.log('🗳️ ApiService: Getting polls...');
+    return this.makeRequest('/polls');
+  }
+
+  static async getPoll(pollId: string): Promise<any> {
+    console.log('🗳️ ApiService: Getting poll:', pollId);
+    return this.makeRequest(`/polls/${pollId}`);
+  }
+
+  static async createPoll(pollData: {
+    title: string;
+    description?: string;
+    timeSlots: Array<{
+      date: string;
+      startTime: string;
+      endTime: string;
+      description?: string;
+    }>;
+    scenes?: string[];
+    targetActorIds: string[];
+    settings?: {
+      allowMultipleSelections?: boolean;
+      requireAllActors?: boolean;
+      showResponsesPublically?: boolean;
+      allowComments?: boolean;
+      deadline?: string;
+      timezone?: string;
+    };
+  }): Promise<any> {
+    console.log('🗳️ ApiService: Creating poll...', pollData);
+    return this.makeRequest('/polls', {
+      method: 'POST',
+      body: JSON.stringify(pollData),
+    });
+  }
+
+  static async updatePoll(pollId: string, updates: any): Promise<any> {
+    console.log('🗳️ ApiService: Updating poll:', pollId, updates);
+    return this.makeRequest(`/polls/${pollId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  static async submitPollResponse(pollId: string, responseData: {
+    timeSlotId: string;
+    responseType: 'available' | 'if-needed' | 'not-available';
+    comment?: string;
+  }): Promise<any> {
+    console.log('🗳️ ApiService: Submitting poll response:', pollId, responseData);
+    return this.makeRequest(`/polls/${pollId}/responses`, {
+      method: 'POST',
+      body: JSON.stringify(responseData),
+    });
+  }
+
+  static async getPollSummary(pollId: string): Promise<any> {
+    console.log('🗳️ ApiService: Getting poll summary:', pollId);
+    return this.makeRequest(`/polls/${pollId}/summary`);
+  }
+
+  static async duplicatePoll(pollId: string, modifications?: any): Promise<any> {
+    console.log('🗳️ ApiService: Duplicating poll:', pollId, modifications);
+    return this.makeRequest(`/polls/${pollId}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify(modifications || {}),
+    });
+  }
+
+  static async deletePoll(pollId: string): Promise<any> {
+    console.log('🗳️ ApiService: Deleting poll:', pollId);
+    return this.makeRequest(`/polls/${pollId}`, {
       method: 'DELETE',
     });
+  }
+
+  static async exportPollCSV(pollId: string): Promise<Blob> {
+    console.log('🗳️ ApiService: Exporting poll CSV:', pollId);
+    // For CSV export, we need to handle the response differently
+    const response = await fetch(`${API_BASE_URL}/polls/${pollId}/export`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Authorization': `Bearer ${await StorageService.getItem('auth_token')}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to export poll data');
+    }
+
+    return response.blob();
   }
 }
 

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:timeful.app)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm uninstall:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm start)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(taskkill:*)",
+      "Bash(ls:*)"
+    ],
+    "deny": []
+  }
+}

@@ -16,6 +16,8 @@ const actorsRoutes = require('./routes/actors');
 const weeklyAvailabilityRoutes = require('./routes/weeklyAvailability');
 const scenesRoutes = require('./routes/scenes');
 const rehearsalsRoutes = require('./routes/rehearsals');
+const pollsRoutes = require('./routes/polls');
+const notificationsRoutes = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -98,6 +100,8 @@ app.use('/api/actors', actorsRoutes);
 app.use('/api/weekly-availability', weeklyAvailabilityRoutes);
 app.use('/api/scenes', scenesRoutes);
 app.use('/api/rehearsals', rehearsalsRoutes);
+app.use('/api/polls', pollsRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

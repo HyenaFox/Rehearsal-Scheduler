@@ -38,6 +38,43 @@ const rehearsalSchema = new mongoose.Schema({
     type: Object, // Store the full actor objects for easier access
     required: true
   }],
+  // Enhanced fields for subset participation
+  actorRequirements: [{
+    actorId: {
+      type: String,
+      required: true
+    },
+    actorName: {
+      type: String,
+      required: true
+    },
+    isRequired: {
+      type: Boolean,
+      default: true
+    }
+  }],
+  subsetParticipation: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    minRequiredActors: {
+      type: Number,
+      default: 1
+    },
+    requiredActorCount: {
+      type: Number,
+      default: 0
+    },
+    optionalActorCount: {
+      type: Number,
+      default: 0
+    }
+  },
+  description: {
+    type: String,
+    default: ''
+  },
   createdDate: {
     type: Date,
     default: Date.now

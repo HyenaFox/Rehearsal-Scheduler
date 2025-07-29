@@ -254,8 +254,13 @@ const AddRehearsalModal = ({ visible, onSave, onCancel, actors = [], scenes = []
             {selectedScene && (
               <>
                 <Text style={styles.sectionTitle}>Select Date:</Text>
-                <View style={styles.calendarContainer}>
-                  {dateOptions && Array.isArray(dateOptions) && dateOptions.length > 0 ? dateOptions.filter(date => date && typeof date === 'object' && date.day !== undefined).map(date => {
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalScrollContent}
+                >
+                  <View style={styles.calendarContainer}>
+                    {dateOptions && Array.isArray(dateOptions) && dateOptions.length > 0 ? dateOptions.filter(date => date && typeof date === 'object' && date.day !== undefined).map(date => {
                     // Safety check to ensure date object exists and has required properties
                     if (!date || typeof date.day === 'undefined' || !date.id || !date.dayName || !date.monthName) {
                       console.warn('Invalid date object:', date);
@@ -293,10 +298,11 @@ const AddRehearsalModal = ({ visible, onSave, onCancel, actors = [], scenes = []
                         </Text>
                       </TouchableOpacity>
                     );
-                  }).filter(Boolean) : (
-                    <Text style={styles.noScenesText}>No dates available</Text>
-                  )}
-                </View>
+                    }).filter(Boolean) : (
+                      <Text style={styles.noScenesText}>No dates available</Text>
+                    )}
+                  </View>
+                </ScrollView>
               </>
             )}
 

@@ -257,7 +257,15 @@ if (process.env.NODE_ENV === 'production') {
 
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
+  
+  // Only serve frontend for non-API routes
   app.get('*', (req, res) => {
+    // Don't serve frontend for API routes - let them 404 normally
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    
+    // Serve frontend for all other routes
     res.sendFile(path.resolve(distPath, 'index.html'));
   });
 }

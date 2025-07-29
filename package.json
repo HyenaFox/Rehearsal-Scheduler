@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "npx serve dist -s",
+    "start": "expo start",
     "build": "expo export --platform web --output-dir dist --clear",
     "build:web": "expo export --platform web --output-dir dist --clear",
     "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
@@ -53,7 +53,6 @@
     "react-native-sectioned-multi-select": "^0.10.0",
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
-    "serve": "^14.2.3",
     "typescript": "~5.8.3"
   },
   "devDependencies": {

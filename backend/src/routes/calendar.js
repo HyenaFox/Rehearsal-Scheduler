@@ -20,13 +20,12 @@ const getRedirectUri = () => {
   
   // Determine redirect URI based on environment
   if (process.env.NODE_ENV === 'production') {
-    // Production: Use frontend URL from environment or default to render.com
-    const frontendUrl = process.env.FRONTEND_URL || 'https://rehearsal-scheduler-frontend.onrender.com';
-    const redirectUri = `${frontendUrl}/(tabs)/profile`;
-    console.log('🔗 Production redirect URI:', redirectUri);
+    // Production: For combined deployment, frontend is served from same domain
+    const redirectUri = 'https://rehearsal-scheduler.onrender.com/(tabs)/profile';
+    console.log('🔗 Production redirect URI (combined deployment):', redirectUri);
     return redirectUri;
   } else {
-    // Development: Use localhost
+    // Development: Use localhost frontend
     const redirectUri = 'http://localhost:8081/(tabs)/profile';
     console.log('🔗 Development redirect URI:', redirectUri);
     return redirectUri;
@@ -104,7 +103,7 @@ router.get('/auth/google/callback', async (req, res) => {
       <script>
         setTimeout(() => {
           const frontendUrl = '${process.env.NODE_ENV === 'production' 
-            ? (process.env.FRONTEND_URL || 'https://rehearsal-scheduler-frontend.onrender.com')
+            ? 'https://rehearsal-scheduler.onrender.com'
             : 'http://localhost:8081'}';
           window.location.href = frontendUrl;
         }, 3000);

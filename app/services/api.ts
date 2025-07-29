@@ -16,8 +16,8 @@ const getApiBaseUrl = () => {
     return envUrl;
   }
 
-  // Fallback for production if the env var isn't set for some reason
-  return 'https://rehearsal-scheduler-backend.onrender.com/api';
+  // Fallback for combined deployment - relative API URL
+  return '/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

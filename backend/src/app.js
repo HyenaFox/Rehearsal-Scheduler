@@ -115,8 +115,8 @@ app.get('/version', (req, res) => {
   });
 });
 
-// Root endpoint - provide API information
-app.get('/', (req, res) => {
+// Root API info endpoint moved to /api/info to avoid conflicts with frontend
+app.get('/api/info', (req, res) => {
   res.json({
     name: 'Rehearsal Scheduler API',
     version: '1.0.0',
@@ -162,9 +162,9 @@ app.get('/', (req, res) => {
         'DELETE /api/calendar/disconnect': 'Disconnect calendar (requires auth)'
       }
     },
-    documentation: 'All endpoints except /, /health, and /api require authentication',
+    documentation: 'All endpoints except /health and /api require authentication',
     mobile_app: 'This API serves a React Native mobile application',
-    web_app: 'Web version available at a separate deployment'
+    web_app: 'Web version served at the root domain'
   });
 });
 

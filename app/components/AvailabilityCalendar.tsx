@@ -33,13 +33,11 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     for (const day of rehearsalDays) {
       for (let hour = 18; hour <= 23; hour++) { // 6 PM (18) to 11 PM (23)
         for (let minute = 0; minute < 60; minute += 30) { // 30-minute intervals
-          // Include 11:30 PM (23:30) as the last slot
-          if (hour === 23 && minute === 30) {
-            slots.push({ day, hour, minute });
+          // For hour 23 (11 PM), include both 11:00 PM and 11:30 PM
+          if (hour === 23 && minute > 30) {
             break; // Stop after 11:30 PM
-          } else if (hour < 23) {
-            slots.push({ day, hour, minute });
           }
+          slots.push({ day, hour, minute });
         }
       }
     }

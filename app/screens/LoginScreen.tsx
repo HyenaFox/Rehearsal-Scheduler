@@ -109,8 +109,11 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Rehearsal Scheduler</Text>
+        <Text style={styles.title}>CueCall</Text>
         <Text style={styles.subtitle}>
+          Smart rehearsal scheduling
+        </Text>
+        <Text style={styles.welcomeText}>
           {isRegisterMode ? 'Create your account' : 'Welcome back'}
         </Text>
 
@@ -206,14 +209,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   title: {
-    fontSize: 36,
+    fontSize: 42,
     fontWeight: '900',
     textAlign: 'center',
     marginBottom: 8,
     color: '#fff',
-    letterSpacing: 1,
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '400',
+    fontStyle: 'italic',
+  },
+  welcomeText: {
     fontSize: 18,
     textAlign: 'center',
     marginBottom: 40,

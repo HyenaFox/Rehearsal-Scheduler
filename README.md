@@ -1,13 +1,13 @@
-# 🎭 Rehearsal Scheduler
+# 🎭 CueCall
 
-**A comprehensive theater production management app with Google Calendar integration**  
+**Smart rehearsal scheduling for theater productions**  
 *by Seth Haycock-Poller for CS153a Brandeis University*
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-rehearsal--scheduler.onrender.com-blue?style=for-the-badge&logo=globe)](https://rehearsal-scheduler.onrender.com)
 
 ## 🌟 Overview
 
-Rehearsal Scheduler is a full-stack web and mobile application designed to streamline theater production management. Built specifically for Brandeis University's Boris' Kitchen theater group, it helps directors, actors, and production staff coordinate rehearsals, manage actor availability, and organize scene assignments efficiently.
+CueCall is a full-stack web and mobile application designed to streamline theater production management. Built specifically for Brandeis University's Boris' Kitchen theater group, it helps directors, actors, and production staff coordinate rehearsals, manage actor availability, and organize scene assignments efficiently.
 
 ### 🆕 **Recent Major Updates**
 
@@ -222,7 +222,7 @@ PORT=3000
 
 ### **Google OAuth Issues**
 
-If you see "Access blocked: Rehearsal Scheduler has not completed the Google verification process":
+If you see "Access blocked: CueCall has not completed the Google verification process":
 
 1. **Quick Fix**: Contact admin to be added as a test user
 2. **Alternative**: Use email/password login instead
@@ -329,4 +329,5 @@ This project is created for educational purposes as part of CS153a at Brandeis U
 
 ## 🎭 Built with ❤️ for Brandeis University Boris' Kitchen Sketch Comedy
 
+**CueCall** - *Smart rehearsal scheduling*  
 *Brandeis University Boris' Kitchen Sketch Comedy*

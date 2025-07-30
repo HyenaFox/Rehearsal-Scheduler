@@ -71,16 +71,51 @@ router.post('/', authenticateToken, async (req, res) => {
     const {
       title,
       description,
-      timeSlots,
+      timeSlots,  // Legacy format
+      dateRanges, // New format
       scenes,
       targetActorIds,
       settings
     } = req.body;
     
-    // Validate required fields
-    if (!title || !timeSlots || !targetActorIds) {
+    // Debug logging
+    console.log('🗳️ [Backend] Poll creation request:', {
+      hasTitle: !!title,
+      hasTimeSlots: !!timeSlots,
+      hasDateRanges: !!dateRanges,
+      hasTargetActorIds: !!targetActorIds,
+      dateRangesCount: dateRanges?.length,
+      timeSlotsCount: timeSlots?.length
+    });
+    
+    // Validate required fields - accept either timeSlots or dateRanges
+    if (!title) {
       return res.status(400).json({ 
-        error: 'Missing required fields: title, timeSlots, and targetActorIds are required' 
+        error: 'Missing required field: title is required' 
+      });
+    }
+    
+    if (!targetActorIds || !Array.isArray(targetActorIds) || targetActorIds.length === 0) {
+      return res.status(400).json({ 
+        error: 'Missing required field: targetActorIds must be a non-empty array' 
+      });
+    }
+    
+    if (!timeSlots && !dateRanges) {
+      return res.status(400).json({ 
+        error: 'Missing required field: either timeSlots or dateRanges is required' 
+      });
+    }
+    
+    if (dateRanges && (!Array.isArray(dateRanges) || dateRanges.length === 0)) {
+      return res.status(400).json({ 
+        error: 'dateRanges must be a non-empty array when provided' 
+      });
+    }
+    
+    if (timeSlots && (!Array.isArray(timeSlots) || timeSlots.length === 0)) {
+      return res.status(400).json({ 
+        error: 'timeSlots must be a non-empty array when provided' 
       });
     }
     
@@ -96,14 +131,45 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
     
-    // Format time slots with unique IDs
-    const formattedTimeSlots = timeSlots.map((slot, index) => ({
-      id: `slot-${Date.now()}-${index}`,
-      date: slot.date,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      description: slot.description || ''
-    }));
+    // Handle dual format support - store both for maximum compatibility
+    let pollTimeData = {};
+    
+    if (dateRanges && dateRanges.length > 0) {
+      // New format: dateRanges (preferred)
+      const formattedDateRanges = dateRanges.map((range, index) => ({
+        id: range.id || `range-${Date.now()}-${index}`,
+        date: range.date,
+        earliestTime: range.earliestTime,
+        latestTime: range.latestTime,
+        suggestedDuration: range.suggestedDuration || 120,
+        description: range.description || ''
+      }));
+      pollTimeData.dateRanges = formattedDateRanges;
+      
+      // Also create compatible timeSlots for legacy components
+      const compatibleTimeSlots = formattedDateRanges.map((range, index) => ({
+        id: range.id,
+        date: range.date,
+        startTime: range.earliestTime,
+        endTime: range.latestTime,
+        description: range.description || ''
+      }));
+      pollTimeData.timeSlots = compatibleTimeSlots;
+      
+      console.log('🗳️ [Backend] Using dateRanges format with legacy compatibility');
+    } else if (timeSlots && timeSlots.length > 0) {
+      // Legacy format: timeSlots only
+      const formattedTimeSlots = timeSlots.map((slot, index) => ({
+        id: slot.id || `slot-${Date.now()}-${index}`,
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        description: slot.description || ''
+      }));
+      pollTimeData.timeSlots = formattedTimeSlots;
+      
+      console.log('🗳️ [Backend] Using legacy timeSlots format only');
+    }
     
     // Format target actors
     const formattedTargetActors = targetActorsData.map(actor => ({
@@ -117,7 +183,7 @@ router.post('/', authenticateToken, async (req, res) => {
       description: description || '',
       createdBy: user._id,
       createdByName: user.name,
-      timeSlots: formattedTimeSlots,
+      ...pollTimeData, // Contains either timeSlots or dateRanges
       scenes: scenes || [],
       targetActors: formattedTargetActors,
       settings: {
@@ -185,15 +251,16 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Submit response to a poll
+// Submit response to a poll (supports both old timeSlot and new dateRange format)
 router.post('/:id/responses', authenticateToken, async (req, res) => {
   try {
     const { user } = req;
-    const { timeSlotId, responseType, comment } = req.body;
+    const { timeSlotId, dateRangeId, availabilityBlocks, responseType, comment } = req.body;
     
-    if (!timeSlotId || !responseType) {
+    // Support both old timeSlot format and new dateRange format
+    if ((!timeSlotId && !dateRangeId) || (!responseType && !availabilityBlocks)) {
       return res.status(400).json({ 
-        error: 'Missing required fields: timeSlotId and responseType are required' 
+        error: 'Missing required fields: (timeSlotId or dateRangeId) and (responseType or availabilityBlocks) are required' 
       });
     }
     
@@ -227,22 +294,47 @@ router.post('/:id/responses', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Poll deadline has passed' });
     }
     
-    // Validate time slot exists
-    const timeSlotExists = poll.timeSlots.some(slot => slot.id === timeSlotId);
-    if (!timeSlotExists) {
-      return res.status(400).json({ error: 'Invalid time slot ID' });
+    let responseData;
+    
+    if (dateRangeId && availabilityBlocks) {
+      // New dateRange format with availability blocks
+      const dateRangeExists = poll.dateRanges?.some(range => range.id === dateRangeId);
+      if (!dateRangeExists) {
+        return res.status(400).json({ error: 'Invalid date range ID' });
+      }
+      
+      responseData = {
+        actorId: user._id,
+        actorName: user.name,
+        dateRangeId,
+        availabilityBlocks,
+        comment: comment || ''
+      };
+      
+      const updatedPoll = await Poll.updateAvailability(poll._id, responseData);
+      res.json(updatedPoll);
+    } else if (timeSlotId && responseType) {
+      // Legacy timeSlot format
+      const timeSlotExists = poll.timeSlots?.some(slot => slot.id === timeSlotId);
+      if (!timeSlotExists) {
+        return res.status(400).json({ error: 'Invalid time slot ID' });
+      }
+      
+      responseData = {
+        actorId: user._id,
+        actorName: user.name,
+        timeSlotId,
+        responseType,
+        comment: comment || ''
+      };
+      
+      const updatedPoll = await Poll.addResponse(poll._id, responseData);
+      res.json(updatedPoll);
+    } else {
+      return res.status(400).json({ 
+        error: 'Invalid request format. Provide either (timeSlotId + responseType) or (dateRangeId + availabilityBlocks)' 
+      });
     }
-    
-    const responseData = {
-      actorId: user._id,
-      actorName: user.name,
-      timeSlotId,
-      responseType,
-      comment: comment || ''
-    };
-    
-    const updatedPoll = await Poll.addResponse(poll._id, responseData);
-    res.json(updatedPoll);
   } catch (error) {
     console.error('Error submitting poll response:', error);
     res.status(500).json({ 

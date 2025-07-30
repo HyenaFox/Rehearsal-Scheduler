@@ -412,6 +412,28 @@ pollSchema.statics.getPollsForActor = async function(actorId) {
   .sort({ createdAt: -1 });
 };
 
+// Static method to add response to poll (legacy timeSlot format)
+pollSchema.statics.addResponse = async function(pollId, responseData) {
+  const poll = await this.findById(pollId);
+  if (!poll) {
+    throw new Error('Poll not found');
+  }
+  
+  // Remove any existing response from this actor for this time slot
+  poll.responses = poll.responses.filter(response => 
+    !(response.actorId.toString() === responseData.actorId.toString() && 
+      response.timeSlotId === responseData.timeSlotId)
+  );
+  
+  // Add the new response
+  poll.responses.push(responseData);
+  
+  // Update summary
+  await poll.updateSummary();
+  
+  return poll.save();
+};
+
 // Static method to add/update availability response to poll (Timeful-style)
 pollSchema.statics.updateAvailability = async function(pollId, responseData) {
   const poll = await this.findById(pollId);

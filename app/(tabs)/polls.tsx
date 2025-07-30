@@ -24,6 +24,9 @@ export default function PollsScreen() {
   const [createPollModalVisible, setCreatePollModalVisible] = useState(false);
   const [selectedPoll, setSelectedPoll] = useState<any>(null);
   const [pollViewModalVisible, setPollViewModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [pollToDelete, setPollToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'my-responses' | 'created-by-me'>('all');
 
   const isAdmin = user?.isAdmin || false;
@@ -80,33 +83,37 @@ export default function PollsScreen() {
     }
   };
 
-  const handleDeletePoll = async (poll: any) => {
+  const handleDeletePoll = (poll: any) => {
     if (!isAdmin) {
       Alert.alert('Access Denied', 'Only administrators can delete polls.');
       return;
     }
 
-    Alert.alert(
-      'Delete Poll',
-      `Are you sure you want to delete "${poll.title}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await ApiService.deletePoll(poll._id);
-              await loadPolls();
-              Alert.alert('Success', 'Poll deleted successfully');
-            } catch (error) {
-              console.error('Error deleting poll:', error);
-              Alert.alert('Error', 'Failed to delete poll');
-            }
-          },
-        },
-      ]
-    );
+    setPollToDelete(poll);
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDeletePoll = async () => {
+    if (!pollToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await ApiService.deletePoll(pollToDelete._id);
+      await loadPolls();
+      setDeleteModalVisible(false);
+      setPollToDelete(null);
+      console.log('Poll deleted successfully');
+    } catch (error) {
+      console.error('Error deleting poll:', error);
+      Alert.alert('Error', 'Failed to delete poll');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const cancelDeletePoll = () => {
+    setDeleteModalVisible(false);
+    setPollToDelete(null);
   };
 
   const handleExportPoll = async (poll: any) => {
@@ -158,14 +165,17 @@ export default function PollsScreen() {
       response.actorId === (user?.id || user?._id)
     );
     
+    // For new dateRanges format, count total date ranges
+    const totalRanges = poll.dateRanges?.length || poll.timeSlots?.length || 0;
+    
     if (!userResponses || userResponses.length === 0) {
-      return { status: 'pending', count: 0, total: poll.timeSlots?.length || 0 };
+      return { status: 'pending', count: 0, total: totalRanges };
     }
     
     return { 
       status: 'responded', 
       count: userResponses.length, 
-      total: poll.timeSlots?.length || 0 
+      total: totalRanges 
     };
   };
 
@@ -218,8 +228,8 @@ export default function PollsScreen() {
         {/* Poll Stats */}
         <View style={styles.pollStats}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{poll.timeSlots?.length || 0}</Text>
-            <Text style={styles.statLabel}>Time Slots</Text>
+            <Text style={styles.statNumber}>{poll.dateRanges?.length || poll.timeSlots?.length || 0}</Text>
+            <Text style={styles.statLabel}>{poll.dateRanges ? 'Date Ranges' : 'Time Slots'}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{poll.targetActors?.length || 0}</Text>
@@ -244,7 +254,7 @@ export default function PollsScreen() {
               { color: responseStatus.status === 'responded' ? '#10b981' : '#f59e0b' }
             ]}>
               {responseStatus.status === 'responded' 
-                ? `✅ Responded (${responseStatus.count}/${responseStatus.total} slots)`
+                ? `✅ Responded (${responseStatus.count}/${responseStatus.total} ${poll.dateRanges ? 'ranges' : 'slots'})`
                 : '⏳ Pending response'
               }
             </Text>
@@ -440,6 +450,48 @@ export default function PollsScreen() {
               }}
             />
           )}
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal 
+        visible={deleteModalVisible} 
+        animationType="fade" 
+        transparent={true}
+        onRequestClose={cancelDeletePoll}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Text style={styles.deleteModalIcon}>🗑️</Text>
+              <Text style={styles.deleteModalTitle}>Delete Poll</Text>
+            </View>
+            
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to delete "{pollToDelete?.title}"?
+            </Text>
+            <Text style={styles.deleteModalWarning}>
+              This action cannot be undone and will permanently remove all poll data and responses.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelDeleteButton}
+                onPress={cancelDeletePoll}
+              >
+                <Text style={styles.cancelDeleteButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmDeleteButton, isDeleting && styles.confirmDeleteButtonDisabled]}
+                onPress={confirmDeletePoll}
+                disabled={isDeleting}
+              >
+                <Text style={styles.confirmDeleteButtonText}>
+                  {isDeleting ? 'Deleting...' : 'Delete Poll'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -722,5 +774,89 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 8,
     paddingHorizontal: 20,
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  deleteModalContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  deleteModalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  deleteModalIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1e293b',
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  deleteModalWarning: {
+    fontSize: 14,
+    color: '#dc2626',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelDeleteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+  },
+  cancelDeleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#dc2626',
+    alignItems: 'center',
+  },
+  confirmDeleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  confirmDeleteButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    opacity: 0.7,
   },
 });

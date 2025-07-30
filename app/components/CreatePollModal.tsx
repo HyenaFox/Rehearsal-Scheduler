@@ -196,14 +196,31 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
     // Auto-generate title if empty description
     const finalDescription = description.trim() || `Mark your availability for ${selectedActorIds.length} actor${selectedActorIds.length > 1 ? 's' : ''} across ${validDateRanges.length} date range${validDateRanges.length > 1 ? 's' : ''}`;
 
+    // Create backward-compatible timeSlots from dateRanges for legacy support
+    const compatibleTimeSlots = validDateRanges.map((range, index) => ({
+      id: range.id,
+      date: range.date,
+      startTime: range.earliestTime,
+      endTime: range.latestTime,
+      description: range.description || ''
+    }));
+
     const pollData = {
       title: title.trim(),
       description: finalDescription,
-      dateRanges: validDateRanges,
+      dateRanges: validDateRanges,      // New format
+      timeSlots: compatibleTimeSlots,   // Legacy format for compatibility
       scenes: selectedScenes,
       targetActorIds: selectedActorIds,
       settings
     };
+
+    console.log('🗳️ [Frontend] Creating poll with data:', {
+      ...pollData,
+      dateRangesCount: validDateRanges.length,
+      targetActorIdsCount: selectedActorIds.length,
+      sampleDateRange: validDateRanges[0]
+    });
 
     try {
       await onSave(pollData);

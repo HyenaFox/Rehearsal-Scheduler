@@ -574,7 +574,15 @@ class ApiService {
   static async createPoll(pollData: {
     title: string;
     description?: string;
-    timeSlots: Array<{
+    dateRanges?: Array<{
+      id: string;
+      date: string;
+      earliestTime: string;
+      latestTime: string;
+      suggestedDuration?: number;
+      description?: string;
+    }>;
+    timeSlots?: Array<{
       date: string;
       startTime: string;
       endTime: string;
@@ -607,8 +615,14 @@ class ApiService {
   }
 
   static async submitPollResponse(pollId: string, responseData: {
-    timeSlotId: string;
-    responseType: 'available' | 'if-needed' | 'not-available';
+    timeSlotId?: string;
+    dateRangeId?: string;
+    availabilityBlocks?: Array<{
+      startTime: string;
+      endTime: string;
+      responseType: 'available' | 'if-needed';
+    }>;
+    responseType?: 'available' | 'if-needed' | 'not-available';
     comment?: string;
   }): Promise<any> {
     console.log('🗳️ ApiService: Submitting poll response:', pollId, responseData);

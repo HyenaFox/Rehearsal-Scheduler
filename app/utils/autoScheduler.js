@@ -156,23 +156,22 @@ export const findBestScenesForActors = (allActors, date, timeSlot, scenes = [], 
 };
 
 /**
- * Check for poll-based availability for actors at a specific time slot
+ * Check for poll-based availability for actors at a specific time slot (Timeful-style)
  * @param {Array} actors - Actors to check
  * @param {Date} date - Target date
  * @param {Object} timeSlot - Target time slot
- * @param {Array} polls - Active polls
+ * @param {Array} polls - Active polls with dateRanges
  * @returns {Object} Poll availability data
  */
 export const checkPollAvailability = (actors, date, timeSlot, polls) => {
   const dateStr = date.toISOString().split('T')[0];
   const timeKey = `${dateStr}-${timeSlot.startTime}-${timeSlot.endTime}`;
   
-  // Find polls that have time slots matching this date/time
+  // Find polls that have date ranges covering this date/time
   const relevantPoll = polls.find(poll => 
-    poll.timeSlots && poll.timeSlots.some(slot => 
-      slot.date === dateStr && 
-      slot.startTime === timeSlot.startTime && 
-      slot.endTime === timeSlot.endTime
+    poll.dateRanges && poll.dateRanges.some(range => 
+      range.date === dateStr && 
+      timeOverlaps(timeSlot.startTime, timeSlot.endTime, range.earliestTime, range.latestTime)
     )
   );
 
@@ -180,19 +179,18 @@ export const checkPollAvailability = (actors, date, timeSlot, polls) => {
     return { hasPollData: false, actors: [], efficiency: 0, breakdown: null };
   }
 
-  const matchingTimeSlot = relevantPoll.timeSlots.find(slot => 
-    slot.date === dateStr && 
-    slot.startTime === timeSlot.startTime && 
-    slot.endTime === timeSlot.endTime
+  const matchingDateRange = relevantPoll.dateRanges.find(range => 
+    range.date === dateStr && 
+    timeOverlaps(timeSlot.startTime, timeSlot.endTime, range.earliestTime, range.latestTime)
   );
 
-  if (!matchingTimeSlot) {
+  if (!matchingDateRange) {
     return { hasPollData: false, actors: [], efficiency: 0, breakdown: null };
   }
 
-  // Get responses for this time slot
-  const timeSlotResponses = relevantPoll.responses.filter(response => 
-    response.timeSlotId === matchingTimeSlot.id
+  // Get responses for this date range
+  const dateRangeResponses = relevantPoll.responses.filter(response => 
+    response.dateRangeId === matchingDateRange.id
   );
 
   const availableActors = [];
@@ -201,21 +199,28 @@ export const checkPollAvailability = (actors, date, timeSlot, polls) => {
 
   actors.forEach(actor => {
     const actorId = actor.id || actor._id;
-    const response = timeSlotResponses.find(r => 
+    const response = dateRangeResponses.find(r => 
       r.actorId.toString() === actorId.toString()
     );
 
-    if (response) {
-      switch (response.responseType) {
-        case 'available':
-          availableActors.push({ ...actor, pollResponse: 'available' });
-          break;
-        case 'if-needed':
-          ifNeededActors.push({ ...actor, pollResponse: 'if-needed' });
-          break;
-        case 'not-available':
-          notAvailableActors.push({ ...actor, pollResponse: 'not-available' });
-          break;
+    if (response && response.availabilityBlocks) {
+      // Check if any of the actor's availability blocks overlap with this time slot
+      const hasAvailableOverlap = response.availabilityBlocks.some(block => 
+        block.responseType === 'available' && 
+        timeOverlaps(timeSlot.startTime, timeSlot.endTime, block.startTime, block.endTime)
+      );
+      
+      const hasIfNeededOverlap = response.availabilityBlocks.some(block => 
+        block.responseType === 'if-needed' && 
+        timeOverlaps(timeSlot.startTime, timeSlot.endTime, block.startTime, block.endTime)
+      );
+
+      if (hasAvailableOverlap) {
+        availableActors.push({ ...actor, pollResponse: 'available' });
+      } else if (hasIfNeededOverlap) {
+        ifNeededActors.push({ ...actor, pollResponse: 'if-needed' });
+      } else {
+        notAvailableActors.push({ ...actor, pollResponse: 'not-available' });
       }
     } else {
       // No response - treat as unknown, but check general availability as fallback
@@ -241,7 +246,7 @@ export const checkPollAvailability = (actors, date, timeSlot, polls) => {
   // but mark them appropriately
   const finalActors = [...availableActors, ...ifNeededActors];
 
-  console.log(`📊 [AutoScheduler] Poll-based availability:`, {
+  console.log(`📊 [AutoScheduler] Poll-based availability (Timeful-style):`, {
     timeSlot: timeKey,
     available: availableActors.length,
     ifNeeded: ifNeededActors.length,
@@ -260,6 +265,28 @@ export const checkPollAvailability = (actors, date, timeSlot, polls) => {
       total: totalActors
     }
   };
+};
+
+/**
+ * Helper function to check if two time ranges overlap
+ * @param {string} start1 - Start time of first range (HH:MM)
+ * @param {string} end1 - End time of first range (HH:MM) 
+ * @param {string} start2 - Start time of second range (HH:MM)
+ * @param {string} end2 - End time of second range (HH:MM)
+ * @returns {boolean} Whether the ranges overlap
+ */
+const timeOverlaps = (start1, end1, start2, end2) => {
+  const toMinutes = (time) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+  
+  const s1 = toMinutes(start1);
+  const e1 = toMinutes(end1);
+  const s2 = toMinutes(start2);
+  const e2 = toMinutes(end2);
+  
+  return s1 < e2 && e1 > s2;
 };
 
 /**

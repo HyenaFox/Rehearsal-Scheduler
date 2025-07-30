@@ -16,10 +16,12 @@ import {
 import { useApp } from '../contexts/AppContext';
 import { responsive, getScreenSize } from '../utils/responsive';
 
-interface TimeSlot {
+interface DateRange {
+  id: string;
   date: string;
-  startTime: string;
-  endTime: string;
+  earliestTime: string;
+  latestTime: string;
+  suggestedDuration: number; // minutes
   description?: string;
 }
 
@@ -33,8 +35,8 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
   const { actors, scenes } = useApp();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([
-    { date: '', startTime: '', endTime: '', description: '' }
+  const [dateRanges, setDateRanges] = useState<DateRange[]>([
+    { id: 'range-1', date: '', earliestTime: '18:00', latestTime: '22:00', suggestedDuration: 120, description: '' }
   ]);
   const [selectedScenes, setSelectedScenes] = useState<string[]>([]);
   const [selectedActorIds, setSelectedActorIds] = useState<string[]>([]);
@@ -53,7 +55,7 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
   const resetForm = () => {
     setTitle('');
     setDescription('');
-    setTimeSlots([{ date: '', startTime: '', endTime: '', description: '' }]);
+    setDateRanges([{ id: 'range-1', date: '', earliestTime: '18:00', latestTime: '22:00', suggestedDuration: 120, description: '' }]);
     setSelectedScenes([]);
     setSelectedActorIds([]);
     setSettings({
@@ -76,30 +78,52 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
     };
 
     setTitle('Rehearsal Availability Poll');
-    setDescription('Please let us know your availability for upcoming rehearsals');
-    setTimeSlots([
-      { date: formatDate(tomorrow), startTime: '18:00', endTime: '21:00', description: 'Evening rehearsal' },
-      { date: formatDate(new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)), startTime: '18:00', endTime: '21:00', description: 'Evening rehearsal' }
+    setDescription('Mark your availability for upcoming rehearsals using the time ranges below');
+    setDateRanges([
+      { 
+        id: 'range-1', 
+        date: formatDate(tomorrow), 
+        earliestTime: '18:00', 
+        latestTime: '22:00', 
+        suggestedDuration: 120, 
+        description: 'Evening rehearsal options' 
+      },
+      { 
+        id: 'range-2', 
+        date: formatDate(new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)), 
+        earliestTime: '18:00', 
+        latestTime: '22:00', 
+        suggestedDuration: 120, 
+        description: 'Evening rehearsal options' 
+      }
     ]);
     // Select all actors by default
     setSelectedActorIds(actors.map(actor => actor.id || actor._id));
   };
 
-  const addTimeSlot = () => {
-    setTimeSlots([...timeSlots, { date: '', startTime: '', endTime: '', description: '' }]);
+  const addDateRange = () => {
+    const newId = `range-${Date.now()}`;
+    setDateRanges([...dateRanges, { 
+      id: newId, 
+      date: '', 
+      earliestTime: '18:00', 
+      latestTime: '22:00', 
+      suggestedDuration: 120, 
+      description: '' 
+    }]);
   };
 
-  const removeTimeSlot = (index: number) => {
-    if (timeSlots.length > 1) {
-      setTimeSlots(timeSlots.filter((_, i) => i !== index));
+  const removeDateRange = (index: number) => {
+    if (dateRanges.length > 1) {
+      setDateRanges(dateRanges.filter((_, i) => i !== index));
     }
   };
 
-  const updateTimeSlot = (index: number, field: keyof TimeSlot, value: string) => {
-    const updatedSlots = timeSlots.map((slot, i) => 
-      i === index ? { ...slot, [field]: value } : slot
+  const updateDateRange = (index: number, field: keyof DateRange, value: string | number) => {
+    const updatedRanges = dateRanges.map((range, i) => 
+      i === index ? { ...range, [field]: value } : range
     );
-    setTimeSlots(updatedSlots);
+    setDateRanges(updatedRanges);
   };
 
   const toggleScene = (sceneTitle: string) => {
@@ -119,40 +143,63 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
   };
 
   const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+    
+    if (!title.trim()) {
+      errors.title = 'Please enter a title for your poll';
+    }
+    
+    if (selectedActorIds.length === 0) {
+      errors.actors = 'Please select at least one actor';
+    }
+    
+    const validDateRanges = dateRanges.filter(range => 
+      range.date && range.earliestTime && range.latestTime
+    );
+    
+    if (validDateRanges.length === 0) {
+      errors.dateRanges = 'Please add at least one complete date range';
+    }
+    
+    // Validate time ranges
+    for (let i = 0; i < validDateRanges.length; i++) {
+      const range = validDateRanges[i];
+      const toMinutes = (time: string) => {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+      
+      if (toMinutes(range.earliestTime) >= toMinutes(range.latestTime)) {
+        errors[`dateRange_${i}`] = 'Earliest time must be before latest time';
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSave = async () => {
-    setSaving(true);
+    if (!validateForm()) {
+      return;
+    }
     
-    // Enhanced validation with better messages
-    if (!title.trim()) {
-      Alert.alert('Missing Title', 'Please enter a title for your poll. For example: "Rehearsal for Act 1, Scene 2"');
-      setSaving(false);
-      return;
-    }
-
-    if (selectedActorIds.length === 0) {
-      Alert.alert('No Actors Selected', 'Please select at least one actor who should respond to this poll. You can select multiple actors below.');
-      setSaving(false);
-      return;
-    }
-
-    const validTimeSlots = timeSlots.filter(slot => 
-      slot.date && slot.startTime && slot.endTime
+    setSaving(true);
+    setValidationErrors({});
+    
+    const validDateRanges = dateRanges.filter(range => 
+      range.date && range.earliestTime && range.latestTime
     );
 
-    if (validTimeSlots.length === 0) {
-      Alert.alert('No Time Slots', 'Please add at least one complete time slot with date, start time, and end time. Actors will choose their availability from these options.');
-      setSaving(false);
-      return;
-    }
-
     // Auto-generate title if empty description
-    const finalDescription = description.trim() || `Poll for ${selectedActorIds.length} actor${selectedActorIds.length > 1 ? 's' : ''} across ${validTimeSlots.length} time slot${validTimeSlots.length > 1 ? 's' : ''}`;
+    const finalDescription = description.trim() || `Mark your availability for ${selectedActorIds.length} actor${selectedActorIds.length > 1 ? 's' : ''} across ${validDateRanges.length} date range${validDateRanges.length > 1 ? 's' : ''}`;
 
     const pollData = {
       title: title.trim(),
       description: finalDescription,
-      timeSlots: validTimeSlots,
+      dateRanges: validDateRanges,
       scenes: selectedScenes,
       targetActorIds: selectedActorIds,
       settings
@@ -211,8 +258,11 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
 
         {/* Quick Template Button */}
         <View style={styles.templateSection}>
-          <TouchableOpacity onPress={useQuickTemplate} style={styles.templateButton}>
-            <Text style={styles.templateButtonText}>⚡ Use Quick Template</Text>
+          <TouchableOpacity onPress={useQuickTemplate} style={styles.templateButton} activeOpacity={0.8}>
+            <View style={styles.templateButtonContent}>
+              <Text style={styles.templateButtonIcon}>⚡</Text>
+              <Text style={styles.templateButtonText}>Use Quick Template</Text>
+            </View>
           </TouchableOpacity>
           <Text style={styles.templateHelperText}>
             Fills in common rehearsal poll settings to get you started faster
@@ -232,13 +282,22 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Poll Title *</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, validationErrors.title && styles.textInputError]}
                 value={title}
-                onChangeText={setTitle}
+                onChangeText={(text) => {
+                  setTitle(text);
+                  if (validationErrors.title) {
+                    setValidationErrors(prev => ({ ...prev, title: '' }));
+                  }
+                }}
                 placeholder="e.g., Rehearsal for Act 1, Scene 2"
                 maxLength={100}
               />
-              <Text style={styles.helperText}>Give your poll a clear, descriptive title</Text>
+              {validationErrors.title ? (
+                <Text style={styles.errorText}>{validationErrors.title}</Text>
+              ) : (
+                <Text style={styles.helperText}>Give your poll a clear, descriptive title</Text>
+              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -255,24 +314,40 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
             </View>
           </View>
 
-          {/* Time Slots */}
+          {/* Date Ranges (Timeful-style) */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Time Slot Options *</Text>
-              <TouchableOpacity onPress={addTimeSlot} style={styles.addButton}>
-                <Text style={styles.addButtonText}>+ Add Slot</Text>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={styles.sectionTitle}>Date & Time Ranges *</Text>
+                <View style={styles.sectionBadge}>
+                  <Text style={styles.sectionBadgeText}>{dateRanges.length}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={addDateRange} style={styles.addButton} activeOpacity={0.8}>
+                <Text style={styles.addButtonIcon}>+</Text>
+                <Text style={styles.addButtonText}>Add Range</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.sectionSubtitle}>
+              🎯 Create time ranges where actors can mark their availability. Actors will use a visual grid to select when they're available within each range.
+            </Text>
 
-            {timeSlots.map((slot, index) => (
-              <View key={index} style={styles.timeSlotCard}>
+            {dateRanges.map((range, index) => (
+              <View key={range.id} style={styles.timeSlotCard}>
                 <View style={styles.timeSlotHeader}>
-                  <Text style={styles.timeSlotTitle}>Time Slot {index + 1}</Text>
-                  {timeSlots.length > 1 && (
+                  <View style={styles.timeSlotTitleContainer}>
+                    <View style={styles.timeSlotNumber}>
+                      <Text style={styles.timeSlotNumberText}>{index + 1}</Text>
+                    </View>
+                    <Text style={styles.timeSlotTitle}>Date Range {index + 1}</Text>
+                  </View>
+                  {dateRanges.length > 1 && (
                     <TouchableOpacity 
-                      onPress={() => removeTimeSlot(index)}
+                      onPress={() => removeDateRange(index)}
                       style={styles.removeButton}
+                      activeOpacity={0.8}
                     >
+                      <Text style={styles.removeButtonIcon}>×</Text>
                       <Text style={styles.removeButtonText}>Remove</Text>
                     </TouchableOpacity>
                   )}
@@ -282,45 +357,66 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Date *</Text>
                     <TextInput
-                      style={styles.textInput}
-                      value={slot.date}
-                      onChangeText={(value) => updateTimeSlot(index, 'date', value)}
-                      placeholder="2024-12-25 (Year-Month-Day)"
+                      style={[styles.textInput, styles.dateInput]}
+                      value={range.date}
+                      onChangeText={(value) => updateDateRange(index, 'date', value)}
+                      placeholder="2024-12-25"
+                      keyboardType="numeric"
+                      autoCapitalize="none"
+                      autoCorrect={false}
                     />
                     <Text style={styles.helperText}>Format: YYYY-MM-DD</Text>
                   </View>
 
                   <View style={styles.timeRow}>
                     <View style={[styles.inputGroup, styles.timeInputHalf]}>
-                      <Text style={styles.label}>Start Time *</Text>
+                      <Text style={styles.label}>Earliest Time *</Text>
                       <TextInput
-                        style={styles.textInput}
-                        value={slot.startTime}
-                        onChangeText={(value) => updateTimeSlot(index, 'startTime', value)}
-                        placeholder="18:00 (24-hour)"
+                        style={[styles.textInput, styles.timeInput]}
+                        value={range.earliestTime}
+                        onChangeText={(value) => updateDateRange(index, 'earliestTime', value)}
+                        placeholder="18:00"
+                        keyboardType="numeric"
+                        autoCapitalize="none"
+                        autoCorrect={false}
                       />
-                      <Text style={styles.helperText}>24-hour format</Text>
+                      <Text style={styles.helperText}>When range starts (24h format)</Text>
                     </View>
 
                     <View style={[styles.inputGroup, styles.timeInputHalf]}>
-                      <Text style={styles.label}>End Time *</Text>
+                      <Text style={styles.label}>Latest Time *</Text>
                       <TextInput
-                        style={styles.textInput}
-                        value={slot.endTime}
-                        onChangeText={(value) => updateTimeSlot(index, 'endTime', value)}
-                        placeholder="20:00 (24-hour)"
+                        style={[styles.textInput, styles.timeInput]}
+                        value={range.latestTime}
+                        onChangeText={(value) => updateDateRange(index, 'latestTime', value)}
+                        placeholder="22:00"
+                        keyboardType="numeric"
+                        autoCapitalize="none"
+                        autoCorrect={false}
                       />
-                      <Text style={styles.helperText}>24-hour format</Text>
+                      <Text style={styles.helperText}>When range ends (24h format)</Text>
                     </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Suggested Duration (minutes)</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={range.suggestedDuration.toString()}
+                      onChangeText={(value) => updateDateRange(index, 'suggestedDuration', parseInt(value) || 120)}
+                      placeholder="120"
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.helperText}>How long should the meeting be? (for reference)</Text>
                   </View>
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Description (Optional)</Text>
                     <TextInput
                       style={styles.textInput}
-                      value={slot.description || ''}
-                      onChangeText={(value) => updateTimeSlot(index, 'description', value)}
-                      placeholder="e.g., Main rehearsal room"
+                      value={range.description || ''}
+                      onChangeText={(value) => updateDateRange(index, 'description', value)}
+                      placeholder="e.g., Evening rehearsal options"
                     />
                   </View>
                 </View>
@@ -356,9 +452,17 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
 
           {/* Target Actors */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Target Actors * ({selectedActorIds.length} selected)</Text>
-            <Text style={styles.subtitle}>Select actors who should respond to this poll. They'll receive a notification and can respond with their availability.</Text>
-            <View style={styles.selectionGrid}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>Target Actors *</Text>
+              <View style={styles.selectionCounter}>
+                <Text style={styles.selectionCounterText}>{selectedActorIds.length} selected</Text>
+              </View>
+            </View>
+            <Text style={styles.subtitle}>👥 Select actors who should respond to this poll. They'll receive a notification and can respond with their availability.</Text>
+            {validationErrors.actors && (
+              <Text style={styles.errorText}>{validationErrors.actors}</Text>
+            )}
+            <View style={[styles.selectionGrid, validationErrors.actors && styles.selectionGridError]}>
               {actors.map((actor) => (
                 <TouchableOpacity
                   key={actor.id || actor._id}
@@ -366,7 +470,12 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
                     styles.selectionItem,
                     selectedActorIds.includes(actor.id || actor._id) && styles.selectedItem
                   ]}
-                  onPress={() => toggleActor(actor.id || actor._id)}
+                  onPress={() => {
+                    toggleActor(actor.id || actor._id);
+                    if (validationErrors.actors && selectedActorIds.length >= 0) {
+                      setValidationErrors(prev => ({ ...prev, actors: '' }));
+                    }
+                  }}
                 >
                   <Text style={[
                     styles.selectionText,
@@ -381,7 +490,8 @@ export default function CreatePollModal({ visible, onSave, onCancel }: CreatePol
 
           {/* Settings */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Poll Settings</Text>
+            <Text style={styles.sectionTitle}>⚙️ Poll Settings</Text>
+            <Text style={styles.subtitle}>Configure how your poll behaves and what information is visible to participants.</Text>
             
             <View style={styles.settingRow}>
               <Text style={styles.settingLabel}>Allow multiple selections</Text>
@@ -492,6 +602,12 @@ const createResponsiveStyles = (screenSize: any) => {
       color: '#1e293b',
       marginBottom: responsive.spacing.md,
     },
+    sectionSubtitle: {
+      fontSize: responsive.fontSize.sm,
+      color: '#64748b',
+      marginBottom: responsive.spacing.md,
+      lineHeight: 20,
+    },
     subtitle: {
       fontSize: responsive.fontSize.sm,
       color: '#64748b',
@@ -522,25 +638,42 @@ const createResponsiveStyles = (screenSize: any) => {
     },
     addButton: {
       backgroundColor: '#10b981',
-      paddingHorizontal: responsive.spacing.sm,
-      paddingVertical: responsive.spacing.xs,
-      borderRadius: 6,
+      paddingHorizontal: responsive.spacing.md,
+      paddingVertical: responsive.spacing.sm,
+      borderRadius: 8,
       minHeight: responsive.touchTarget.small,
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
+      flexDirection: 'row' as const,
+      gap: responsive.spacing.xs / 2,
+      shadowColor: '#10b981',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    addButtonIcon: {
+      color: '#ffffff',
+      fontSize: responsive.fontSize.md,
+      fontWeight: '600' as const,
     },
     addButtonText: {
       color: '#ffffff',
       fontSize: responsive.fontSize.sm,
-      fontWeight: '500' as const,
+      fontWeight: '600' as const,
     },
     timeSlotCard: {
       backgroundColor: '#ffffff',
-      borderRadius: 8,
+      borderRadius: 12,
       padding: responsive.spacing.md,
-      marginBottom: responsive.spacing.sm,
+      marginBottom: responsive.spacing.md,
       borderWidth: 1,
       borderColor: '#e2e8f0',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
     },
     timeSlotHeader: {
       flexDirection: 'row' as const,
@@ -556,13 +689,21 @@ const createResponsiveStyles = (screenSize: any) => {
     },
     removeButton: {
       backgroundColor: '#ef4444',
-      paddingHorizontal: responsive.spacing.xs,
-      paddingVertical: responsive.spacing.xs / 2,
-      borderRadius: 4,
+      paddingHorizontal: responsive.spacing.sm,
+      paddingVertical: responsive.spacing.xs,
+      borderRadius: 6,
       marginTop: screenSize.isPhone ? responsive.spacing.xs : 0,
       minHeight: responsive.touchTarget.small,
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
+      flexDirection: 'row' as const,
+      gap: responsive.spacing.xs / 2,
+    },
+    removeButtonIcon: {
+      color: '#ffffff',
+      fontSize: responsive.fontSize.md,
+      fontWeight: '600' as const,
+      lineHeight: responsive.fontSize.md,
     },
     removeButtonText: {
       color: '#ffffff',
@@ -645,9 +786,22 @@ const createResponsiveStyles = (screenSize: any) => {
       backgroundColor: '#10b981',
       paddingHorizontal: responsive.spacing.md,
       paddingVertical: responsive.spacing.sm,
-      borderRadius: 8,
+      borderRadius: 12,
       alignItems: 'center',
-      minHeight: responsive.touchTarget.small,
+      minHeight: responsive.touchTarget.medium,
+      shadowColor: '#10b981',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    templateButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: responsive.spacing.xs,
+    },
+    templateButtonIcon: {
+      fontSize: responsive.fontSize.lg,
     },
     templateButtonText: {
       color: '#ffffff',
@@ -660,6 +814,81 @@ const createResponsiveStyles = (screenSize: any) => {
       textAlign: 'center',
       marginTop: responsive.spacing.xs,
       fontStyle: 'italic',
+    },
+    sectionTitleContainer: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: responsive.spacing.sm,
+    },
+    sectionBadge: {
+      backgroundColor: '#3b82f6',
+      borderRadius: 12,
+      paddingHorizontal: responsive.spacing.xs,
+      paddingVertical: 2,
+      minWidth: 24,
+      alignItems: 'center' as const,
+    },
+    sectionBadgeText: {
+      color: '#ffffff',
+      fontSize: responsive.fontSize.xs,
+      fontWeight: '600' as const,
+    },
+    timeSlotTitleContainer: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: responsive.spacing.sm,
+    },
+    timeSlotNumber: {
+      backgroundColor: '#f1f5f9',
+      borderRadius: 16,
+      width: 32,
+      height: 32,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    timeSlotNumberText: {
+      color: '#64748b',
+      fontSize: responsive.fontSize.sm,
+      fontWeight: '600' as const,
+    },
+    selectionCounter: {
+      backgroundColor: '#10b981',
+      borderRadius: 12,
+      paddingHorizontal: responsive.spacing.sm,
+      paddingVertical: 4,
+    },
+    selectionCounterText: {
+      color: '#ffffff',
+      fontSize: responsive.fontSize.xs,
+      fontWeight: '600' as const,
+    },
+    textInputError: {
+      borderColor: '#ef4444',
+      borderWidth: 2,
+    },
+    errorText: {
+      fontSize: responsive.fontSize.xs,
+      color: '#ef4444',
+      marginTop: responsive.spacing.xs / 2,
+      fontWeight: '500' as const,
+    },
+    selectionGridError: {
+      borderWidth: 1,
+      borderColor: '#ef4444',
+      borderRadius: 8,
+      padding: responsive.spacing.xs,
+    },
+    timeInput: {
+      textAlign: 'center',
+      fontSize: responsive.fontSize.lg,
+      fontWeight: '600',
+      fontVariant: screenSize.isPhone ? ['tabular-nums'] : undefined,
+    },
+    dateInput: {
+      textAlign: 'center',
+      fontSize: responsive.fontSize.md,
+      fontWeight: '500',
+      fontVariant: screenSize.isPhone ? ['tabular-nums'] : undefined,
     },
   });
 };

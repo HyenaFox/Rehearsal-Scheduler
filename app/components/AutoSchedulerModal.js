@@ -4,7 +4,7 @@ import { useApp } from '../contexts/AppContext';
 import { findBestRehearsalOpportunities } from '../utils/autoScheduler';
 
 const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehearsals }) => {
-  const { scenes } = useApp();
+  const { scenes, polls } = useApp();
   const [selectedDateRange, setSelectedDateRange] = useState('next7days');
   const [opportunities, setOpportunities] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -200,7 +200,7 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
 
     weekdays.forEach(day => {
       try {
-        const dayOpportunities = findBestRehearsalOpportunities(actors, day, existingRehearsals, [], scenes);
+        const dayOpportunities = findBestRehearsalOpportunities(actors, day, existingRehearsals, [], scenes, polls || []);
         dayOpportunities.forEach(opp => {
           // Convert to the format expected by the UI
           allOpportunities.push({
@@ -209,10 +209,13 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
             date: opp.date,
             dateObj: opp.dateObj,
             timeSlot: opp.timeslot,
-            availableActors: opp.actors.map(actor => actor.id),
+            availableActors: opp.actors.map(actor => actor.id || actor._id),
             score: opp.efficiency,
             priority: opp.priority,
-            efficiency: opp.efficiency
+            efficiency: opp.efficiency,
+            pollBased: opp.pollBased,
+            availabilityBreakdown: opp.availabilityBreakdown,
+            actors: opp.actors // Keep full actor objects for enhanced display
           });
         });
       } catch (error) {
@@ -235,7 +238,9 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
       dateRange: dateRangeConfig?.label || 'Next 7 Days',
       availableDates: weekdays.length,
       totalOpportunities: allOpportunities.length,
-      bestOpportunities: bestOpportunities.length
+      bestOpportunities: bestOpportunities.length,
+      pollBasedOpportunities: bestOpportunities.filter(opp => opp.pollBased).length,
+      polls: polls?.length || 0
     });
     setSelectedOpportunity(bestOpportunities[0] || null);
   }, [actors, existingRehearsals, scenes, selectedDateRange, dateRangeOptions]);
@@ -264,10 +269,12 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
         end: selectedOpportunity.timeSlot.endTime
       },
       actors: selectedOpportunity.availableActors.map(actorId => 
-        actors.find(a => a.id === actorId)
+        actors.find(a => (a.id || a._id) === actorId)
       ).filter(Boolean),
       scene: selectedOpportunity.scene.title, // Store scene title as string
-      notes: `Auto-scheduled with ${selectedOpportunity.availableActors.length} available actors (${Math.round((selectedOpportunity.efficiency || selectedOpportunity.score) * 100)}% efficiency)`
+      notes: selectedOpportunity.pollBased && selectedOpportunity.availabilityBreakdown
+        ? `Auto-scheduled with poll data: ${selectedOpportunity.availabilityBreakdown.available} available, ${selectedOpportunity.availabilityBreakdown.ifNeeded} if-needed (${Math.round((selectedOpportunity.efficiency || selectedOpportunity.score) * 100)}% efficiency)`
+        : `Auto-scheduled with ${selectedOpportunity.availableActors.length} available actors (${Math.round((selectedOpportunity.efficiency || selectedOpportunity.score) * 100)}% efficiency)`
     };
 
     console.log('[AutoScheduler] Creating rehearsal:', newRehearsal);
@@ -305,10 +312,12 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
                 end: opp.timeSlot.endTime
               },
               actors: opp.availableActors.map(actorId => 
-                actors.find(a => a.id === actorId)
+                actors.find(a => (a.id || a._id) === actorId)
               ).filter(Boolean),
               scene: opp.scene.title, // Store scene title as string
-              notes: `Auto-scheduled (${Math.round((opp.efficiency || opp.score) * 100)}% efficiency)`
+              notes: opp.pollBased && opp.availabilityBreakdown
+                ? `Auto-scheduled with poll data: ${opp.availabilityBreakdown.available} available, ${opp.availabilityBreakdown.ifNeeded} if-needed (${Math.round((opp.efficiency || opp.score) * 100)}% efficiency)`
+                : `Auto-scheduled (${Math.round((opp.efficiency || opp.score) * 100)}% efficiency)`
             }));
 
             console.log('[AutoScheduler] Creating multiple rehearsals:', newRehearsals.length);
@@ -390,6 +399,18 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
                   <Text style={styles.summaryLabel}>Scenes Available:</Text>
                   <Text style={styles.summaryValue}>{summary.scenes}</Text>
                 </View>
+                {summary.polls > 0 && (
+                  <>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Active Polls:</Text>
+                      <Text style={styles.summaryValue}>{summary.polls}</Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Poll-Based Opportunities:</Text>
+                      <Text style={styles.summaryValue}>{summary.pollBasedOpportunities}</Text>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
           )}
@@ -416,11 +437,13 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
                   {'\n\n'}Current data:
                   {'\n'}• Actors: {actors?.length || 0}
                   {'\n'}• Scenes: {scenes?.length || 0}
+                  {'\n'}• Active Polls: {polls?.length || 0}
                   {'\n'}• Date Range: {summary?.dateRange || 'None selected'}
                   {'\n\n'}Try:
                   {'\n'}• Creating scenes and assigning actors to them
+                  {'\n'}• Creating polls to get specific availability responses
+                  {'\n'}• Setting actor availability in their profiles
                   {'\n'}• Selecting a different date range
-                  {'\n'}• Ensuring scenes have actors assigned
                 </Text>
               </View>
             ) : (
@@ -435,8 +458,15 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
                 >
                   <View style={styles.opportunityHeader}>
                     <Text style={styles.opportunityTitle}>{opportunity.scene.title}</Text>
-                    <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(opportunity.score * 100) }]}>
-                      <Text style={styles.priorityText}>{Math.round(opportunity.score * 100)}%</Text>
+                    <View style={styles.opportunityBadges}>
+                      {opportunity.pollBased && (
+                        <View style={styles.pollBadge}>
+                          <Text style={styles.pollBadgeText}>📊 Poll</Text>
+                        </View>
+                      )}
+                      <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(opportunity.score * 100) }]}>
+                        <Text style={styles.priorityText}>{Math.round(opportunity.score * 100)}%</Text>
+                      </View>
                     </View>
                   </View>
                   
@@ -453,9 +483,28 @@ const AutoSchedulerModal = ({ visible, onSave, onCancel, actors, existingRehears
                     </Text>
                   </View>
                   
-                  <Text style={styles.opportunityActors}>
-                    👥 {opportunity.availableActors.length} actor{opportunity.availableActors.length !== 1 ? 's' : ''} available
-                  </Text>
+                  {opportunity.pollBased && opportunity.availabilityBreakdown ? (
+                    <View style={styles.availabilityBreakdown}>
+                      <Text style={styles.opportunityActors}>
+                        👥 {opportunity.actors.length} actor{opportunity.actors.length !== 1 ? 's' : ''} available
+                      </Text>
+                      <View style={styles.breakdownDetails}>
+                        <Text style={styles.breakdownText}>
+                          ✅ {opportunity.availabilityBreakdown.available} available
+                        </Text>
+                        <Text style={styles.breakdownText}>
+                          🟡 {opportunity.availabilityBreakdown.ifNeeded} if-needed
+                        </Text>
+                        <Text style={styles.breakdownText}>
+                          ❌ {opportunity.availabilityBreakdown.notAvailable} not available
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.opportunityActors}>
+                      👥 {opportunity.availableActors.length} actor{opportunity.availableActors.length !== 1 ? 's' : ''} available
+                    </Text>
+                  )}
                 </TouchableOpacity>
               ))
             )}
@@ -635,11 +684,26 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     flex: 1,
   },
+  opportunityBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pollBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: '#6366f1',
+  },
+  pollBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
   priorityBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    marginLeft: 8,
   },
   priorityText: {
     fontSize: 12,
@@ -658,6 +722,20 @@ const styles = StyleSheet.create({
   opportunityActors: {
     fontSize: 14,
     color: '#64748b',
+  },
+  availabilityBreakdown: {
+    marginTop: 4,
+  },
+  breakdownDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingHorizontal: 8,
+  },
+  breakdownText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
   },
   actions: {
     padding: 20,

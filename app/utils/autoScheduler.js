@@ -8,14 +8,16 @@ import { getGlobalTimeSlotsForDay, isRehearsalDay } from './globalTimeslots.js';
  * @param {Array} existingRehearsals - Array of existing rehearsals to avoid conflicts
  * @param {Array} timeslots - Array of available timeslots (optional, for backward compatibility)
  * @param {Array} scenes - Array of available scenes
+ * @param {Array} polls - Array of active polls with response data (optional)
  * @returns {Array} Array of rehearsal suggestions
  */
-export const findBestRehearsalOpportunities = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = []) => {
+export const findBestRehearsalOpportunities = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = [], polls = []) => {
   console.log('🤖 [AutoScheduler] Finding opportunities for:', targetDay);
   console.log('🤖 [AutoScheduler] Input data:', {
     actors: actors.length,
     scenes: scenes.length,
-    existingRehearsals: existingRehearsals.length
+    existingRehearsals: existingRehearsals.length,
+    polls: polls.length
   });
 
   // Generate available dates for the next 7 days
@@ -64,8 +66,8 @@ export const findBestRehearsalOpportunities = (actors, targetDay, existingRehear
       );
 
       if (!conflictingRehearsal) {
-        // Find scenes that can be rehearsed with available actors
-        const sceneOpportunities = findBestScenesForActors(actors, date, timeSlot, scenes);
+        // Find scenes that can be rehearsed with available actors (now poll-aware)
+        const sceneOpportunities = findBestScenesForActors(actors, date, timeSlot, scenes, polls);
 
         sceneOpportunities.forEach(sceneOpp => {
           opportunities.push({
@@ -75,7 +77,9 @@ export const findBestRehearsalOpportunities = (actors, targetDay, existingRehear
             scene: sceneOpp.scene,
             actors: sceneOpp.actors,
             efficiency: sceneOpp.efficiency,
-            priority: calculatePriority(sceneOpp.actors.length, sceneOpp.efficiency, timeSlot)
+            priority: calculatePriority(sceneOpp.actors.length, sceneOpp.efficiency, timeSlot),
+            pollBased: sceneOpp.pollBased || false,
+            availabilityBreakdown: sceneOpp.availabilityBreakdown || null
           });
         });
       }
@@ -94,9 +98,10 @@ export const findBestRehearsalOpportunities = (actors, targetDay, existingRehear
  * @param {Date} date - The date for the rehearsal
  * @param {Object} timeSlot - The time slot for the rehearsal
  * @param {Array} scenes - Array of available scenes
+ * @param {Array} polls - Array of active polls with response data
  * @returns {Array} Array of scene opportunities
  */
-export const findBestScenesForActors = (allActors, date, timeSlot, scenes = []) => {
+export const findBestScenesForActors = (allActors, date, timeSlot, scenes = [], polls = []) => {
   const sceneOpportunities = [];
   
   // Create a date object for this specific slot
@@ -116,82 +121,27 @@ export const findBestScenesForActors = (allActors, date, timeSlot, scenes = []) 
       );
     });
 
-    // Check which of these actors are available at this time
-    const availableActors = sceneActors.filter(actor => {
-      // Debug logging
-      console.log(`🎭 [AutoScheduler] Checking availability for ${actor.name}:`);
-      console.log(`   Has availability array: ${actor.availability && Array.isArray(actor.availability)} (length: ${actor.availability ? actor.availability.length : 0})`);
-      console.log(`   Has availableTimeslots: ${actor.availableTimeslots && Array.isArray(actor.availableTimeslots)} (length: ${actor.availableTimeslots ? actor.availableTimeslots.length : 0})`);
-      
-      // Check availability array (UTC timestamps)
-      if (actor.availability && Array.isArray(actor.availability) && actor.availability.length > 0) {
-        const hasAvailabilityMatch = actor.availability.some(availableSlot => {
-          try {
-            const availableDate = new Date(availableSlot);
-            
-            // Debug logging
-            console.log(`🕐 [AutoScheduler] Comparing times for ${actor.name}:`);
-            console.log(`   Slot time: ${slotDateTime.toISOString()} (${slotDateTime.toLocaleString()})`);
-            console.log(`   Available: ${availableDate.toISOString()} (${availableDate.toLocaleString()})`);
-            
-            // Check if it's the same date first (ignore time temporarily for debugging)
-            const slotDateOnly = slotDateTime.toDateString();
-            const availableDateOnly = availableDate.toDateString();
-            const sameDate = slotDateOnly === availableDateOnly;
-            
-            console.log(`   Same date? ${sameDate} (${slotDateOnly} vs ${availableDateOnly})`);
-            
-            if (sameDate) {
-              // Check time difference in hours
-              const slotHours = slotDateTime.getHours();
-              const slotMinutes = slotDateTime.getMinutes();
-              const availableHours = availableDate.getHours();
-              const availableMinutes = availableDate.getMinutes();
-              
-              console.log(`   Time comparison: ${slotHours}:${slotMinutes} vs ${availableHours}:${availableMinutes}`);
-              
-              // Check if the times are within 30 minutes of each other
-              const timeDiff = Math.abs(slotDateTime.getTime() - availableDate.getTime());
-              const isMatch = timeDiff < 30 * 60 * 1000; // Within 30 minutes
-              
-              console.log(`   Time diff: ${timeDiff}ms, Match: ${isMatch}`);
-              return isMatch;
-            }
-            
-            return false;
-          } catch (error) {
-            console.log(`   Error comparing times: ${error.message}`);
-            return false;
-          }
-        });
-        
-        if (hasAvailabilityMatch) {
-          console.log(`✅ [AutoScheduler] ${actor.name} is available via availability array`);
-          return true;
-        }
-      }
-      
-      // Check availableTimeslots array (for backward compatibility)
-      if (actor.availableTimeslots && Array.isArray(actor.availableTimeslots) && actor.availableTimeslots.length > 0) {
-        console.log(`⏰ [AutoScheduler] ${actor.name} has timeslots but no UTC availability - marking as potentially available`);
-        // For now, assume actors with timeslots are available (this is a simplified check)
-        // In a full implementation, you'd want to fetch and compare actual timeslot data
-        return true;
-      }
-      
-      console.log(`❌ [AutoScheduler] ${actor.name} is not available (no availability data)`);
-      return false;
-    });
+    // Check for poll-based availability first
+    const pollAvailability = checkPollAvailability(sceneActors, date, timeSlot, polls);
+    
+    // If we have poll data for this time slot, use it; otherwise fall back to general availability
+    const availableActors = pollAvailability.hasPollData 
+      ? pollAvailability.actors 
+      : sceneActors.filter(actor => checkGeneralAvailability(actor, slotDateTime));
 
     if (availableActors.length > 0) {
       // Calculate efficiency: ratio of available actors to total actors in scene
-      const efficiency = availableActors.length / Math.max(sceneActors.length, 1);
+      const efficiency = pollAvailability.hasPollData 
+        ? pollAvailability.efficiency 
+        : availableActors.length / Math.max(sceneActors.length, 1);
 
       sceneOpportunities.push({
         scene,
         actors: availableActors,
         efficiency,
-        coverage: availableActors.length
+        coverage: availableActors.length,
+        pollBased: pollAvailability.hasPollData,
+        availabilityBreakdown: pollAvailability.breakdown || null
       });
     }
   });
@@ -203,6 +153,158 @@ export const findBestScenesForActors = (allActors, date, timeSlot, scenes = []) 
     }
     return b.coverage - a.coverage; // More actors first
   });
+};
+
+/**
+ * Check for poll-based availability for actors at a specific time slot
+ * @param {Array} actors - Actors to check
+ * @param {Date} date - Target date
+ * @param {Object} timeSlot - Target time slot
+ * @param {Array} polls - Active polls
+ * @returns {Object} Poll availability data
+ */
+export const checkPollAvailability = (actors, date, timeSlot, polls) => {
+  const dateStr = date.toISOString().split('T')[0];
+  const timeKey = `${dateStr}-${timeSlot.startTime}-${timeSlot.endTime}`;
+  
+  // Find polls that have time slots matching this date/time
+  const relevantPoll = polls.find(poll => 
+    poll.timeSlots && poll.timeSlots.some(slot => 
+      slot.date === dateStr && 
+      slot.startTime === timeSlot.startTime && 
+      slot.endTime === timeSlot.endTime
+    )
+  );
+
+  if (!relevantPoll) {
+    return { hasPollData: false, actors: [], efficiency: 0, breakdown: null };
+  }
+
+  const matchingTimeSlot = relevantPoll.timeSlots.find(slot => 
+    slot.date === dateStr && 
+    slot.startTime === timeSlot.startTime && 
+    slot.endTime === timeSlot.endTime
+  );
+
+  if (!matchingTimeSlot) {
+    return { hasPollData: false, actors: [], efficiency: 0, breakdown: null };
+  }
+
+  // Get responses for this time slot
+  const timeSlotResponses = relevantPoll.responses.filter(response => 
+    response.timeSlotId === matchingTimeSlot.id
+  );
+
+  const availableActors = [];
+  const ifNeededActors = [];
+  const notAvailableActors = [];
+
+  actors.forEach(actor => {
+    const actorId = actor.id || actor._id;
+    const response = timeSlotResponses.find(r => 
+      r.actorId.toString() === actorId.toString()
+    );
+
+    if (response) {
+      switch (response.responseType) {
+        case 'available':
+          availableActors.push({ ...actor, pollResponse: 'available' });
+          break;
+        case 'if-needed':
+          ifNeededActors.push({ ...actor, pollResponse: 'if-needed' });
+          break;
+        case 'not-available':
+          notAvailableActors.push({ ...actor, pollResponse: 'not-available' });
+          break;
+      }
+    } else {
+      // No response - treat as unknown, but check general availability as fallback
+      const slotDateTime = new Date(date);
+      const slotHour = parseInt(timeSlot.startTime.split(':')[0]);
+      const slotMinute = parseInt(timeSlot.startTime.split(':')[1] || '0');
+      slotDateTime.setHours(slotHour, slotMinute, 0, 0);
+      
+      const generallyAvailable = checkGeneralAvailability(actor, slotDateTime);
+      if (generallyAvailable) {
+        availableActors.push({ ...actor, pollResponse: 'unknown' });
+      }
+    }
+  });
+
+  // Calculate weighted efficiency
+  // Available = 1.0, If-needed = 0.5, Not-available = 0.0
+  const totalActors = actors.length;
+  const weightedAvailable = availableActors.length * 1.0 + ifNeededActors.length * 0.5;
+  const efficiency = totalActors > 0 ? weightedAvailable / totalActors : 0;
+
+  // Include both fully available and if-needed actors in the final list
+  // but mark them appropriately
+  const finalActors = [...availableActors, ...ifNeededActors];
+
+  console.log(`📊 [AutoScheduler] Poll-based availability:`, {
+    timeSlot: timeKey,
+    available: availableActors.length,
+    ifNeeded: ifNeededActors.length,
+    notAvailable: notAvailableActors.length,
+    efficiency: Math.round(efficiency * 100) + '%'
+  });
+
+  return {
+    hasPollData: true,
+    actors: finalActors,
+    efficiency,
+    breakdown: {
+      available: availableActors.length,
+      ifNeeded: ifNeededActors.length,
+      notAvailable: notAvailableActors.length,
+      total: totalActors
+    }
+  };
+};
+
+/**
+ * Check general availability (fallback when no poll data exists)
+ * @param {Object} actor - Actor to check
+ * @param {Date} slotDateTime - Target date/time
+ * @returns {boolean} Whether actor is available
+ */
+export const checkGeneralAvailability = (actor, slotDateTime) => {
+  // Check availability array (UTC timestamps)
+  if (actor.availability && Array.isArray(actor.availability) && actor.availability.length > 0) {
+    const hasAvailabilityMatch = actor.availability.some(availableSlot => {
+      try {
+        const availableDate = new Date(availableSlot);
+        
+        // Check if it's the same date first
+        const slotDateOnly = slotDateTime.toDateString();
+        const availableDateOnly = availableDate.toDateString();
+        const sameDate = slotDateOnly === availableDateOnly;
+        
+        if (sameDate) {
+          // Check if the times are within 30 minutes of each other
+          const timeDiff = Math.abs(slotDateTime.getTime() - availableDate.getTime());
+          const isMatch = timeDiff < 30 * 60 * 1000; // Within 30 minutes
+          return isMatch;
+        }
+        
+        return false;
+      } catch (error) {
+        return false;
+      }
+    });
+    
+    if (hasAvailabilityMatch) {
+      return true;
+    }
+  }
+  
+  // Check availableTimeslots array (for backward compatibility)
+  if (actor.availableTimeslots && Array.isArray(actor.availableTimeslots) && actor.availableTimeslots.length > 0) {
+    // For now, assume actors with timeslots are available (this is a simplified check)
+    return true;
+  }
+  
+  return false;
 };
 
 /**
@@ -275,7 +377,11 @@ export const createRehearsalFromOpportunity = (opportunity, customTitle = null) 
     autoGenerated: true,
     efficiency: opportunity.efficiency,
     priority: opportunity.priority,
-    notes: `Auto-scheduled with ${opportunity.actors.length} available actors (${Math.round(opportunity.efficiency * 100)}% efficiency)`
+    pollBased: opportunity.pollBased,
+    availabilityBreakdown: opportunity.availabilityBreakdown,
+    notes: opportunity.pollBased 
+      ? `Auto-scheduled with poll data: ${opportunity.availabilityBreakdown?.available || 0} available, ${opportunity.availabilityBreakdown?.ifNeeded || 0} if-needed (${Math.round(opportunity.efficiency * 100)}% efficiency)`
+      : `Auto-scheduled with ${opportunity.actors.length} available actors (${Math.round(opportunity.efficiency * 100)}% efficiency)`
   };
 };
 
@@ -286,17 +392,18 @@ export const createRehearsalFromOpportunity = (opportunity, customTitle = null) 
  * @param {Array} existingRehearsals - Existing rehearsals
  * @param {Array} timeslots - Array of available timeslots (optional, for backward compatibility)
  * @param {Array} scenes - Array of available scenes
+ * @param {Array} polls - Array of active polls with response data
  * @param {number} maxRehearsals - Maximum number of rehearsals to create
  * @returns {Array} Array of generated rehearsals
  */
-export const autoScheduleDay = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = [], maxRehearsals = 5) => {
+export const autoScheduleDay = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = [], polls = [], maxRehearsals = 5) => {
   console.log('🤖 [AutoScheduler] Auto-scheduling day:', targetDay);
   
   const generatedRehearsals = [];
   let currentRehearsals = [...existingRehearsals];
   
   for (let i = 0; i < maxRehearsals; i++) {
-    const opportunities = findBestRehearsalOpportunities(actors, targetDay, currentRehearsals, timeslots, scenes);
+    const opportunities = findBestRehearsalOpportunities(actors, targetDay, currentRehearsals, timeslots, scenes, polls);
     
     if (opportunities.length === 0) {
       console.log('🤖 [AutoScheduler] No more opportunities found, stopping at', i, 'rehearsals');
@@ -323,10 +430,11 @@ export const autoScheduleDay = (actors, targetDay, existingRehearsals = [], time
  * @param {Array} existingRehearsals - Existing rehearsals
  * @param {Array} timeslots - Array of available timeslots (optional, for backward compatibility)
  * @param {Array} scenes - Array of available scenes
+ * @param {Array} polls - Array of active polls with response data
  * @returns {Object} Summary statistics
  */
-export const getSchedulingSummary = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = []) => {
-  const opportunities = findBestRehearsalOpportunities(actors, targetDay, existingRehearsals, timeslots, scenes);
+export const getSchedulingSummary = (actors, targetDay, existingRehearsals = [], timeslots = [], scenes = [], polls = []) => {
+  const opportunities = findBestRehearsalOpportunities(actors, targetDay, existingRehearsals, timeslots, scenes, polls);
   
   // Generate available time slots for the day
   const timeSlots = [];
@@ -365,6 +473,7 @@ export const getSchedulingSummary = (actors, targetDay, existingRehearsals = [],
     bestOpportunity: opportunities[0] || null,
     averagePriority: opportunities.length > 0 
       ? Math.round(opportunities.reduce((sum, opp) => sum + opp.priority, 0) / opportunities.length)
-      : 0
+      : 0,
+    pollBasedOpportunities: opportunities.filter(opp => opp.pollBased).length
   };
 };

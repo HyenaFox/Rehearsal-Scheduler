@@ -8,10 +8,12 @@ interface AppContextType {
   rehearsals: any[];
   weeklyAvailabilities: any[];
   scenes: any[];
+  polls: any[];
   setActors: (actors: any[]) => void;
   setRehearsals: (rehearsals: any[]) => void;
   setWeeklyAvailabilities: (weeklyAvailabilities: any[]) => void;
   setScenes: (scenes: any[]) => void;
+  setPolls: (polls: any[]) => void;
   handleDeleteActor: (actor: any) => void;
   handleDeleteRehearsal: (index: number) => void;
   handleAddActor: () => void;
@@ -37,6 +39,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [rehearsals, setRehearsals] = useState<any[]>([]);
   const [weeklyAvailabilities, setWeeklyAvailabilities] = useState<any[]>([]);
   const [scenes, setScenes] = useState<any[]>([]);
+  const [polls, setPolls] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [lastUserId, setLastUserId] = useState<string | null>(null);
@@ -53,8 +56,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTimeout(() => reject(new Error('API call timeout')), ms)
       );
       
-      // Always load public data (rehearsals, weekly availabilities, scenes) for all users
-      const [weeklyAvailabilitiesData, scenesData, rehearsalsData] = await Promise.all([
+      // Always load public data (rehearsals, weekly availabilities, scenes, polls) for all users
+      const [weeklyAvailabilitiesData, scenesData, rehearsalsData, pollsData] = await Promise.all([
         Promise.race([
           ApiService.getWeeklyAvailabilities(),
           timeoutPromise(5000)
@@ -74,6 +77,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           timeoutPromise(5000)
         ]).catch(err => {
           console.warn('Failed to load rehearsals:', err);
+          return [];
+        }) as Promise<any[]>,
+        Promise.race([
+          ApiService.getPolls(),
+          timeoutPromise(5000)
+        ]).catch(err => {
+          console.warn('Failed to load polls:', err);
           return [];
         }) as Promise<any[]>
       ]);
@@ -110,6 +120,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         weeklyAvailabilities: weeklyAvailabilitiesData.length,
         scenes: scenesData.length,
         rehearsals: rehearsalsData.length,
+        polls: pollsData.length,
         userStatus: user ? (user.id === 'guest' ? 'guest' : 'authenticated') : 'unauthenticated'
       });
 
@@ -117,6 +128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setWeeklyAvailabilities(weeklyAvailabilitiesData);
       setScenes(scenesData);
       setRehearsals(rehearsalsData);
+      setPolls(pollsData);
     } catch (error) {
       console.error('❌ Error loading data:', error);
       // On error, set empty arrays but don't block the app
@@ -264,10 +276,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     rehearsals,
     weeklyAvailabilities,
     scenes,
+    polls,
     setActors,
     setRehearsals,
     setWeeklyAvailabilities,
     setScenes,
+    setPolls,
     handleDeleteActor,
     handleDeleteRehearsal,
     handleAddActor,
